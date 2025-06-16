@@ -1,0 +1,77 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Customer {
+  id            String    @id @default(cuid())
+  name          String
+  phone         String
+  businessNo    String?
+  address       String?
+  email         String?
+  creditLimit   Float?
+  grade         String    @default("일반") // 우수, 일반, 주의, 요주의
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  transactions  Transaction[]
+  contacts      Contact[]
+  files         File[]
+  legalActions  LegalAction[]
+}
+
+model Transaction {
+  id            String    @id @default(cuid())
+  customerId    String
+  customer      Customer  @relation(fields: [customerId], references: [id])
+  type          String    // 판매, 입금
+  amount        Float
+  balance       Float
+  dueDate       DateTime?
+  status        String    @default("미수") // 미수, 완료
+  description   String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model Contact {
+  id            String    @id @default(cuid())
+  customerId    String
+  customer      Customer  @relation(fields: [customerId], references: [id])
+  type          String    // 통화, 문자, 방문
+  content       String
+  createdAt     DateTime  @default(now())
+}
+
+model File {
+  id            String    @id @default(cuid())
+  customerId    String
+  customer      Customer  @relation(fields: [customerId], references: [id])
+  name          String
+  url           String
+  type          String
+  createdAt     DateTime  @default(now())
+}
+
+model LegalAction {
+  id            String    @id @default(cuid())
+  customerId    String
+  customer      Customer  @relation(fields: [customerId], references: [id])
+  type          String    // 지급명령, 소장제출 등
+  status        String    // 진행중, 완료
+  dueDate       DateTime?
+  description   String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
