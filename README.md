@@ -1,36 +1,47 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 크레딧-노트 (Credit-Note)
 
-## Getting Started
+구보다농기계 영암대리점 채권 관리 솔루션
 
-First, run the development server:
+## 프로젝트 소개
 
+Next.js와 TypeScript, Supabase를 활용한 채권 관리 SaaS 웹 애플리케이션입니다.
+
+## 주요 기능
+
+- 고객 관리 (등록, 조회, 수정)
+- 거래 관리 (판매/입금 기록)
+- 법적 조치 관리
+- 대시보드 (KPI 및 통계)
+- SMS 발송 기능
+- 파일 관리
+- 접촉 기록 관리
+
+## 기술 스택
+
+- **Frontend**: Next.js 15, React 19, TypeScript
+- **Styling**: Tailwind CSS
+- **Database**: Supabase (PostgreSQL)
+- **Form**: React Hook Form + Zod
+- **State**: Zustand
+- **Charts**: Recharts
+
+## 시작하기
+
+1. 의존성 설치:
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+2. 환경 변수 설정:
+`.env.local` 파일을 생성하고 Supabase 정보를 입력하세요.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+3. 개발 서버 실행:
+```bash
+npm run dev
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+4. 브라우저에서 [http://localhost:3000](http://localhost:3000) 접속
 
-## Learn More
+## 배포
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Vercel Platform을 통해 쉽게 배포할 수 있습니다.
