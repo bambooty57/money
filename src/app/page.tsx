@@ -1,71 +1,139 @@
-import Image from "next/image";
+"use client";
+import { useEffect, useState } from 'react';
+import { Bar, Line } from 'react-chartjs-2';
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend,
+  PointElement
+} from 'chart.js';
 
-export default function Home() {
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend,
+  PointElement
+);
+
+interface DashboardData {
+  totalUnpaid: number;
+  agingAnalysis: Array<{
+    created_at: string;
+    amount: number;
+  }>;
+  topCustomers: Array<{
+    id: string;
+    name: string;
+    transactions: Array<{
+      amount: number;
+      status: string;
+    }>;
+  }>;
+}
+
+export default function DashboardPage() {
+  const [data, setData] = useState<DashboardData | null>(null);
+
+  useEffect(() => {
+    async function fetchDashboard() {
+      const response = await fetch('/api/dashboard');
+      const dashboardData = await response.json();
+      setData(dashboardData);
+    }
+    fetchDashboard();
+  }, []);
+
+  if (!data) return <div>로딩 중...</div>;
+
+  // 미수금 연령 분석 차트 데이터
+  const agingLabels = data.agingAnalysis.map(item => 
+    new Date(item.created_at).toLocaleDateString('ko-KR')
+  );
+  const agingData = data.agingAnalysis.map(item => item.amount);
+
+  // 상위 고객 차트 데이터
+  const customerLabels = data.topCustomers.map(customer => customer.name);
+  const customerData = data.topCustomers.map(customer => 
+    customer.transactions.reduce((sum, tx) => 
+      tx.status === 'unpaid' ? sum + tx.amount : sum, 0
+    )
+  );
+
   return (
-    <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-8">크레딧-노트</h1>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* KPI 카드 */}
-        <div className="bg-white p-6 rounded-lg shadow">
-          <h2 className="text-lg font-semibold mb-2">총 미수 잔액</h2>
-          <p className="text-2xl font-bold text-red-600">0원</p>
-        </div>
-        <div className="bg-white p-6 rounded-lg shadow">
-          <h2 className="text-lg font-semibold mb-2">미수 고객 수</h2>
-          <p className="text-2xl font-bold text-blue-600">0명</p>
-        </div>
-        <div className="bg-white p-6 rounded-lg shadow">
-          <h2 className="text-lg font-semibold mb-2">당월 발생 채권</h2>
-          <p className="text-2xl font-bold text-green-600">0원</p>
-        </div>
-        <div className="bg-white p-6 rounded-lg shadow">
-          <h2 className="text-lg font-semibold mb-2">당월 회수액</h2>
-          <p className="text-2xl font-bold text-purple-600">0원</p>
+    <main className="p-4">
+      <h1 className="text-2xl font-bold mb-6">대시보드</h1>
+      
+      {/* KPI 카드 */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+        <div className="bg-white p-4 rounded-lg shadow">
+          <h3 className="text-lg font-semibold text-gray-600">총 미수금</h3>
+          <p className="text-3xl font-bold text-blue-600">
+            {new Intl.NumberFormat('ko-KR', { 
+              style: 'currency', 
+              currency: 'KRW'
+            }).format(data.totalUnpaid)}
+          </p>
         </div>
       </div>
 
-      {/* 미수금 연령 분석 */}
-      <div className="mt-8 bg-white p-6 rounded-lg shadow">
-        <h2 className="text-xl font-semibold mb-4">미수금 연령 분석</h2>
-        <div className="h-64 flex items-center justify-center text-gray-500">
-          차트가 여기에 표시됩니다
+      {/* 차트 영역 */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* 미수금 연령 분석 */}
+        <div className="bg-white p-4 rounded-lg shadow">
+          <h3 className="text-lg font-semibold mb-4">미수금 연령 분석</h3>
+          <Line
+            data={{
+              labels: agingLabels,
+              datasets: [{
+                label: '미수금 추이',
+                data: agingData,
+                borderColor: 'rgb(75, 192, 192)',
+                tension: 0.1
+              }]
+            }}
+            options={{
+              responsive: true,
+              plugins: {
+                legend: {
+                  position: 'top' as const,
+                }
+              }
+            }}
+          />
         </div>
-      </div>
 
-      {/* 오늘의 할 일 */}
-      <div className="mt-8 bg-white p-6 rounded-lg shadow">
-        <h2 className="text-xl font-semibold mb-4">오늘의 할 일</h2>
-        <div className="space-y-4">
-          <div className="p-4 border rounded">
-            <h3 className="font-medium">입금 예정일 D-3 이내 고객</h3>
-            <p className="text-gray-500 mt-2">데이터가 없습니다</p>
-          </div>
-          <div className="p-4 border rounded">
-            <h3 className="font-medium">오늘부터 연체 시작된 고객</h3>
-            <p className="text-gray-500 mt-2">데이터가 없습니다</p>
-          </div>
-          <div className="p-4 border rounded">
-            <h3 className="font-medium">법적 조치 관련 예정일</h3>
-            <p className="text-gray-500 mt-2">데이터가 없습니다</p>
-          </div>
+        {/* 상위 미수금 고객 */}
+        <div className="bg-white p-4 rounded-lg shadow">
+          <h3 className="text-lg font-semibold mb-4">상위 미수금 고객</h3>
+          <Bar
+            data={{
+              labels: customerLabels,
+              datasets: [{
+                label: '미수금액',
+                data: customerData,
+                backgroundColor: 'rgba(53, 162, 235, 0.5)',
+              }]
+            }}
+            options={{
+              responsive: true,
+              plugins: {
+                legend: {
+                  position: 'top' as const,
+                }
+              }
+            }}
+          />
         </div>
       </div>
-
-      {/* 미수금 상위 5위 고객 */}
-      <div className="mt-8 bg-white p-6 rounded-lg shadow">
-        <h2 className="text-xl font-semibold mb-4">미수금 상위 5위 고객</h2>
-        <div className="space-y-2">
-          <p className="text-gray-500">데이터가 없습니다</p>
-        </div>
-      </div>
-
-      {/* 최근 활동 로그 */}
-      <div className="mt-8 bg-white p-6 rounded-lg shadow">
-        <h2 className="text-xl font-semibold mb-4">최근 활동 로그</h2>
-        <div className="space-y-2">
-          <p className="text-gray-500">데이터가 없습니다</p>
-        </div>
-      </div>
-    </div>
+    </main>
   );
 }

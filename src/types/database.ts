@@ -1,53 +1,54 @@
-export type Customer = {
+export interface Customer {
   id: string;
   name: string;
+  business_number: string;
+  representative_name: string;
+  business_type: string;
   phone: string;
-  business_no?: string;
-  address?: string;
-  email?: string;
-  credit_limit?: number;
-  grade: '우수' | '일반' | '주의' | '요주의';
+  email: string | null;
+  address: string | null;
+  grade: string;
+  credit_limit: number | null;
   created_at: string;
   updated_at: string;
-};
+}
 
-export type Transaction = {
+export interface Transaction {
   id: string;
   customer_id: string;
-  type: '판매' | '입금';
+  type: string;
   amount: number;
-  balance: number;
-  due_date?: string;
-  status: '미수' | '완료';
-  description?: string;
+  status: 'paid' | 'unpaid';
+  description: string | null;
   created_at: string;
   updated_at: string;
-};
+}
 
-export type Contact = {
+export interface Contact {
   id: string;
   customer_id: string;
-  type: '통화' | '문자' | '방문';
+  type: string;
   content: string;
   created_at: string;
-};
+  updated_at: string;
+}
 
-export type File = {
+export interface File {
   id: string;
   customer_id: string;
   name: string;
-  url: string;
   type: string;
+  url: string;
   created_at: string;
-};
+  updated_at: string;
+}
 
-export type LegalAction = {
+export interface LegalAction {
   id: string;
   customer_id: string;
   type: string;
-  status: '진행중' | '완료';
-  due_date?: string;
-  description?: string;
+  description: string;
+  status: 'completed' | 'in_progress';
   created_at: string;
   updated_at: string;
-}; 
+} 
