@@ -9,9 +9,15 @@ interface CustomerDetails extends Customer {
   legalActions: LegalAction[];
 }
 
+const openKakaoMap = (address: string) => {
+  const kakaoMapUrl = `https://map.kakao.com/link/search/${encodeURIComponent(address)}`;
+  window.open(kakaoMapUrl, '_blank');
+};
+
 export default function CustomerDetailPage({ params }: { params: { id: string } }) {
   const [customer, setCustomer] = useState<CustomerDetails | null>(null);
   const [activeTab, setActiveTab] = useState<'profile' | 'transactions' | 'legal' | 'files'>('profile');
+  const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
 
   useEffect(() => {
     async function fetchCustomerDetails() {
@@ -78,23 +84,85 @@ export default function CustomerDetailPage({ params }: { params: { id: string } 
       {/* 탭 컨텐츠 */}
       <div className="bg-white rounded-lg shadow p-4">
         {activeTab === 'profile' && (
-          <div className="space-y-4">
+          <div className="space-y-6">
+            {/* 사진 갤러리 */}
+            {customer.photos && customer.photos.length > 0 && (
+              <div>
+                <h3 className="font-semibold mb-3">사진</h3>
+                <div className="bg-gray-100 rounded-lg p-4">
+                  {/* 메인 사진 */}
+                  <div className="text-center mb-4">
+                    <img
+                      src={customer.photos?.[currentPhotoIndex]?.url || ''}
+                      alt={`${customer.name} 사진 ${currentPhotoIndex + 1}`}
+                      className="max-w-full max-h-96 rounded-lg mx-auto cursor-pointer"
+                      onClick={() => customer.photos?.[currentPhotoIndex]?.url && window.open(customer.photos[currentPhotoIndex].url, '_blank')}
+                    />
+                  </div>
+                  
+                  {/* 사진 네비게이션 */}
+                  <div className="flex justify-center space-x-2 mb-4">
+                    <button
+                      onClick={() => setCurrentPhotoIndex(prev => 
+                        prev > 0 ? prev - 1 : (customer.photos?.length || 1) - 1
+                      )}
+                      className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600"
+                    >
+                      ← 이전
+                    </button>
+                    <span className="px-3 py-1 bg-gray-200 rounded">
+                      {currentPhotoIndex + 1} / {customer.photos?.length || 0}
+                    </span>
+                    <button
+                      onClick={() => setCurrentPhotoIndex(prev => 
+                        prev < (customer.photos?.length || 1) - 1 ? prev + 1 : 0
+                      )}
+                      className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600"
+                    >
+                      다음 →
+                    </button>
+                  </div>
+                  
+                  {/* 썸네일 */}
+                  <div className="flex justify-center space-x-2">
+                    {customer.photos?.map((photo, index) => (
+                      <img
+                        key={index}
+                        src={photo.url}
+                        alt={`썸네일 ${index + 1}`}
+                        className={`w-16 h-16 rounded object-cover cursor-pointer border-2 ${
+                          index === currentPhotoIndex ? 'border-blue-500' : 'border-gray-300'
+                        }`}
+                        onClick={() => setCurrentPhotoIndex(index)}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+            
             <div>
-              <h3 className="font-semibold">사업자 정보</h3>
+              <h3 className="font-semibold">기본 정보</h3>
+              <p>채무자 유형: {customer.customer_type}</p>
               <p>사업자번호: {customer.business_number}</p>
               <p>대표자명: {customer.representative_name}</p>
-              <p>업태/종목: {customer.business_type}</p>
             </div>
             <div>
               <h3 className="font-semibold">연락처</h3>
               <p>전화: {customer.phone}</p>
               <p>이메일: {customer.email}</p>
-              <p>주소: {customer.address}</p>
+              <p>주소: {customer.address ? (
+                <button 
+                  onClick={() => openKakaoMap(customer.address!)}
+                  className="text-blue-600 hover:text-blue-800 underline ml-1"
+                >
+                  {customer.address}
+                </button>
+              ) : '-'}</p>
             </div>
             <div>
               <h3 className="font-semibold">거래 정보</h3>
               <p>거래처 등급: {customer.grade}</p>
-              <p>신용한도: {customer.credit_limit?.toLocaleString()}원</p>
               <p>등록일: {new Date(customer.created_at).toLocaleDateString()}</p>
             </div>
           </div>
