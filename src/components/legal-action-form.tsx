@@ -15,7 +15,7 @@ export default function LegalActionForm({ customers, onSuccess }: LegalActionFor
     customer_id: '',
     type: '',
     description: '',
-    status: 'in_progress'
+    status: 'in_progress' as 'completed' | 'in_progress'
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -34,7 +34,7 @@ export default function LegalActionForm({ customers, onSuccess }: LegalActionFor
         customer_id: '',
         type: '',
         description: '',
-        status: 'in_progress'
+        status: 'in_progress' as 'completed' | 'in_progress'
       });
       
       if (onSuccess) onSuccess();

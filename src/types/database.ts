@@ -1,16 +1,26 @@
 export interface Customer {
   id: string;
   name: string;
-  business_number: string;
-  representative_name: string;
-  customer_type: string; // 일반농민, 센터등 사업자, 관공서, 기타
   phone: string;
-  email: string | null;
-  address: string | null;
-  grade: string;
-  created_at: string;
-  updated_at: string;
-  photos?: CustomerPhoto[];
+  mobile?: string;
+  email?: string;
+  grade?: string;
+  business_no?: string;
+  business_name?: string;
+  representative_name?: string;
+  ssn?: string;
+  address_road?: string;
+  address_jibun?: string;
+  zipcode?: string;
+  customer_type?: string;
+  customer_type_multi?: string[];
+  created_at?: string;
+  updated_at?: string;
+  // 호환성용
+  address?: string;
+  business_number?: string;
+  // 프론트 files 연동용
+  photos?: { url: string }[];
 }
 
 export interface CustomerPhoto {

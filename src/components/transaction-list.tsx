@@ -51,7 +51,7 @@ export function TransactionList() {
             <tr key={tx.id} className="hover:bg-gray-50">
               <td className="px-6 py-4 whitespace-nowrap">{tx.type}</td>
               <td className="px-6 py-4 whitespace-nowrap">{tx.amount.toLocaleString()}원</td>
-              <td className="px-6 py-4 whitespace-nowrap">{tx.balance.toLocaleString()}원</td>
+              <td className="px-6 py-4 whitespace-nowrap">-</td>
               <td className="px-6 py-4 whitespace-nowrap">{new Date(tx.created_at).toLocaleDateString()}</td>
               <td className="px-6 py-4 whitespace-nowrap">{tx.status}</td>
               <td className="px-6 py-4 whitespace-nowrap">{tx.description || '-'}</td>

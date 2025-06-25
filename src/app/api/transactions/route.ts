@@ -5,7 +5,7 @@ export async function GET() {
   try {
     const { data, error } = await supabase
       .from('transactions')
-      .select('*,customer(*)')
+      .select('*,customers(*)')
       .order('created_at', { ascending: false });
     if (error) throw error;
     return NextResponse.json(data);
@@ -21,7 +21,7 @@ export async function POST(request: Request) {
     const { data, error } = await supabase
       .from('transactions')
       .insert([body])
-      .select('*,customer(*)')
+      .select('*,customers(*)')
       .single();
     if (error) throw error;
     return NextResponse.json(data);
@@ -29,4 +29,12 @@ export async function POST(request: Request) {
     console.error('Error creating transaction:', error);
     return NextResponse.json({ error: 'Failed to create transaction' }, { status: 500 });
   }
+}
+
+export async function PUT(request: Request) {
+  // Implementation for PUT request
+}
+
+export async function DELETE(request: Request) {
+  // Implementation for DELETE request
 } 

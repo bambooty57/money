@@ -50,7 +50,7 @@ export function LegalActionList() {
             <tr key={action.id} className="hover:bg-gray-50">
               <td className="px-6 py-4 whitespace-nowrap">{action.type}</td>
               <td className="px-6 py-4 whitespace-nowrap">{action.status}</td>
-              <td className="px-6 py-4 whitespace-nowrap">{action.due_date ? new Date(action.due_date).toLocaleDateString() : '-'}</td>
+              <td className="px-6 py-4 whitespace-nowrap">-</td>
               <td className="px-6 py-4 whitespace-nowrap">{action.description || '-'}</td>
               <td className="px-6 py-4 whitespace-nowrap">{new Date(action.created_at).toLocaleDateString()}</td>
             </tr>

@@ -4,13 +4,13 @@ import { TransactionList } from '@/components/transaction-list';
 import type { Customer } from '@/types/database';
 
 export default function TransactionsPage() {
-  const [customers, setCustomers] = useState<Customer[]>([]);
+  // const [customers, setCustomers] = useState<Customer[]>([]);
 
   useEffect(() => {
     async function fetchCustomers() {
       const response = await fetch('/api/customers');
       const data = await response.json();
-      setCustomers(data);
+              // setCustomers(data);
     }
     fetchCustomers();
   }, []);

@@ -26,4 +26,18 @@ export async function POST(req: NextRequest) {
     console.error('Error creating file:', error);
     return NextResponse.json({ error: 'Failed to create file' }, { status: 500 });
   }
+}
+
+export async function DELETE(req: NextRequest) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const file_id = searchParams.get('file_id');
+    if (!file_id) throw new Error('Missing file_id');
+    const { data, error } = await supabase.from('files').delete().eq('id', file_id);
+    if (error) throw error;
+    return NextResponse.json(data);
+  } catch (error) {
+    console.error('Error deleting file:', error);
+    return NextResponse.json({ error: 'Failed to delete file' }, { status: 500 });
+  }
 } 
