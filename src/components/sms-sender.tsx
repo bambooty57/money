@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase';
 import type { Customer } from '@/types/database';
 import { smsTemplates, SmsTemplateCategory, SmsTemplateKey } from '@/types/sms';
 import clsx from 'clsx';
+import { Copy } from 'lucide-react';
 
 interface SmsSenderProps {
   selectedCustomer?: Customer | null;
@@ -16,6 +17,7 @@ export default function SmsSender({ selectedCustomer, onSuccess }: SmsSenderProp
   const [category, setCategory] = useState<SmsTemplateCategory | ''>('');
   const [templateKey, setTemplateKey] = useState<SmsTemplateKey | ''>('');
   const [message, setMessage] = useState('');
+  const [copied, setCopied] = useState(false);
 
   // 고객이 바뀌면 모든 선택값 초기화
   useEffect(() => {
@@ -41,71 +43,19 @@ export default function SmsSender({ selectedCustomer, onSuccess }: SmsSenderProp
     setMessage(template);
   }, [selectedCustomer, category, templateKey]);
 
-  // 카테고리 변경 시 템플릿/메시지 초기화
-  const handleCategoryChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setCategory(e.target.value as SmsTemplateCategory);
-    setTemplateKey('');
-    setMessage('');
-  };
-
-  // 템플릿 선택 및 자동 치환
-  const handleTemplateChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const key = e.target.value as SmsTemplateKey;
+  // 템플릿 선택 시 메시지 자동 입력
+  const handleTemplateSelect = (key: SmsTemplateKey) => {
     setTemplateKey(key);
-    if (!selectedCustomer || !category || !key) {
-      setMessage('');
-      return;
-    }
-    const variables: Record<string, string | number> = {
-      '고객명': selectedCustomer.name,
-      '미수금': selectedCustomer.total_unpaid?.toLocaleString() ?? '0',
-      '거래건수': selectedCustomer.transaction_count ?? 0,
-      '납부기한': '',
-      '분할금액': ''
-    };
-    let template = smsTemplates[category as SmsTemplateCategory][key];
-    template = template.replace(/\{(.*?)\}/g, (_: string, v: string) => variables[v] !== undefined ? String(variables[v]) : '');
+    if (!category || !key) return;
+    const template = smsTemplates[category as SmsTemplateCategory][key];
     setMessage(template);
   };
 
-  const handleMessageChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setMessage(e.target.value);
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedCustomer) {
-      alert('고객을 1명만 선택해 주세요.');
-      return;
-    }
-    if (!message.trim()) {
-      alert('메시지 내용을 입력해주세요.');
-      return;
-    }
-    setLoading(true);
-    try {
-      const supabase = createClient();
-      const { error } = await supabase
-        .from('sms_messages')
-        .insert([
-          {
-            customer_id: selectedCustomer.id,
-            content: message,
-            status: 'pending'
-          }
-        ]);
-      if (error) throw error;
-      setCategory('');
-      setTemplateKey('');
-      setMessage('');
-      if (onSuccess) onSuccess();
-      alert('SMS 발송이 요청되었습니다.');
-    } catch (error) {
-      console.error('SMS 발송 실패:', error);
-      alert('SMS 발송 중 오류가 발생했습니다.');
-    } finally {
-      setLoading(false);
-    }
+  const handleCopy = async () => {
+    if (!message) return;
+    await navigator.clipboard.writeText(message);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
   };
 
   // 카테고리별 템플릿 목록
@@ -116,10 +66,7 @@ export default function SmsSender({ selectedCustomer, onSuccess }: SmsSenderProp
   // console.log('templateOptions:', templateOptions);
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      {!selectedCustomer && (
-        <div className="text-red-500 text-sm">고객을 1명만 체크박스로 선택해 주세요.</div>
-      )}
+    <div className="space-y-4">
       {/* 카테고리 카드 섹션 */}
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">카테고리</label>
@@ -137,7 +84,6 @@ export default function SmsSender({ selectedCustomer, onSuccess }: SmsSenderProp
                 setTemplateKey('');
                 setMessage('');
               }}
-              disabled={!selectedCustomer}
             >
               {cat}
             </button>
@@ -159,10 +105,7 @@ export default function SmsSender({ selectedCustomer, onSuccess }: SmsSenderProp
                 'px-4 py-2 rounded border shadow-sm bg-white text-left min-w-[220px] max-w-xs overflow-hidden hover:bg-blue-50 transition',
                 templateKey === key ? 'border-blue-600 ring-2 ring-blue-200 font-bold' : 'border-gray-300'
               )}
-              onClick={() => {
-                setTemplateKey(key);
-              }}
-              disabled={!selectedCustomer}
+              onClick={() => handleTemplateSelect(key as SmsTemplateKey)}
               title={label}
             >
               <div className="whitespace-pre-line text-sm">
@@ -174,37 +117,28 @@ export default function SmsSender({ selectedCustomer, onSuccess }: SmsSenderProp
           ))}
         </div>
       </div>
-      {/* 메시지 입력 */}
+      {/* 메시지 입력 및 복사 */}
       <div>
         <label className="block text-sm font-medium text-gray-700">메시지 내용</label>
-        {selectedCustomer && (
-          <div className="mb-1 text-xs text-gray-600">
-            수신자: <b>{selectedCustomer.name}</b> {selectedCustomer.mobile || selectedCustomer.phone ? `(${selectedCustomer.mobile || selectedCustomer.phone})` : ''}
-          </div>
-        )}
-        {selectedCustomer && !selectedCustomer.mobile && (
-          <div className="mb-2 text-xs text-red-600 font-semibold">이 고객은 휴대폰 번호가 없어 SMS 발송이 불가합니다.</div>
-        )}
-        <textarea
-          value={message}
-          onChange={handleMessageChange}
-          rows={6}
-          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-          placeholder="메시지 내용을 입력하세요"
-          required
-          disabled={!selectedCustomer || !selectedCustomer.mobile}
-        />
-        <p className="mt-1 text-sm text-gray-500">{message.length}/2000자</p>
+        <div className="relative">
+          <textarea
+            value={message}
+            onChange={e => setMessage(e.target.value)}
+            rows={6}
+            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 pr-10"
+            placeholder="메시지 내용을 입력하세요"
+          />
+          <button
+            type="button"
+            onClick={handleCopy}
+            className="absolute top-2 right-2 p-1 bg-white border rounded hover:bg-blue-50"
+            title="복사"
+          >
+            <Copy size={18} />
+          </button>
+        </div>
+        {copied && <div className="text-green-600 text-xs mt-1">메시지가 복사되었습니다!</div>}
       </div>
-      <div className="flex justify-end">
-        <button
-          type="submit"
-          disabled={loading || !selectedCustomer || !selectedCustomer.mobile}
-          className={`px-4 py-2 text-white rounded-md ${loading || !selectedCustomer ? 'bg-gray-400' : 'bg-blue-600 hover:bg-blue-700'}`}
-        >
-          {loading ? '처리중...' : 'SMS 발송'}
-        </button>
-      </div>
-    </form>
+    </div>
   );
 } 

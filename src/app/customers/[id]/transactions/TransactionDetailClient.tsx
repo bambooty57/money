@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import dynamic from 'next/dynamic';
+import ReactMarkdown from 'react-markdown';
 
 type Payment = PaymentType;
 
@@ -14,6 +15,7 @@ interface TransactionWithDetails extends Transaction {
   paid_amount?: number;
   unpaid_amount?: number;
   paid_ratio?: number;
+  models_types?: { model?: string; type?: string };
 }
 
 interface Props {
@@ -23,6 +25,20 @@ interface Props {
 }
 
 const SignaturePad = dynamic(() => import('./SignaturePad'), { ssr: false });
+
+// 계좌 목록 상수 추가 (파일 상단)
+const ACCOUNT_LIST = [
+  { bank: '농협', number: '302-2602-3276-61', holder: '정현목' },
+  { bank: '농협', number: '603113-56-016359', holder: '최형섭' },
+];
+
+// 은행/카드사 목록 상수 추가
+const KOREA_BANKS = [
+  '국민은행', '신한은행', '우리은행', '하나은행', '농협은행', '기업은행', 'SC제일은행', '씨티은행', '케이뱅크', '카카오뱅크', '토스뱅크', '수협은행', '대구은행', '부산은행', '경남은행', '광주은행', '전북은행', '제주은행', '우체국', '새마을금고', '신협', '기타(직접입력)'
+];
+const KOREA_CARD_COMPANIES = [
+  '신한카드', '삼성카드', 'KB국민카드', '현대카드', '롯데카드', '우리카드', '하나카드', '비씨카드', 'NH농협카드', '씨티카드', 'IBK기업카드', '수협카드', '광주카드', '전북카드', '제주카드', '기타(직접입력)'
+];
 
 // Payment 등록 폼 컴포넌트
 function PaymentForm({ transactionId, onSuccess, setSuccessMsg, setErrorMsg }: { transactionId: string, onSuccess: () => void, setSuccessMsg: (msg: string) => void, setErrorMsg: (msg: string) => void }) {
@@ -34,14 +50,13 @@ function PaymentForm({ transactionId, onSuccess, setSuccessMsg, setErrorMsg }: {
   const [cardName, setCardName] = useState('');
   const [paidLocation, setPaidLocation] = useState('');
   const [paidBy, setPaidBy] = useState('');
-  const [cardApprovalCode, setCardApprovalCode] = useState('');
+  const [note, setNote] = useState('');
   // 현금/계좌이체용(간략화)
   const [cashPlace, setCashPlace] = useState('');
   const [cashReceiver, setCashReceiver] = useState('');
   const [cashDetail, setCashDetail] = useState('');
   const [accountNumber, setAccountNumber] = useState('');
   const [accountHolder, setAccountHolder] = useState('');
-  const [note, setNote] = useState('');
   // 중고인수용
   const [usedModelType, setUsedModelType] = useState('');
   const [usedModel, setUsedModel] = useState('');
@@ -50,6 +65,9 @@ function PaymentForm({ transactionId, onSuccess, setSuccessMsg, setErrorMsg }: {
   const [usedAt, setUsedAt] = useState('');
   const [loading, setLoading] = useState(false);
   const [otherReason, setOtherReason] = useState('');
+  const [accountSelect, setAccountSelect] = useState(''); // ''=직접입력, index=계좌목록
+  const [bankName, setBankName] = useState('');
+  const [customBankName, setCustomBankName] = useState('');
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -72,13 +90,14 @@ function PaymentForm({ transactionId, onSuccess, setSuccessMsg, setErrorMsg }: {
         payload.account_number = accountNumber;
         payload.account_holder = accountHolder;
         payload.note = note;
+        payload.bank_name = bankName === '기타(직접입력)' ? customBankName : bankName;
       }
       if (method === '카드') {
         payload.card_name = cardName;
         payload.paid_location = paidLocation;
         payload.paid_by = paidBy;
-        payload.card_approval_code = cardApprovalCode;
         payload.note = note;
+        payload.bank_name = bankName === '기타(직접입력)' ? customBankName : bankName;
       }
       if (method === '중고인수') {
         payload.used_model_type = usedModelType;
@@ -87,6 +106,10 @@ function PaymentForm({ transactionId, onSuccess, setSuccessMsg, setErrorMsg }: {
         payload.used_by = usedBy;
         payload.used_at = usedAt;
         payload.amount = parseFloat(amount); // 인수금액
+        payload.note = note;
+      }
+      if (method === '융자') {
+        payload.bank_name = bankName === '기타(직접입력)' ? customBankName : bankName;
         payload.note = note;
       }
       if (method === '기타') {
@@ -98,7 +121,7 @@ function PaymentForm({ transactionId, onSuccess, setSuccessMsg, setErrorMsg }: {
         body: JSON.stringify(payload),
       });
       if (!res.ok) throw new Error('저장 실패');
-      setAmount(''); setPaidAt(''); setPayerName(''); setCardName(''); setPaidLocation(''); setPaidBy(''); setCardApprovalCode(''); setCashPlace(''); setCashReceiver(''); setCashDetail(''); setAccountNumber(''); setAccountHolder(''); setNote(''); setUsedModelType(''); setUsedModel(''); setUsedPlace(''); setUsedBy(''); setUsedAt(''); setOtherReason('');
+      setAmount(''); setPaidAt(''); setPayerName(''); setCardName(''); setPaidLocation(''); setPaidBy(''); setCashPlace(''); setCashReceiver(''); setCashDetail(''); setAccountNumber(''); setAccountHolder(''); setNote(''); setUsedModelType(''); setUsedModel(''); setUsedPlace(''); setUsedBy(''); setUsedAt(''); setOtherReason('');
       if (typeof setSuccessMsg === 'function') setSuccessMsg('입금 등록이 완료되었습니다.');
       onSuccess();
     } catch (err: any) {
@@ -107,6 +130,19 @@ function PaymentForm({ transactionId, onSuccess, setSuccessMsg, setErrorMsg }: {
       setLoading(false);
     }
   };
+  // 계좌 선택 핸들러
+  function handleAccountSelect(e: React.ChangeEvent<HTMLSelectElement>) {
+    const val = e.target.value;
+    setAccountSelect(val);
+    if (val === '') {
+      setAccountNumber('');
+      setAccountHolder('');
+    } else {
+      const idx = parseInt(val, 10);
+      setAccountNumber(ACCOUNT_LIST[idx].number);
+      setAccountHolder(ACCOUNT_LIST[idx].holder);
+    }
+  }
   return (
     <form onSubmit={handleSubmit} className="space-y-2 bg-blue-50 p-3 rounded mb-4">
       <div className="flex gap-2 items-center">
@@ -116,6 +152,7 @@ function PaymentForm({ transactionId, onSuccess, setSuccessMsg, setErrorMsg }: {
           <option value="계좌이체">계좌이체</option>
           <option value="카드">카드</option>
           <option value="중고인수">중고인수</option>
+          <option value="융자">융자</option>
           <option value="기타">기타</option>
         </select>
       </div>
@@ -129,14 +166,18 @@ function PaymentForm({ transactionId, onSuccess, setSuccessMsg, setErrorMsg }: {
       </div>
       {method === '카드' && (
         <div className="flex flex-wrap gap-2 items-center bg-white p-2 rounded">
-          <label>카드명</label>
-          <input type="text" value={cardName} onChange={e => setCardName(e.target.value)} className="border rounded px-2 py-1" required={method==='카드'} title="카드명" placeholder="카드명" />
+          <label>카드회사명</label>
+          <select value={bankName} onChange={e => setBankName(e.target.value)} className="border rounded px-2 py-1" required>
+            <option value="">카드회사 선택</option>
+            {KOREA_CARD_COMPANIES.map((c, i) => <option key={i} value={c}>{c}</option>)}
+          </select>
+          {bankName === '기타(직접입력)' && (
+            <input type="text" value={customBankName} onChange={e => setCustomBankName(e.target.value)} className="border rounded px-2 py-1" placeholder="카드회사명 직접입력" required />
+          )}
           <label>결제장소</label>
-          <input type="text" value={paidLocation} onChange={e => setPaidLocation(e.target.value)} className="border rounded px-2 py-1" required={method==='카드'} title="결제장소" placeholder="결제장소" />
+          <input type="text" value={paidLocation} onChange={e => setPaidLocation(e.target.value)} className="border rounded px-2 py-1" title="결제장소" placeholder="결제장소" />
           <label>담당자</label>
-          <input type="text" value={paidBy} onChange={e => setPaidBy(e.target.value)} className="border rounded px-2 py-1" required={method==='카드'} title="담당자" placeholder="담당자" />
-          <label>승인번호</label>
-          <input type="text" value={cardApprovalCode} onChange={e => setCardApprovalCode(e.target.value)} className="border rounded px-2 py-1" title="승인번호" placeholder="승인번호" />
+          <input type="text" value={paidBy} onChange={e => setPaidBy(e.target.value)} className="border rounded px-2 py-1" title="담당자" placeholder="담당자" />
           <label>비고</label>
           <input type="text" value={note} onChange={e => setNote(e.target.value)} className="border rounded px-2 py-1" title="비고" placeholder="비고" />
         </div>
@@ -153,10 +194,18 @@ function PaymentForm({ transactionId, onSuccess, setSuccessMsg, setErrorMsg }: {
       )}
       {method === '계좌이체' && (
         <div className="flex flex-wrap gap-2 items-center bg-white p-2 rounded">
+          <label>입금은행</label>
+          <select value={bankName} onChange={e => setBankName(e.target.value)} className="border rounded px-2 py-1" required>
+            <option value="">입금은행 선택</option>
+            {KOREA_BANKS.map((b, i) => <option key={i} value={b}>{b}</option>)}
+          </select>
+          {bankName === '기타(직접입력)' && (
+            <input type="text" value={customBankName} onChange={e => setCustomBankName(e.target.value)} className="border rounded px-2 py-1" placeholder="입금은행명 직접입력" required />
+          )}
           <label>계좌번호</label>
-          <input type="text" value={accountNumber} onChange={e => setAccountNumber(e.target.value)} className="border rounded px-2 py-1" title="계좌번호" placeholder="계좌번호" />
+          <input type="text" value={accountNumber} onChange={e => { setAccountNumber(e.target.value); setAccountSelect(''); }} className="border rounded px-2 py-1" title="계좌번호" placeholder="계좌번호" />
           <label>예금주</label>
-          <input type="text" value={accountHolder} onChange={e => setAccountHolder(e.target.value)} className="border rounded px-2 py-1" title="예금주" placeholder="예금주" />
+          <input type="text" value={accountHolder} onChange={e => { setAccountHolder(e.target.value); setAccountSelect(''); }} className="border rounded px-2 py-1" title="예금주" placeholder="예금주" />
           <label>비고</label>
           <input type="text" value={note} onChange={e => setNote(e.target.value)} className="border rounded px-2 py-1" title="비고" placeholder="비고" />
         </div>
@@ -177,6 +226,22 @@ function PaymentForm({ transactionId, onSuccess, setSuccessMsg, setErrorMsg }: {
           <input type="number" value={amount} onChange={e => setAmount(e.target.value)} className="border rounded px-2 py-1" title="인수금액" placeholder="인수금액" required={method==='중고인수'} />
           <label>비고</label>
           <input type="text" value={note} onChange={e => setNote(e.target.value)} className="border rounded px-2 py-1" title="비고" placeholder="비고" />
+        </div>
+      )}
+      {method === '융자' && (
+        <div className="flex flex-wrap gap-2 items-center bg-white p-2 rounded">
+          <label>융자은행</label>
+          <select value={bankName} onChange={e => setBankName(e.target.value)} className="border rounded px-2 py-1" title="융자은행 선택" required>
+            <option value="">융자은행 선택</option>
+            {KOREA_BANKS.map((b, i) => <option key={i} value={b}>{b}</option>)}
+          </select>
+          {bankName === '기타(직접입력)' && (
+            <input type="text" value={customBankName} onChange={e => setCustomBankName(e.target.value)} className="border rounded px-2 py-1" placeholder="융자은행명 직접입력" required />
+          )}
+          <label>상세</label>
+          <input type="text" value={note} onChange={e => setNote(e.target.value)} className="border rounded px-2 py-1" title="상세" placeholder="상세" />
+          <label>비고</label>
+          <input type="text" value={otherReason} onChange={e => setOtherReason(e.target.value)} className="border rounded px-2 py-1" title="비고" placeholder="비고" />
         </div>
       )}
       {method === '기타' && (
@@ -201,6 +266,42 @@ export default function TransactionDetailClient({ transactions, initialSelectedI
   const [showSignature, setShowSignature] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
+
+  // 입금내역 필터/검색/정렬 상태
+  const [paymentFilter, setPaymentFilter] = useState({
+    payer: '',
+    method: '',
+    minAmount: '',
+    maxAmount: '',
+    startDate: '',
+    endDate: '',
+    note: '',
+    sortBy: 'paid_at',
+    sortOrder: 'desc',
+    search: '',
+  });
+
+  // 필터링된 입금내역
+  const filteredPayments = (selectedTx.payments || [])
+    .filter(p => !paymentFilter.payer || (p.payer_name || '').includes(paymentFilter.payer))
+    .filter(p => !paymentFilter.method || p.method === paymentFilter.method)
+    .filter(p => !paymentFilter.minAmount || (p.amount || 0) >= Number(paymentFilter.minAmount))
+    .filter(p => !paymentFilter.maxAmount || (p.amount || 0) <= Number(paymentFilter.maxAmount))
+    .filter(p => !paymentFilter.startDate || (p.paid_at || '') >= paymentFilter.startDate)
+    .filter(p => !paymentFilter.endDate || (p.paid_at || '') <= paymentFilter.endDate)
+    .filter(p => !paymentFilter.note || (p.note || '').includes(paymentFilter.note))
+    .filter(p => !paymentFilter.search || (
+      (p.payer_name || '').includes(paymentFilter.search) ||
+      (p.method || '').includes(paymentFilter.search) ||
+      (p.note || '').includes(paymentFilter.search)
+    ))
+    .sort((a, b) => {
+      const field = paymentFilter.sortBy;
+      const order = paymentFilter.sortOrder === 'asc' ? 1 : -1;
+      if (field === 'amount') return ((a.amount || 0) - (b.amount || 0)) * order;
+      if (field === 'paid_at') return ((a.paid_at || '').localeCompare(b.paid_at || '')) * order;
+      return 0;
+    });
 
   // 파일 업로드 핸들러
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -243,31 +344,60 @@ export default function TransactionDetailClient({ transactions, initialSelectedI
   // PDF 출력 핸들러
   const handlePdfExport = () => {
     const doc = new jsPDF();
+    // 고객 정보 상단
     doc.setFont('helvetica', 'bold');
+    doc.setFontSize(16);
     doc.text('거래상세 내역', 14, 16);
+    doc.setFontSize(11);
     doc.setFont('helvetica', 'normal');
-    const detailTable = (doc as any).autoTable({
-      startY: 22,
+    const customer = (selectedTx.customers as import('@/types/database').Customer | undefined) || undefined;
+    const customerInfo = [
+      ['고객명', customer?.name || ''],
+      ['사업자번호', customer?.business_number || customer?.business_no || ''],
+      ['연락처', customer?.phone || ''],
+      ['주소', customer?.address || customer?.address_road || customer?.address_jibun || ''],
+    ];
+    (doc as any).autoTable({
+      startY: 20,
+      head: [['항목', '값']],
+      body: customerInfo,
+      theme: 'grid',
+      styles: { fillColor: [225, 245, 254] },
+      headStyles: { fillColor: [33, 150, 243], textColor: 255 },
+    });
+    let nextY = (doc as any).lastAutoTable.finalY + 4;
+    // 거래 상세
+    doc.setFont('helvetica', 'bold');
+    doc.text('거래 상세', 14, nextY);
+    doc.setFont('helvetica', 'normal');
+    (doc as any).autoTable({
+      startY: nextY + 2,
       head: [['항목', '값']],
       body: [
-        ['고객ID', selectedTx.customer_id || customerId],
+        ['거래ID', selectedTx.id],
         ['거래일자', selectedTx.created_at?.slice(0, 10)],
         ['거래유형', selectedTx.type],
-        ['기종/모델', `${selectedTx.model || ''} / ${selectedTx.model_type || ''}`],
+        ['기종/모델', `${selectedTx.models_types?.model || ''} / ${selectedTx.models_types?.type || ''}`],
         ['매출액', `${selectedTx.amount?.toLocaleString()}원`],
         ['입금액', `${selectedTx.paid_amount?.toLocaleString()}원`],
         ['잔금', `${selectedTx.unpaid_amount?.toLocaleString()}원`],
         ['입금율', `${selectedTx.paid_ratio}%`],
+        ['상태', selectedTx.status === 'paid' ? '완료' : '미수'],
+        ['비고', selectedTx.description || ''],
       ],
       theme: 'grid',
+      styles: { fillColor: [243, 229, 245] },
+      headStyles: { fillColor: [123, 31, 162], textColor: 255 },
     });
-    let nextY = detailTable.finalY || 22 + 10 * 10;
-    doc.text('입금내역', 14, nextY + 10);
-    // 입금내역: 방식별 상세정보 포함
-    const paymentTable = (doc as any).autoTable({
-      startY: nextY + 14,
+    nextY = (doc as any).lastAutoTable.finalY + 4;
+    // 입금내역
+    doc.setFont('helvetica', 'bold');
+    doc.text('입금내역', 14, nextY);
+    doc.setFont('helvetica', 'normal');
+    (doc as any).autoTable({
+      startY: nextY + 2,
       head: [['일자', '입금자', '방식', '금액', '상세정보', '비고']],
-      body: (selectedTx.payments || []).map(p => [
+      body: filteredPayments.map(p => [
         p.paid_at?.slice(0, 10),
         p.payer_name,
         p.method,
@@ -279,39 +409,69 @@ export default function TransactionDetailClient({ transactions, initialSelectedI
           : p.method === '기타'
           ? `사유: ${p.note || ''}`
           : p.method === '현금'
-          ? `장소: ${p.cash_place || ''} / 수령: ${p.cash_receiver || ''}`
+          ? <span>
+            장소: {p.cash_place || ''} / 수령: {p.cash_receiver || ''}
+            {p.cash_detail ? ` / 상세: ${p.cash_detail}` : ''}
+          </span>
           : p.method === '계좌이체'
           ? `계좌: ${p.account_number || ''} / 예금주: ${p.account_holder || ''}`
           : '',
         p.note || ''
       ]),
       theme: 'grid',
+      styles: { fillColor: [232, 245, 233] },
+      headStyles: { fillColor: [56, 142, 60], textColor: 255 },
     });
-    nextY = paymentTable.finalY || nextY + 14 + 10 * ((selectedTx.payments || []).length + 1);
-    doc.text('첨부파일', 14, nextY + 10);
+    // 입금내역 요약
+    const paidSum = filteredPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
+    nextY = (doc as any).lastAutoTable.finalY + 4;
+    doc.setFont('helvetica', 'bold');
+    doc.text('입금/미수 요약', 14, nextY);
+    doc.setFont('helvetica', 'normal');
     (doc as any).autoTable({
-      startY: nextY + 14,
+      startY: nextY + 2,
+      head: [['입금합계', '미수금', '입금률']],
+      body: [[
+        `${paidSum.toLocaleString()}원`,
+        `${selectedTx.unpaid_amount?.toLocaleString()}원`,
+        `${selectedTx.paid_ratio}%`
+      ]],
+      theme: 'grid',
+      styles: { fillColor: [255, 249, 196] },
+      headStyles: { fillColor: [255, 152, 0], textColor: 255 },
+    });
+    nextY = (doc as any).lastAutoTable.finalY + 4;
+    // 첨부파일
+    doc.setFont('helvetica', 'bold');
+    doc.text('첨부파일', 14, nextY);
+    doc.setFont('helvetica', 'normal');
+    (doc as any).autoTable({
+      startY: nextY + 2,
       head: [['파일명', 'URL']],
       body: (selectedTx.files || []).map(f => [f.name, f.url]),
       theme: 'grid',
+      styles: { fillColor: [255, 243, 224] },
+      headStyles: { fillColor: [245, 124, 0], textColor: 255 },
     });
-    // 서명 이미지가 있으면 PDF 하단에 추가
-    const signatureFile = (selectedTx.files || []).find(f => f.type === 'image/png' && f.name.includes('signature'));
-    if (signatureFile) {
-      const img = new window.Image();
-      img.crossOrigin = 'Anonymous';
-      img.onload = function () {
-        const pageHeight = doc.internal.pageSize.getHeight();
-        const imgWidth = 120;
-        const imgHeight = 60;
-        doc.text('고객 서명', 14, pageHeight - imgHeight - 20);
-        doc.addImage(img, 'PNG', 14, pageHeight - imgHeight - 10, imgWidth, imgHeight);
-        doc.save(`거래상세_${selectedTx.id}.pdf`);
-      };
-      img.onerror = function () {
-        doc.save(`거래상세_${selectedTx.id}.pdf`);
-      };
-      img.src = signatureFile.url;
+    // 첨부 이미지/서명 썸네일
+    const imageFiles = (selectedTx.files || []).filter(f => f.type?.startsWith('image/') && f.url);
+    if (imageFiles.length > 0) {
+      let imgY = (doc as any).lastAutoTable.finalY + 6;
+      imageFiles.forEach((f, idx) => {
+        const img = new window.Image();
+        img.crossOrigin = 'Anonymous';
+        img.onload = function () {
+          const imgWidth = 60, imgHeight = 40;
+          doc.text(f.name, 14, imgY);
+          doc.addImage(img, 'PNG', 14, imgY + 2, imgWidth, imgHeight);
+          imgY += imgHeight + 10;
+          if (idx === imageFiles.length - 1) doc.save(`거래상세_${selectedTx.id}.pdf`);
+        };
+        img.onerror = function () {
+          if (idx === imageFiles.length - 1) doc.save(`거래상세_${selectedTx.id}.pdf`);
+        };
+        img.src = f.url;
+      });
     } else {
       doc.save(`거래상세_${selectedTx.id}.pdf`);
     }
@@ -389,18 +549,47 @@ export default function TransactionDetailClient({ transactions, initialSelectedI
           <div><b>고객명</b>: {selectedTx.customers?.name || selectedTx.customer_id}</div>
           <div><b>거래일자</b>: {selectedTx.created_at?.slice(0, 10)}</div>
           <div><b>거래유형</b>: {selectedTx.type}</div>
-          <div><b>기종/모델</b>: {selectedTx.model} / {selectedTx.model_type}</div>
+          <div><b>기종/모델</b>: {selectedTx.models_types?.model || ''} / {selectedTx.models_types?.type || ''}</div>
           <div><b>매출액</b>: {selectedTx.amount?.toLocaleString()}원</div>
           <div><b>입금액</b>: {selectedTx.paid_amount?.toLocaleString()}원</div>
           <div><b>잔금</b>: {selectedTx.unpaid_amount?.toLocaleString()}원</div>
           <div><b>입금율</b>: {selectedTx.paid_ratio}%</div>
-          <div className="col-span-2"><b>비고</b>: {selectedTx.description}</div>
+          {selectedTx?.description && (
+            <div className="col-span-2"><b>비고</b>: {selectedTx.description}</div>
+          )}
         </div>
       </div>
       {/* 입금 등록 폼 */}
       <div className="mb-6">
         <h2 className="font-semibold mb-2">입금(결제) 등록</h2>
         <PaymentForm transactionId={selectedTx.id} onSuccess={handlePaymentSuccess} setSuccessMsg={setSuccessMsg} setErrorMsg={setErrorMsg} />
+      </div>
+      {/* 입금내역 필터/검색/정렬 UI */}
+      <div className="flex flex-wrap gap-2 mb-2 items-end">
+        <input type="text" placeholder="입금자" title="입금자" value={paymentFilter.payer} onChange={e => setPaymentFilter(f => ({ ...f, payer: e.target.value }))} className="border rounded px-2 py-1" />
+        <select value={paymentFilter.method} onChange={e => setPaymentFilter(f => ({ ...f, method: e.target.value }))} className="border rounded px-2 py-1" title="입금방법">
+          <option value="">전체방법</option>
+          <option value="현금">현금</option>
+          <option value="계좌이체">계좌이체</option>
+          <option value="카드">카드</option>
+          <option value="중고인수">중고인수</option>
+          <option value="융자">융자</option>
+          <option value="기타">기타</option>
+        </select>
+        <input type="date" value={paymentFilter.startDate} onChange={e => setPaymentFilter(f => ({ ...f, startDate: e.target.value }))} className="border rounded px-2 py-1" title="시작일" placeholder="시작일" />
+        <input type="date" value={paymentFilter.endDate} onChange={e => setPaymentFilter(f => ({ ...f, endDate: e.target.value }))} className="border rounded px-2 py-1" title="종료일" placeholder="종료일" />
+        <input type="number" placeholder="최소금액" title="최소금액" value={paymentFilter.minAmount} onChange={e => setPaymentFilter(f => ({ ...f, minAmount: e.target.value }))} className="border rounded px-2 py-1 w-24" />
+        <input type="number" placeholder="최대금액" title="최대금액" value={paymentFilter.maxAmount} onChange={e => setPaymentFilter(f => ({ ...f, maxAmount: e.target.value }))} className="border rounded px-2 py-1 w-24" />
+        <input type="text" placeholder="비고" title="비고" value={paymentFilter.note} onChange={e => setPaymentFilter(f => ({ ...f, note: e.target.value }))} className="border rounded px-2 py-1" />
+        <input type="text" placeholder="통합검색" title="통합검색" value={paymentFilter.search} onChange={e => setPaymentFilter(f => ({ ...f, search: e.target.value }))} className="border rounded px-2 py-1" />
+        <select value={paymentFilter.sortBy} onChange={e => setPaymentFilter(f => ({ ...f, sortBy: e.target.value }))} className="border rounded px-2 py-1" title="정렬기준">
+          <option value="paid_at">일자순</option>
+          <option value="amount">금액순</option>
+        </select>
+        <select value={paymentFilter.sortOrder} onChange={e => setPaymentFilter(f => ({ ...f, sortOrder: e.target.value }))} className="border rounded px-2 py-1" title="정렬방식">
+          <option value="desc">내림차순</option>
+          <option value="asc">오름차순</option>
+        </select>
       </div>
       {/* 입금내역 상세 */}
       <div className="mb-6">
@@ -417,8 +606,8 @@ export default function TransactionDetailClient({ transactions, initialSelectedI
             </tr>
           </thead>
           <tbody>
-            {selectedTx.payments && selectedTx.payments.length > 0 ? (
-              selectedTx.payments.map(p => (
+            {filteredPayments.length > 0 ? (
+              filteredPayments.map(p => (
                 <tr key={p.id}>
                   <td className="border px-2 py-1">{p.paid_at?.slice(0, 10)}</td>
                   <td className="border px-2 py-1">{p.payer_name}</td>
@@ -426,19 +615,22 @@ export default function TransactionDetailClient({ transactions, initialSelectedI
                   <td className="border px-2 py-1 text-right">{p.amount?.toLocaleString()}원</td>
                   <td className="border px-2 py-1">
                     {p.method === '카드' && (
-                      <span>카드명: {p.card_name} / 장소: {p.paid_location} / 담당: {p.paid_by}</span>
+                      <span>카드명: {p.card_name || ''} / 장소: {p.paid_location || ''} / 담당: {p.paid_by || ''}</span>
                     )}
                     {p.method === '중고인수' && (
-                      <span>기종: {p.used_model_type} / 모델: {p.used_model} / 장소: {p.used_place} / 담당: {p.used_by}</span>
+                      <span>기종: {p.used_model_type || ''} / 모델: {p.used_model || ''} / 장소: {p.used_place || ''} / 담당: {p.used_by || ''}</span>
                     )}
                     {p.method === '기타' && (
                       <span>사유: {p.note}</span>
                     )}
                     {p.method === '현금' && (
-                      <span>장소: {p.cash_place} / 수령: {p.cash_receiver}</span>
+                      <span>
+                        장소: {p.cash_place || ''} / 수령: {p.cash_receiver || ''}
+                        {p.cash_detail ? ` / 상세: ${p.cash_detail}` : ''}
+                      </span>
                     )}
                     {p.method === '계좌이체' && (
-                      <span>계좌: {p.account_number} / 예금주: {p.account_holder}</span>
+                      <span>계좌: {p.account_number || ''} / 예금주: {p.account_holder || ''}</span>
                     )}
                   </td>
                   <td className="border px-2 py-1">{p.note}</td>
@@ -500,6 +692,30 @@ export default function TransactionDetailClient({ transactions, initialSelectedI
       )}
       {(successMsg || errorMsg) && (
         <div className={`mb-2 p-2 rounded text-sm ${successMsg ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>{successMsg || errorMsg}</div>
+      )}
+      {/* 첨부파일(여러 개) 미리보기/다운로드/삭제 */}
+      {selectedTx?.files && Array.isArray(selectedTx.files) && selectedTx.files.length > 0 && (
+        <div className="mt-4">
+          <div className="font-semibold mb-1">첨부파일</div>
+          <div className="flex flex-wrap gap-2">
+            {selectedTx.files.map((file: any, idx: number) => {
+              const url = typeof file === 'string' ? file : '';
+              const name = typeof file === 'string' ? file.split('/').pop() : file.name;
+              return (
+                <div key={idx} className="relative border rounded p-2 bg-gray-50 flex flex-col items-center w-32">
+                  {url && url.match(/\.(jpg|jpeg|png|gif|bmp|webp)$/i) ? (
+                    <img src={url} alt={`첨부${idx+1}`} className="w-24 h-24 object-cover rounded mb-1" />
+                  ) : (
+                    <span className="text-xs text-gray-600">{name}</span>
+                  )}
+                  {url && <a href={url} download className="text-blue-500 text-xs mt-1">다운로드</a>}
+                  {/* 삭제 버튼(권한/상태에 따라 노출) */}
+                  {/* <button className="text-red-500 text-xs mt-1">삭제</button> */}
+                </div>
+              );
+            })}
+          </div>
+        </div>
       )}
     </div>
   );

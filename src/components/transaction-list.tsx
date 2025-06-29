@@ -10,7 +10,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from './ui/dialog';
-import { Download } from 'lucide-react';
+import { Download, PlusCircle } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { useRouter } from 'next/navigation';
 import { Button } from './ui/button';
@@ -23,6 +23,8 @@ import {
   TableHead,
   TableCell
 } from './ui/table';
+import TransactionForm from './transaction-form';
+import ModelTypeManager from './model-type-manager';
 
 export function TransactionList() {
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -30,6 +32,7 @@ export function TransactionList() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
+  const [formOpen, setFormOpen] = useState(false);
 
   useEffect(() => {
     async function fetchData() {
@@ -113,6 +116,37 @@ export function TransactionList() {
           <Download className="mr-2 h-4 w-4" />
           엑셀 다운로드
         </button>
+        <Dialog open={formOpen} onOpenChange={setFormOpen}>
+          <DialogTrigger asChild>
+            <button
+              className="ml-2 inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+              onClick={() => setFormOpen(true)}
+            >
+              <PlusCircle className="mr-2 h-4 w-4" /> 신규 거래 등록
+            </button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>신규 거래 등록</DialogTitle>
+            </DialogHeader>
+            <TransactionForm customers={customers} onSuccess={() => { setFormOpen(false); router.refresh(); }} />
+          </DialogContent>
+        </Dialog>
+        <Dialog>
+          <DialogTrigger asChild>
+            <button
+              className="ml-2 inline-flex items-center px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700"
+            >
+              기종/형식명 관리
+            </button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>기종/형식명 관리</DialogTitle>
+            </DialogHeader>
+            <ModelTypeManager />
+          </DialogContent>
+        </Dialog>
       </div>
       <Table>
         <TableHeader className="bg-gray-50">

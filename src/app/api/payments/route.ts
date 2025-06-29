@@ -12,7 +12,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   const body = await request.json();
-  const { transaction_id, amount, paid_at, method, payer_name, cash_place, cash_receiver, cash_detail, account_number, account_holder, note, card_name, paid_location, paid_by, card_approval_code } = body;
+  const { transaction_id, amount, paid_at, method, payer_name, cash_place, cash_receiver, cash_detail, account_number, account_holder, note, paid_location, paid_by, bank_name } = body;
   // 변제내역 저장
   const paymentData: any = { transaction_id, amount, paid_at, method, payer_name };
   if (method === '현금') {
@@ -24,12 +24,12 @@ export async function POST(request: Request) {
     paymentData.account_number = account_number;
     paymentData.account_holder = account_holder;
     paymentData.note = note;
+    paymentData.bank_name = bank_name;
   }
   if (method === '카드') {
-    paymentData.card_name = card_name;
+    paymentData.bank_name = bank_name;
     paymentData.paid_location = paid_location;
     paymentData.paid_by = paid_by;
-    paymentData.card_approval_code = card_approval_code;
     paymentData.note = note;
   }
   if (method === '중고인수') {
@@ -38,6 +38,10 @@ export async function POST(request: Request) {
     paymentData.used_place = body.used_place;
     paymentData.used_by = body.used_by;
     paymentData.used_at = body.used_at;
+    paymentData.note = note;
+  }
+  if (method === '융자') {
+    paymentData.bank_name = bank_name;
     paymentData.note = note;
   }
   const { data, error } = await supabase.from('payments').insert([paymentData]).select();

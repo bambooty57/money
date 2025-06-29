@@ -94,8 +94,8 @@ export interface Payment {
   account_number?: string | null; // 입금계좌번호
   account_holder?: string | null; // 예금주명
   // 카드 결제 전용
-  /** 카드명(예: 신한카드, 현대카드 등) */
-  card_name?: string | null;
+  /** 입금은행/카드회사명 */
+  bank_name?: string | null;
   /** 결제 장소(오프라인 매장 등) */
   paid_location?: string | null;
   /** 결제 담당자 */

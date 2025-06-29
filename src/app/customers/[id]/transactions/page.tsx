@@ -33,7 +33,7 @@ export default async function CustomerTransactionsPage(props: any) {
   const supabase = createClient();
   const { data, error } = await supabase
     .from('transactions')
-    .select('*, customers:customer_id(*)')
+    .select('*, payments(*), files(*), customers:customer_id(*), models_types:models_types_id(model, type)')
     .eq('customer_id', customerId);
   if (error) {
     return <div>에러가 발생했습니다: {error.message}</div>;

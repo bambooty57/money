@@ -1,50 +1,47 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { Input } from './ui/input'
 
-type Option = { model: string; type: string }
+type Option = { id: string; model: string; type: string }
 
 type Props = {
-  onSelect: (opt: Option) => void
+  selectedId: string;
+  onSelect: (id: string) => void;
 }
 
-export function ProductModelTypeAutocomplete({ onSelect }: Props) {
-  const [input, setInput] = useState('')
+export function ProductModelTypeDropdown({ selectedId, onSelect }: Props) {
   const [options, setOptions] = useState<Option[]>([])
+  const [selected, setSelected] = useState<string>(selectedId)
 
-  async function fetchOptions(q: string) {
-    if (!q) return setOptions([])
-    const res = await fetch(`/api/models-types?q=${encodeURIComponent(q)}`)
-    const data = await res.json()
-    setOptions(data)
-  }
+  useEffect(() => {
+    async function fetchOptions() {
+      const res = await fetch(`/api/models-types`)
+      const data: Option[] = await res.json()
+      setOptions(data)
+    }
+    fetchOptions()
+  }, [])
+
+  useEffect(() => {
+    setSelected(selectedId)
+  }, [selectedId])
 
   return (
-    <div>
-      <input
-        value={input}
+    <div className="space-y-2">
+      <label>기종/형식명</label>
+      <select
+        value={selected}
         onChange={e => {
-          setInput(e.target.value)
-          fetchOptions(e.target.value)
+          setSelected(e.target.value)
+          onSelect(e.target.value)
         }}
-        placeholder='기종/형식명 입력'
-        className='border px-2 py-1 rounded w-full'
-      />
-      {options.length > 0 && (
-        <ul className='border rounded bg-white mt-1 max-h-40 overflow-auto'>
-          {options.map(opt => (
-            <li
-              key={opt.model + opt.type}
-              onClick={() => {
-                onSelect(opt)
-                setInput(opt.model + (opt.type ? ' / ' + opt.type : ''))
-                setOptions([])
-              }}
-              className='px-2 py-1 hover:bg-blue-100 cursor-pointer'
-            >
-              {opt.model} / {opt.type}
-            </li>
-          ))}
-        </ul>
-      )}
+        className="w-full border rounded p-2 mb-2"
+        title="기종/형식명 선택"
+      >
+        <option value="">기종/형식명을 선택하세요</option>
+        {options.map(opt => (
+          <option key={opt.id} value={opt.id}>{opt.model} / {opt.type}</option>
+        ))}
+      </select>
     </div>
   )
 } 

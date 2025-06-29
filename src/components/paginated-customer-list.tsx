@@ -205,50 +205,6 @@ export function PaginatedCustomerList({
     }
   };
 
-  // 상세/삭제 상태 관리
-  const [detailOpen, setDetailOpen] = useState(false);
-  const [detailCustomer, setDetailCustomer] = useState<any>(null);
-  const [detailSummary, setDetailSummary] = useState<any>(null);
-  const [detailLoading, setDetailLoading] = useState(false);
-  const [deleteLoading, setDeleteLoading] = useState<string | null>(null);
-
-  // 상세 fetch
-  const handleDetail = async (customer: any) => {
-    setDetailOpen(true);
-    setDetailCustomer(null);
-    setDetailSummary(null);
-    setDetailLoading(true);
-    try {
-      const [res1, res2] = await Promise.all([
-        fetch(`/api/customers/${customer.id}`),
-        fetch(`/api/customers/${customer.id}/summary`)
-      ]);
-      const data1 = await res1.json();
-      const data2 = await res2.json();
-      setDetailCustomer(data1);
-      setDetailSummary(data2);
-    } catch (e) {
-      setDetailCustomer({ error: '상세 정보를 불러오지 못했습니다.' });
-    } finally {
-      setDetailLoading(false);
-    }
-  };
-
-  // 삭제
-  const handleDelete = async (id: string) => {
-    if (!window.confirm('정말로 이 고객을 삭제하시겠습니까?')) return;
-    setDeleteLoading(id);
-    try {
-      const res = await fetch(`/api/customers/${id}`, { method: 'DELETE' });
-      if (!res.ok) throw new Error('삭제 실패');
-      fetchCustomers();
-    } catch (e) {
-      alert('삭제 중 오류 발생');
-    } finally {
-      setDeleteLoading(null);
-    }
-  };
-
   // 체크박스 상태 관리 (1명만 선택 가능)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const handleCheck = (id: string, checked: boolean) => {
@@ -347,7 +303,7 @@ export function PaginatedCustomerList({
                     />
                   </TableCell>
                   <TableCell className="px-6 py-4 whitespace-nowrap">
-                    <div className="font-medium text-gray-900 cursor-pointer underline" onClick={() => handleDetail(customer)}>{customer.name}</div>
+                    <div className="font-medium text-gray-900">{customer.name}</div>
                     <div className="text-sm text-gray-500">{customer.business_name || ''}</div>
                   </TableCell>
                   <TableCell className="px-6 py-4 whitespace-nowrap text-center">{customer.transaction_count ?? 0}건</TableCell>
@@ -446,11 +402,10 @@ export function PaginatedCustomerList({
                           title="수정"
                         >✏️</button>
                         <button
-                          onClick={() => handleDelete(customer.id)}
+                          onClick={() => onDelete && onDelete(customer.id)}
                           className="text-red-600 hover:text-red-900"
                           title="삭제"
-                          disabled={deleteLoading === customer.id}
-                        >{deleteLoading === customer.id ? '...' : '🗑️'}</button>
+                        >🗑️</button>
                       </div>
                     </TableCell>
                   )}
@@ -518,9 +473,6 @@ export function PaginatedCustomerList({
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
         </div>
       )}
-
-      {/* 고객 상세 모달 */}
-      <CustomerDetailModal customer={detailCustomer} open={detailOpen} onClose={() => setDetailOpen(false)} />
     </div>
   );
 } 
