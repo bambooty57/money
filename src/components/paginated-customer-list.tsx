@@ -402,7 +402,17 @@ export function PaginatedCustomerList({
                           title="수정"
                         >✏️</button>
                         <button
-                          onClick={() => onDelete && onDelete(customer.id)}
+                          onClick={async () => {
+                            if (!window.confirm('정말로 이 고객을 삭제하시겠습니까?')) return;
+                            const res = await fetch(`/api/customers?id=${customer.id}`, { method: 'DELETE' });
+                            if (res.ok) {
+                              alert('삭제되었습니다.');
+                              fetchCustomers();
+                            } else {
+                              const { error } = await res.json();
+                              alert('삭제 실패: ' + error);
+                            }
+                          }}
                           className="text-red-600 hover:text-red-900"
                           title="삭제"
                         >🗑️</button>

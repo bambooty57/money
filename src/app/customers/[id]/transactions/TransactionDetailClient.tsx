@@ -285,6 +285,19 @@ function PaymentForm({ transactionId, onSuccess, setSuccessMsg, setErrorMsg }: {
   );
 }
 
+// 첨부서류 유형 상수
+const ATTACHMENT_TYPES = [
+  '계약서', '융자서류', '입금표', '채권확인서', '내용증명', '약속서류', '기타서류',
+  '신분증 사본', '사업자등록증', '등기부등본', '세금계산서/영수증'
+];
+
+// 파일명/폴더명 sanitize 함수 추가
+function sanitizeFileName(name: string) {
+  return name
+    .replace(/[^a-zA-Z0-9._-]/g, '_') // 영문, 숫자, ., _, -만 허용
+    .replace(/_+/g, '_'); // 연속된 _는 하나로
+}
+
 export default function TransactionDetailClient({ transactions, initialSelectedId, customerId }: Props) {
   const [selectedId, setSelectedId] = useState(initialSelectedId || transactions[0]?.id);
   const [txList, setTxList] = useState(transactions);
@@ -294,6 +307,7 @@ export default function TransactionDetailClient({ transactions, initialSelectedI
   const [showSignature, setShowSignature] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
+  const [selectedAttachmentType, setSelectedAttachmentType] = useState(ATTACHMENT_TYPES[0]);
 
   // 입금내역 필터/검색/정렬 상태
   const [paymentFilter, setPaymentFilter] = useState({
@@ -331,7 +345,8 @@ export default function TransactionDetailClient({ transactions, initialSelectedI
       return 0;
     });
 
-  // 파일 업로드 핸들러
+  // 파일 업로드 핸들러 (첨부유형별, 5건 제한)
+  const isValidUUID = (uuid: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(uuid);
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
@@ -339,31 +354,81 @@ export default function TransactionDetailClient({ transactions, initialSelectedI
     setUploading(true);
     if (typeof setSuccessMsg === 'function') setSuccessMsg('');
     if (typeof setErrorMsg === 'function') setErrorMsg('');
+    // 유효성 체크: customer_id, transaction_id 존재 및 uuid 형식
+    if (!selectedTx?.customer_id || !selectedTx?.id ||
+        !isValidUUID(selectedTx.customer_id) || !isValidUUID(selectedTx.id)) {
+      setErrorMsg('고객 또는 거래 정보가 올바르지 않습니다. 새로고침 후 다시 시도하세요.');
+      setUploading(false);
+      return;
+    }
     try {
-      // Supabase Storage 업로드
-      const filePath = `transactions/${selectedTx.id}/${Date.now()}_${file.name}`;
+      // 첨부유형별 5건 제한
+      const currentTypeFiles = (selectedTx.files || []).filter(f => f.type === selectedAttachmentType);
+      if (currentTypeFiles.length >= 5) {
+        setErrorMsg(`${selectedAttachmentType}는 최대 5건까지 첨부할 수 있습니다.`);
+        setUploading(false);
+        return;
+      }
+      // Supabase Storage 업로드 (경로 sanitize 적용)
+      const safeType = sanitizeFileName(selectedAttachmentType);
+      const safeName = sanitizeFileName(file.name);
+      const filePath = `transactions/${selectedTx.id}/${safeType}/${Date.now()}_${safeName}`;
       const { data, error } = await supabase.storage.from('files').upload(filePath, file);
       if (error) throw error;
       // Public URL 생성
       const { data: publicUrlData } = supabase.storage.from('files').getPublicUrl(filePath);
-      // DB files 테이블에 메타데이터 저장
-      const { data: fileRow, error: dbError } = await supabase.from('files').insert({
-        customer_id: selectedTx.customer_id || customerId,
-        name: file.name,
-        type: file.type,
-        url: publicUrlData?.publicUrl,
-        transaction_id: selectedTx.id,
-      }).select().single();
-      if (dbError) throw dbError;
-      // 목록 갱신
+      // /api/files로 POST 요청하여 DB에 메타데이터 저장
+      const res = await fetch('/api/files', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          customer_id: selectedTx.customer_id || customerId,
+          name: file.name,
+          type: selectedAttachmentType,
+          url: publicUrlData?.publicUrl,
+          transaction_id: selectedTx.id,
+        }),
+      });
+      if (!res.ok) throw new Error('DB 저장 실패');
+      const fileRow = await res.json();
+      // File 타입 보장 (누락 필드 보완, spread 사용하지 않음)
+      const safeFileRow: File = {
+        id: typeof fileRow.id === 'string' ? fileRow.id : '',
+        customer_id: typeof fileRow.customer_id === 'string' ? fileRow.customer_id : '',
+        name: typeof fileRow.name === 'string' ? fileRow.name : '',
+        type: typeof fileRow.type === 'string' ? fileRow.type : '',
+        url: typeof fileRow.url === 'string' ? fileRow.url : '',
+        created_at: typeof fileRow.created_at === 'string' ? fileRow.created_at : '',
+        updated_at: typeof fileRow.updated_at === 'string' ? fileRow.updated_at : '',
+      };
       setTxList(prev => prev.map(tx => tx.id === selectedTx.id ? {
         ...tx,
-        files: [...(tx.files || []), fileRow]
+        files: ([...(tx.files || []), safeFileRow] as File[])
       } : tx));
       if (fileInputRef.current) fileInputRef.current.value = '';
       if (typeof setSuccessMsg === 'function') setSuccessMsg('파일 업로드가 완료되었습니다.');
     } catch (err) {
       if (typeof setErrorMsg === 'function') setErrorMsg('파일 업로드 실패: ' + (err as any).message);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  // 첨부파일 삭제 핸들러
+  const handleDeleteFile = async (fileId: string = '') => {
+    setUploading(true);
+    setErrorMsg('');
+    setSuccessMsg('');
+    try {
+      const res = await fetch(`/api/files?file_id=${fileId}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('삭제 실패');
+      setTxList(prev => prev.map(tx => tx.id === selectedTx.id ? {
+        ...tx,
+        files: ((tx.files || []).filter((f: File) => f.id !== fileId) as File[])
+      } : tx));
+      setSuccessMsg('파일이 삭제되었습니다.');
+    } catch (err) {
+      setErrorMsg('파일 삭제 실패: ' + (err as any).message);
     } finally {
       setUploading(false);
     }
@@ -581,14 +646,34 @@ export default function TransactionDetailClient({ transactions, initialSelectedI
       {/* 상단 거래별 목록 */}
       <div className="flex gap-2 mb-6">
         {txList.map((tx) => (
-          <button
-            key={tx.id}
-            className={`px-3 py-1 rounded ${tx.id === selectedId ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}
-            onClick={() => setSelectedId(tx.id)}
-            disabled={tx.id === selectedId}
-          >
-            {tx.created_at?.slice(0, 10)} {tx.type} {tx.amount?.toLocaleString()}원
-          </button>
+          <div key={tx.id} className="flex items-center gap-1">
+            <button
+              className={`px-3 py-1 rounded ${tx.id === selectedId ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}
+              onClick={() => setSelectedId(tx.id)}
+              disabled={tx.id === selectedId}
+            >
+              {tx.created_at?.slice(0, 10)} {tx.type} {tx.amount?.toLocaleString()}원
+            </button>
+            <button
+              className="text-red-500 hover:text-red-700"
+              title="거래 삭제"
+              onClick={async () => {
+                if (!window.confirm('정말로 이 거래를 삭제하시겠습니까?')) return;
+                const res = await fetch(`/api/transactions?id=${tx.id}`, { method: 'DELETE' });
+                if (res.ok) {
+                  setTxList(prev => prev.filter(t => t.id !== tx.id));
+                  setSuccessMsg('거래가 삭제되었습니다.');
+                  if (selectedId === tx.id && txList.length > 1) {
+                    const nextTx = txList.find(t => t.id !== tx.id);
+                    if (nextTx) setSelectedId(nextTx.id);
+                  }
+                } else {
+                  const { error } = await res.json();
+                  setErrorMsg('삭제 실패: ' + error);
+                }
+              }}
+            >🗑️</button>
+          </div>
         ))}
       </div>
       {/* 거래 상세정보 */}
@@ -616,7 +701,7 @@ export default function TransactionDetailClient({ transactions, initialSelectedI
       {/* 입금내역 필터/검색/정렬 UI */}
       <div className="flex flex-wrap gap-2 mb-2 items-end">
         <input type="text" placeholder="입금자" title="입금자" value={paymentFilter.payer} onChange={e => setPaymentFilter(f => ({ ...f, payer: e.target.value }))} className="border rounded px-2 py-1" />
-        <select value={paymentFilter.method} onChange={e => setPaymentFilter(f => ({ ...f, method: e.target.value }))} className="border rounded px-2 py-1" title="입금방법">
+        <select value={paymentFilter.method} onChange={e => setPaymentFilter(f => ({ ...f, method: e.target.value }))} className="border rounded px-2 py-1" title="입금방법" aria-label="입금방법">
           <option value="">전체방법</option>
           <option value="현금">현금</option>
           <option value="계좌이체">계좌이체</option>
@@ -631,11 +716,11 @@ export default function TransactionDetailClient({ transactions, initialSelectedI
         <input type="number" placeholder="최대금액" title="최대금액" value={paymentFilter.maxAmount} onChange={e => setPaymentFilter(f => ({ ...f, maxAmount: e.target.value }))} className="border rounded px-2 py-1 w-24" />
         <input type="text" placeholder="비고" title="비고" value={paymentFilter.note} onChange={e => setPaymentFilter(f => ({ ...f, note: e.target.value }))} className="border rounded px-2 py-1" />
         <input type="text" placeholder="통합검색" title="통합검색" value={paymentFilter.search} onChange={e => setPaymentFilter(f => ({ ...f, search: e.target.value }))} className="border rounded px-2 py-1" />
-        <select value={paymentFilter.sortBy} onChange={e => setPaymentFilter(f => ({ ...f, sortBy: e.target.value }))} className="border rounded px-2 py-1" title="정렬기준">
+        <select value={paymentFilter.sortBy} onChange={e => setPaymentFilter(f => ({ ...f, sortBy: e.target.value }))} className="border rounded px-2 py-1" title="정렬기준" aria-label="정렬기준">
           <option value="paid_at">일자순</option>
           <option value="amount">금액순</option>
         </select>
-        <select value={paymentFilter.sortOrder} onChange={e => setPaymentFilter(f => ({ ...f, sortOrder: e.target.value }))} className="border rounded px-2 py-1" title="정렬방식">
+        <select value={paymentFilter.sortOrder} onChange={e => setPaymentFilter(f => ({ ...f, sortOrder: e.target.value }))} className="border rounded px-2 py-1" title="정렬방식" aria-label="정렬방식">
           <option value="desc">내림차순</option>
           <option value="asc">오름차순</option>
         </select>
@@ -703,35 +788,57 @@ export default function TransactionDetailClient({ transactions, initialSelectedI
       {/* 증빙서류 첨부 */}
       <div className="mb-6">
         <h2 className="font-semibold mb-2">증빙서류 첨부</h2>
-        <div className="flex gap-2">
-          {selectedTx.files && selectedTx.files.length > 0 ? (
-            selectedTx.files.map(f => (
-              <a key={f.id} href={f.url} target="_blank" rel="noopener noreferrer" className="w-24 h-24 bg-gray-100 flex items-center justify-center rounded hover:bg-blue-100">
-                {f.name}
-              </a>
+        <div className="flex flex-wrap gap-2 mb-2">
+          {ATTACHMENT_TYPES.map(type => (
+            <button
+              key={type}
+              className={`px-3 py-1 rounded ${selectedAttachmentType === type ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700'}`}
+              onClick={() => setSelectedAttachmentType(type)}
+              type="button"
+            >
+              {type}
+            </button>
+          ))}
+        </div>
+        {/* 업로드/미리보기/삭제 */}
+        <div className="flex flex-wrap gap-2">
+          {(selectedTx.files || []).filter(f => f.type === selectedAttachmentType).length > 0 ? (
+            (selectedTx.files || []).filter(f => f.type === selectedAttachmentType).map(f => (
+              <div key={f.id} className="relative border rounded p-2 bg-gray-50 flex flex-col items-center w-32">
+                {f.url && f.url.match(/\.(jpg|jpeg|png|gif|bmp|webp)$/i) ? (
+                  <img src={f.url} alt={f.name} className="w-24 h-24 object-cover rounded mb-1" />
+                ) : (
+                  <span className="text-xs text-gray-600">{f.name}</span>
+                )}
+                <a href={f.url} download className="text-blue-500 text-xs mt-1">다운로드</a>
+                <button className="text-red-500 text-xs mt-1" onClick={() => handleDeleteFile(f.id)} disabled={uploading}>삭제</button>
+              </div>
             ))
           ) : (
             <div className="w-24 h-24 bg-gray-100 flex items-center justify-center rounded text-gray-400">첨부 없음</div>
           )}
         </div>
-        <label htmlFor="file-upload" className="sr-only">파일 첨부</label>
-        <input
-          id="file-upload"
-          type="file"
-          ref={fileInputRef}
-          className="hidden"
-          onChange={handleFileUpload}
-          accept="image/*,application/pdf"
-          title="첨부파일 선택"
-          aria-label="첨부파일 업로드"
-        />
-        <button
-          className="mt-2 px-3 py-1 bg-blue-500 text-white rounded"
-          onClick={() => fileInputRef.current?.click()}
-          disabled={uploading}
-        >
-          {uploading ? '업로드 중...' : '파일 업로드'}
-        </button>
+        <div className="mt-2 flex items-center gap-2">
+          <input
+            id="file-upload"
+            type="file"
+            ref={fileInputRef}
+            className="hidden"
+            onChange={handleFileUpload}
+            accept="image/*,application/pdf"
+            title="첨부파일 선택"
+            aria-label="첨부파일 업로드"
+          />
+          <button
+            className="px-3 py-1 bg-blue-500 text-white rounded"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploading}
+            type="button"
+          >
+            {uploading ? '업로드 중...' : `${selectedAttachmentType} 업로드`}
+          </button>
+          <span className="text-xs text-gray-500">(최대 5건)</span>
+        </div>
       </div>
       {/* PDF 출력/서명 */}
       <div className="flex gap-4">
@@ -750,30 +857,6 @@ export default function TransactionDetailClient({ transactions, initialSelectedI
       )}
       {(successMsg || errorMsg) && (
         <div className={`mb-2 p-2 rounded text-sm ${successMsg ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>{successMsg || errorMsg}</div>
-      )}
-      {/* 첨부파일(여러 개) 미리보기/다운로드/삭제 */}
-      {selectedTx?.files && Array.isArray(selectedTx.files) && selectedTx.files.length > 0 && (
-        <div className="mt-4">
-          <div className="font-semibold mb-1">첨부파일</div>
-          <div className="flex flex-wrap gap-2">
-            {selectedTx.files.map((file: any, idx: number) => {
-              const url = typeof file === 'string' ? file : '';
-              const name = typeof file === 'string' ? file.split('/').pop() : file.name;
-              return (
-                <div key={idx} className="relative border rounded p-2 bg-gray-50 flex flex-col items-center w-32">
-                  {url && url.match(/\.(jpg|jpeg|png|gif|bmp|webp)$/i) ? (
-                    <img src={url} alt={`첨부${idx+1}`} className="w-24 h-24 object-cover rounded mb-1" />
-                  ) : (
-                    <span className="text-xs text-gray-600">{name}</span>
-                  )}
-                  {url && <a href={url} download className="text-blue-500 text-xs mt-1">다운로드</a>}
-                  {/* 삭제 버튼(권한/상태에 따라 노출) */}
-                  {/* <button className="text-red-500 text-xs mt-1">삭제</button> */}
-                </div>
-              );
-            })}
-          </div>
-        </div>
       )}
     </div>
   );

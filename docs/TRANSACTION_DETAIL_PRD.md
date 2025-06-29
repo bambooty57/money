@@ -26,8 +26,22 @@
 - 인쇄 미리보기 및 다운로드 지원
 
 ## 6. 증빙서류 첨부
-- 계약서, 수리내역서, 인수증 등 파일(이미지, PDF 등) 첨부 및 미리보기
-- 첨부파일 업로드/삭제/다운로드 기능
+- 첨부서류 항목(총 11종, 각 5건 제한)
+  1. 계약서
+  2. 융자서류
+  3. 입금표
+  4. 채권확인서
+  5. 내용증명
+  6. 약속서류
+  7. 기타서류
+  8. 신분증 사본
+  9. 사업자등록증
+  10. 등기부등본
+  11. 세금계산서/영수증
+- 각 항목별 최대 5건까지 업로드 가능(프론트+백엔드 이중 제한)
+- 거래유형별 필수/선택 첨부서류 구분(옵션화 가능, 예: 융자거래 시 융자서류 필수)
+- 파일(이미지, PDF 등) 첨부 및 미리보기, 업로드/삭제/다운로드 기능
+- 첨부파일 유형별 색상/아이콘 구분, 필수 항목 시각적 강조
 
 ## 7. 모바일/반응형 & 서명
 - 모바일 환경에서 최적화된 UI 제공
@@ -89,7 +103,8 @@ sequenceDiagram
 - 상단 거래목록: 탭/슬라이드/버튼 등으로 빠른 전환
 - 상세정보: 카드형/테이블형, 컬럼별 강조
 - 입금내역: 표+입금자/계좌/일자/금액 등 구체적 표시
-- 첨부파일: 썸네일/미리보기/다운로드
+- 첨부파일: 11개 항목별 탭/섹션(또는 드롭다운), 각 5건 제한, 썸네일/미리보기/다운로드/삭제, 업로드 상태/에러 안내
+- 첨부유형별 색상/아이콘, 필수/선택 구분(별표, 강조색 등)
 - PDF: 인쇄 미리보기, 모바일 최적화
 - 서명: 터치 서명패드, 저장/첨부
 
@@ -108,6 +123,23 @@ const { data: transactions } = await supabase
   `)
   .eq('customer_id', customerId)
   .order('created_at', { ascending: false });
+
+// 첨부파일 메타데이터 예시
+const { data: attachments } = await supabase
+  .from('transaction_attachments')
+  .select('*')
+  .eq('transaction_id', transactionId)
+  .order('uploaded_at', { ascending: false });
+
+// 업로드 제한 체크(프론트)
+if (attachments.filter(a => a.type === '계약서').length >= 5) {
+  alert('계약서는 최대 5건까지 첨부할 수 있습니다.');
+}
+
+// 업로드 API 예시
+const { data, error } = await supabase.storage
+  .from('transaction-attachments')
+  .upload(`${transactionId}/${type}/${file.name}`, file);
 ```
 
 ---

@@ -172,7 +172,25 @@ export function TransactionList() {
                 <TableCell className="px-6 py-4 whitespace-nowrap">{(summary.total_amount || 0).toLocaleString()}원</TableCell>
                 <TableCell className="px-6 py-4 whitespace-nowrap">{(summary.total_paid || 0).toLocaleString()}원</TableCell>
                 <TableCell className="px-6 py-4 whitespace-nowrap">{(summary.total_unpaid || 0).toLocaleString()}원</TableCell>
-                <TableCell className="px-6 py-4 whitespace-nowrap">{summary.total_ratio || 0}%</TableCell>
+                <TableCell className="px-6 py-4 whitespace-nowrap flex items-center gap-2">
+                  {summary.total_ratio || 0}%
+                  <button
+                    className="text-red-600 hover:text-red-900 ml-2"
+                    title="고객 및 거래 전체 삭제"
+                    onClick={async (e) => {
+                      e.stopPropagation();
+                      if (!window.confirm('정말로 이 고객과 모든 거래를 삭제하시겠습니까?')) return;
+                      const res = await fetch(`/api/customers?id=${c.id}`, { method: 'DELETE' });
+                      if (res.ok) {
+                        setCustomers(prev => prev.filter(x => x.id !== c.id));
+                        alert('삭제되었습니다.');
+                      } else {
+                        const { error } = await res.json();
+                        alert('삭제 실패: ' + error);
+                      }
+                    }}
+                  >🗑️</button>
+                </TableCell>
               </TableRow>
             );
           })}
