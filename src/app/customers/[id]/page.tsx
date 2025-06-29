@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase';
 import type { Customer, Transaction, LegalAction } from '@/types/database';
 
@@ -10,12 +10,22 @@ interface CustomerDetails extends Customer {
   legalActions: LegalAction[];
 }
 
+interface PaymentSummary {
+  [key: string]: number;
+  현금: number;
+  카드: number;
+  무통장: number;
+  중고인수: number;
+  기타: number;
+}
+
 const openKakaoMap = (address: string) => {
   const kakaoMapUrl = `https://map.kakao.com/link/search/${encodeURIComponent(address)}`;
   window.open(kakaoMapUrl, '_blank');
 };
 
 export default function CustomerDetailPage() {
+  const router = useRouter();
   const params = useParams();
   const id = params.id as string;
   const [customer, setCustomer] = useState<CustomerDetails | null>(null);
@@ -67,6 +77,12 @@ export default function CustomerDetailPage() {
 
   return (
     <main className="p-4">
+      <button
+        className="mb-4 px-4 py-2 bg-gray-200 rounded hover:bg-gray-300 text-sm"
+        onClick={() => router.push('/customers')}
+      >
+        ← 고객 목록으로 돌아가기
+      </button>
       <div className="mb-6">
         <h1 className="text-2xl font-bold">고객 상세: {id}</h1>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-4">
@@ -185,51 +201,52 @@ export default function CustomerDetailPage() {
         )}
 
         {activeTab === 'transactions' && (
-          <div className="space-y-6">
-            {summary.transactions.map((tx: any) => (
-              <div key={tx.id} className="border rounded-lg p-4 mb-4 bg-gray-50">
-                <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-2">
-                  <div>
-                    <div className="font-bold text-lg">{tx.type} ({tx.detail_type || '-'})</div>
-                    <div className="text-sm text-gray-500">{tx.created_at ? new Date(tx.created_at).toLocaleDateString() : '-'}</div>
-                  </div>
-                  <div className="flex gap-4 mt-2 md:mt-0">
-                    <div>금액: <span className="font-bold">{tx.amount?.toLocaleString()}원</span></div>
-                    <div>입금: <span className="text-green-700 font-bold">{tx.paid_amount?.toLocaleString()}원</span></div>
-                    <div>미수: <span className="text-red-700 font-bold">{tx.unpaid_amount?.toLocaleString()}원</span></div>
-                    <div>변제비율: <span className="font-bold">{tx.paid_ratio}%</span></div>
-                  </div>
-                </div>
-                {/* 변제내역 타임라인 */}
-                <div className="mt-2">
-                  <div className="font-semibold mb-1">변제내역</div>
-                  {tx.payments && tx.payments.length > 0 ? (
-                    <ul className="divide-y">
-                      {tx.payments.map((p: any) => (
-                        <li key={p.id} className="py-1 flex flex-col md:flex-row md:items-center md:gap-4">
-                          <span>{p.paid_at ? new Date(p.paid_at).toLocaleDateString() : '-'}</span>
-                          <span>{p.amount?.toLocaleString()}원</span>
-                          <span>{p.method}</span>
-                          <span>입금자: {p.payer_name || '-'}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : <div className="text-gray-400">변제내역 없음</div>}
-                </div>
-                {/* 증빙자료 */}
-                <div className="mt-2">
-                  <div className="font-semibold mb-1">증빙자료</div>
-                  {tx.files && tx.files.length > 0 ? (
-                    <div className="flex gap-2 flex-wrap">
-                      {tx.files.map((f: any) => (
-                        <a key={f.id} href={f.url} target="_blank" rel="noopener noreferrer" className="underline text-blue-600">{f.name || '파일'}</a>
-                      ))}
-                    </div>
-                  ) : <div className="text-gray-400">증빙자료 없음</div>}
-                </div>
-                {/* 거래 상세내역(기계명, 수리부위 등) 필요시 추가 */}
-              </div>
-            ))}
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-4 py-2">일자</th>
+                  <th className="px-4 py-2">매출유형</th>
+                  <th className="px-4 py-2">기종</th>
+                  <th className="px-4 py-2">모델</th>
+                  <th className="px-4 py-2">매출액</th>
+                  <th className="px-4 py-2">입금액(현금/카드/무통장/중고인수/기타)</th>
+                  <th className="px-4 py-2">미수금</th>
+                  <th className="px-4 py-2">입금%</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {summary.transactions.map((tx: any) => {
+                  // 입금수단별 합계 계산
+                  const paymentSums = { 현금: 0, 카드: 0, 무통장: 0, 중고인수: 0, 기타: 0 };
+                  (tx.payments || []).forEach((p: any) => {
+                    if (p.method && paymentSums.hasOwnProperty(p.method)) {
+                      paymentSums[p.method] += p.amount || 0;
+                    } else {
+                      paymentSums['기타'] += p.amount || 0;
+                    }
+                  });
+                  return (
+                    <tr key={tx.id}>
+                      <td className="px-4 py-2">{tx.created_at ? new Date(tx.created_at).toLocaleDateString() : '-'}</td>
+                      <td className="px-4 py-2">{tx.type || '-'}</td>
+                      <td className="px-4 py-2">{tx.model || '-'}</td>
+                      <td className="px-4 py-2">{tx.model_type || '-'}</td>
+                      <td className="px-4 py-2">{tx.amount?.toLocaleString()}원</td>
+                      <td className="px-4 py-2">
+                        {['현금', '카드', '무통장', '중고인수', '기타'].map((m) => (
+                          <span key={m} className="inline-block mr-2">
+                            {m}:{(paymentSums as Record<string, number>)[m]?.toLocaleString()}원
+                          </span>
+                        ))}
+                      </td>
+                      <td className="px-4 py-2 text-red-700">{tx.unpaid_amount?.toLocaleString()}원</td>
+                      <td className="px-4 py-2">{tx.paid_ratio}%</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         )}
 

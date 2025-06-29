@@ -3,6 +3,10 @@
 import { useState } from 'react';
 import { createClient } from '@/lib/supabase';
 import type { Customer } from '@/types/database';
+import { Button } from './ui/button';
+import { Input } from './ui/input';
+import { Alert } from './ui/alert';
+import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './ui/dialog';
 
 interface LegalActionFormProps {
   customers: Customer[];

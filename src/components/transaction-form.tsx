@@ -3,6 +3,10 @@
 import { useState } from 'react';
 import { createClient } from '@/lib/supabase';
 import type { Customer } from '@/types/database';
+import { ProductModelTypeAutocomplete } from './product-model-type-autocomplete'
+import { Button } from './ui/button';
+import { Input } from './ui/input';
+import { Alert } from './ui/alert';
 
 interface TransactionFormProps {
   customers: Customer[];
@@ -200,8 +204,12 @@ export default function TransactionForm({ customers, onSuccess }: TransactionFor
         />
       </div>
 
+      <ProductModelTypeAutocomplete onSelect={({ model, type }) => {
+        setFormData(prev => ({ ...prev, model, model_type: type }));
+      }} />
+
       <div className="flex justify-end">
-        <button
+        <Button
           type="submit"
           disabled={loading}
           className={`px-4 py-2 text-white rounded-md ${
@@ -210,7 +218,7 @@ export default function TransactionForm({ customers, onSuccess }: TransactionFor
           title={loading ? '거래 등록 중...' : '거래 등록'}
         >
           {loading ? '처리중...' : '거래 등록'}
-        </button>
+        </Button>
       </div>
     </form>
   );

@@ -1,3 +1,4 @@
+// This file should be moved to src/app/api/customers/[id]/summary/route.ts for correct Next.js routing.
 import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 

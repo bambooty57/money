@@ -19,6 +19,17 @@
 - **TypeScript Strict 모드**: 100% 타입 안전성
 - **스키마 변경 감지**: 자동 타입 재생성 알림
 
+## 🛠️ 기술스펙(Tech Stack)
+
+- **프론트엔드**: Next.js (App Router), TypeScript
+- **디자인 시스템**: Tailwind CSS + shadcn/ui (UI 컴포넌트 표준)
+- **상태관리**: React useState, Context 등
+- **백엔드**: Supabase (DB, Auth, Storage, Functions)
+- **테스트/품질**: ESLint, Prettier, Lighthouse
+- **문서화**: PRD/아키텍처/DB스키마 (docs/)
+
+> UI 컴포넌트 개발은 Tailwind CSS 유틸리티와 shadcn/ui 컴포넌트 라이브러리를 표준으로 사용합니다.
+
 ## 🛠️ 기술 스택
 
 - **Frontend**: Next.js 15, React 19, TypeScript, Tailwind CSS

@@ -5,6 +5,8 @@ import type { Customer } from '@/types/database';
 
 interface CustomerListProps {
   customers: Customer[];
+  onEdit?: (customer: Customer) => void;
+  onDelete?: (id: string) => void;
 }
 
 const openKakaoMap = (address: string) => {
@@ -12,7 +14,7 @@ const openKakaoMap = (address: string) => {
   window.open(kakaoMapUrl, '_blank');
 };
 
-export function CustomerList({ customers }: CustomerListProps) {
+export function CustomerList({ customers, onEdit, onDelete }: CustomerListProps) {
   const [sortField, setSortField] = useState<keyof Customer>('name');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [photosMap, setPhotosMap] = useState<Record<string, { url: string }[]>>({});
@@ -138,6 +140,7 @@ export function CustomerList({ customers }: CustomerListProps) {
                 등급 {sortField === 'grade' && (sortDirection === 'asc' ? '↑' : '↓')}
               </th>
               <th className="px-6 py-3 border-b">사진</th>
+              <th className="px-6 py-3 border-b">작업</th>
             </tr>
           </thead>
           <tbody>
@@ -161,22 +164,19 @@ export function CustomerList({ customers }: CustomerListProps) {
                 ) : '-'}</td>
                 <td className="px-6 py-4 border-b">{customer.grade}</td>
                 <td className="px-6 py-4 border-b">
-                  {photosMap[customer.id] && photosMap[customer.id].length > 0 ? (
-                    <div className="flex space-x-1">
-                      {photosMap[customer.id].slice(0, 3).map((photo, index) => (
-                        <img
-                          key={index}
-                          src={photo.url}
-                          alt={`${customer.name} 사진 ${index + 1}`}
-                          className="w-8 h-8 rounded object-cover cursor-pointer hover:opacity-80"
-                          onClick={() => window.open(photo.url, '_blank')}
-                        />
-                      ))}
-                      {photosMap[customer.id].length > 3 && (
-                        <span className="text-sm text-gray-500">+{photosMap[customer.id].length - 3}</span>
-                      )}
-                    </div>
-                  ) : '-'}
+                  {photosMap[customer.id] ? `${photosMap[customer.id].length}장` : '0장'}
+                </td>
+                <td className="px-6 py-4 border-b">
+                  <button
+                    className="text-green-600 hover:text-green-900 mr-2"
+                    onClick={() => onEdit && onEdit(customer)}
+                    title="수정"
+                  >✏️</button>
+                  <button
+                    className="text-red-600 hover:text-red-900"
+                    onClick={() => onDelete && onDelete(customer.id)}
+                    title="삭제"
+                  >🗑️</button>
                 </td>
               </tr>
             ))}

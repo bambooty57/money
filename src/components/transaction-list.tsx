@@ -1,64 +1,149 @@
 "use client";
 
 import { useEffect, useState } from 'react';
-import type { Transaction } from '@/types/database';
+import type { Transaction, Customer } from '@/types/database';
+import {
+  Dialog,
+  DialogTrigger,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from './ui/dialog';
+import { Download } from 'lucide-react';
+import * as XLSX from 'xlsx';
+import { useRouter } from 'next/navigation';
+import { Button } from './ui/button';
+import { Alert } from './ui/alert';
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell
+} from './ui/table';
 
 export function TransactionList() {
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [summaries, setSummaries] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
 
   useEffect(() => {
-    async function fetchTransactions() {
+    async function fetchData() {
       try {
-        const response = await fetch('/api/transactions');
-        if (!response.ok) {
-          throw new Error('거래 목록을 불러오는데 실패했습니다.');
-        }
-        const data = await response.json();
-        setTransactions(data);
+        const res = await fetch('/api/customers');
+        const data = await res.json();
+        setCustomers(data.data || []);
+        // 고객별 summary 병렬 호출
+        const summaryResults = await Promise.all(
+          (data.data || []).map((c: Customer) =>
+            fetch(`/api/customers/${c.id}/summary`).then(r => r.json())
+          )
+        );
+        setSummaries(summaryResults);
       } catch (err) {
         setError(err instanceof Error ? err.message : '알 수 없는 오류가 발생했습니다.');
       } finally {
         setLoading(false);
       }
     }
-    fetchTransactions();
+    fetchData();
   }, []);
 
-  if (loading) {
-    return <div className="p-4">로딩 중...</div>;
-  }
-  if (error) {
-    return <div className="p-4 text-red-500">{error}</div>;
-  }
+  const handleExcelDownload = () => {
+    const ws = XLSX.utils.json_to_sheet(
+      customers.map(c => ({
+        고객명: c.name,
+        총매출액: summaries.find(s => s.customer_id === c.id)?.total_amount || 0,
+        총입금액: summaries.find(s => s.customer_id === c.id)?.total_paid || 0,
+        총미수금: summaries.find(s => s.customer_id === c.id)?.total_unpaid || 0,
+        입금률: summaries.find(s => s.customer_id === c.id)?.total_ratio || 0,
+      }))
+    );
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, '고객별요약');
+    XLSX.writeFile(wb, '고객별요약.xlsx');
+  };
+
+  if (loading) return <div className="p-4">로딩 중...</div>;
+  if (error) return <div className="p-4 text-red-500">{error}</div>;
+
+  // 상단 요약 집계
+  const totalSales = summaries.reduce((sum, s) => sum + (s.total_amount || 0), 0);
+  const totalPaid = summaries.reduce((sum, s) => sum + (s.total_paid || 0), 0);
+  const totalUnpaid = summaries.reduce((sum, s) => sum + (s.total_unpaid || 0), 0);
+  const totalCount = summaries.length;
+  const totalRatio = totalSales ? ((totalPaid / totalSales) * 100).toFixed(1) : '0.0';
+
+  // Remove duplicate customers by name
+  const uniqueCustomers = customers.filter((c, i, arr) => arr.findIndex(x => x.name === c.name) === i);
 
   return (
     <div className="overflow-x-auto">
-      <table className="min-w-full divide-y divide-gray-200">
-        <thead className="bg-gray-50">
-          <tr>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">유형</th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">금액</th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">잔액</th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">거래일</th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">상태</th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">비고</th>
-          </tr>
-        </thead>
-        <tbody className="bg-white divide-y divide-gray-200">
-          {transactions.map((tx) => (
-            <tr key={tx.id} className="hover:bg-gray-50">
-              <td className="px-6 py-4 whitespace-nowrap">{tx.type}</td>
-              <td className="px-6 py-4 whitespace-nowrap">{tx.amount.toLocaleString()}원</td>
-              <td className="px-6 py-4 whitespace-nowrap">-</td>
-              <td className="px-6 py-4 whitespace-nowrap">{new Date(tx.created_at).toLocaleDateString()}</td>
-              <td className="px-6 py-4 whitespace-nowrap">{tx.status}</td>
-              <td className="px-6 py-4 whitespace-nowrap">{tx.description || '-'}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-2 mb-4">
+        <div className="bg-blue-50 rounded p-2 text-center">
+          <div className="text-xs text-gray-500">전체 거래</div>
+          <div className="text-lg font-bold">{totalCount}건</div>
+        </div>
+        <div className="bg-green-50 rounded p-2 text-center">
+          <div className="text-xs text-gray-500">총 매출액</div>
+          <div className="text-lg font-bold">{totalSales.toLocaleString()}원</div>
+        </div>
+        <div className="bg-indigo-50 rounded p-2 text-center">
+          <div className="text-xs text-gray-500">총 입금액</div>
+          <div className="text-lg font-bold">{totalPaid.toLocaleString()}원</div>
+        </div>
+        <div className="bg-red-50 rounded p-2 text-center">
+          <div className="text-xs text-gray-500">총 미수금</div>
+          <div className="text-lg font-bold">{totalUnpaid.toLocaleString()}원</div>
+        </div>
+        <div className="bg-yellow-50 rounded p-2 text-center">
+          <div className="text-xs text-gray-500">입금률</div>
+          <div className="text-lg font-bold">{totalRatio}%</div>
+        </div>
+      </div>
+      <div className="flex justify-end mb-2">
+        <button
+          onClick={handleExcelDownload}
+          className="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+        >
+          <Download className="mr-2 h-4 w-4" />
+          엑셀 다운로드
+        </button>
+      </div>
+      <Table>
+        <TableHeader className="bg-gray-50">
+          <TableRow>
+            <TableHead className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">고객명</TableHead>
+            <TableHead className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">거래건수</TableHead>
+            <TableHead className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">총 매출액</TableHead>
+            <TableHead className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">입금액</TableHead>
+            <TableHead className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">미수금</TableHead>
+            <TableHead className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">입금%</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody className="bg-white divide-y divide-gray-200">
+          {uniqueCustomers.map((c, i) => {
+            const summary = summaries[customers.findIndex(x => x.id === c.id)] || {};
+            const transactionCount = Array.isArray(summary.transactions)
+              ? summary.transactions.length
+              : 0;
+            return (
+              <TableRow key={c.id} className="hover:bg-gray-50 cursor-pointer">
+                <TableCell className="px-6 py-4 whitespace-nowrap text-blue-700 underline" onClick={() => router.push(`/customers/${c.id}/transactions`)}>{c.name}</TableCell>
+                <TableCell className="px-6 py-4 whitespace-nowrap">{transactionCount}건</TableCell>
+                <TableCell className="px-6 py-4 whitespace-nowrap">{(summary.total_amount || 0).toLocaleString()}원</TableCell>
+                <TableCell className="px-6 py-4 whitespace-nowrap">{(summary.total_paid || 0).toLocaleString()}원</TableCell>
+                <TableCell className="px-6 py-4 whitespace-nowrap">{(summary.total_unpaid || 0).toLocaleString()}원</TableCell>
+                <TableCell className="px-6 py-4 whitespace-nowrap">{summary.total_ratio || 0}%</TableCell>
+              </TableRow>
+            );
+          })}
+        </TableBody>
+      </Table>
     </div>
   );
 } 

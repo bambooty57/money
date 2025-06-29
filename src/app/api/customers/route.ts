@@ -51,6 +51,11 @@ export async function GET(request: Request) {
     // 페이지네이션 적용 (성능 최적화: LIMIT/OFFSET 대신 range 사용)
     query = query.range(offset, offset + pageSize - 1);
     
+    // 전체 고객 수 카운트 쿼리 (페이지네이션 정보용)
+    const { count: totalCount } = await supabase
+      .from('customers')
+      .select('*', { count: 'exact' });
+
     let customers = [];
     if (minUnpaid || maxUnpaid) {
       // 미수금 필터: 고객별 미납 합계 계산
@@ -59,20 +64,20 @@ export async function GET(request: Request) {
         .select('customer_id,amount,status')
         .eq('status', 'unpaid');
       const unpaidMap = {};
-      txs?.forEach(tx => {
+      (txs || []).forEach(tx => {
         unpaidMap[tx.customer_id] = (unpaidMap[tx.customer_id] || 0) + (tx.amount || 0);
       });
       const min = minUnpaid ? parseInt(minUnpaid, 10) : 0;
       const max = maxUnpaid ? parseInt(maxUnpaid, 10) : Number.MAX_SAFE_INTEGER;
       // 고객 목록 쿼리
       const { data: allCustomers } = await query;
-      customers = allCustomers.filter(c => {
+      customers = (allCustomers || []).filter(c => {
         const unpaid = unpaidMap[c.id] || 0;
         return unpaid >= min && unpaid <= max;
       });
     } else {
       const { data: allCustomers } = await query;
-      customers = allCustomers;
+      customers = allCustomers || [];
     }
     // 사진 동기화
     for (const customer of customers) {
@@ -82,14 +87,13 @@ export async function GET(request: Request) {
         .eq('customer_id', customer.id)
         .limit(3);
       customer.photos = Array.isArray(files) ? files : [];
-    }
 
-    if (error) {
-      console.error('Database error:', error);
-      return NextResponse.json(
-        { error: 'Failed to fetch customers' }, 
-        { status: 500 }
-      );
+      // 거래건수 추가
+      const { count: transaction_count } = await supabase
+        .from('transactions')
+        .select('*', { count: 'exact' })
+        .eq('customer_id', customer.id);
+      customer.transaction_count = transaction_count || 0;
     }
 
     // 런타임 검증을 임시로 완전히 제거
@@ -99,10 +103,10 @@ export async function GET(request: Request) {
     return NextResponse.json({
       data: customers,
       pagination: {
-        total: count || 0,
+        total: totalCount || 0,
         page: page,
         pageSize: pageSize,
-        totalPages: Math.ceil((count || 0) / pageSize),
+        totalPages: Math.ceil((totalCount || 0) / pageSize),
         cacheControl: search 
           ? 's-maxage=60, stale-while-revalidate=30' 
           : 's-maxage=300, stale-while-revalidate=60',
@@ -122,10 +126,10 @@ export async function GET(request: Request) {
     }, {
       headers: {
         // 페이지네이션 정보를 헤더로 전달
-        'X-Total-Count': (count || 0).toString(),
+        'X-Total-Count': (totalCount || 0).toString(),
         'X-Page': page.toString(),
         'X-Page-Size': pageSize.toString(),
-        'X-Total-Pages': Math.ceil((count || 0) / pageSize).toString(),
+        'X-Total-Pages': Math.ceil((totalCount || 0) / pageSize).toString(),
         // 성능 최적화: 검색 결과는 짧은 캐시, 기본 목록은 긴 캐시
         'Cache-Control': search 
           ? 's-maxage=60, stale-while-revalidate=30' 
@@ -161,18 +165,21 @@ export async function POST(request: Request) {
       phone: body.phone,
       mobile: body.mobile,
       ssn: body.ssn,
-      business_name: body.business_name,
       business_no: body.business_no,
+      business_name: body.business_name,
       representative_name: body.representative_name,
+      address: body.address_road,
       address_road: body.address_road,
       address_jibun: body.address_jibun,
       zipcode: body.zipcode,
-      email: body.email,
-      grade: body.grade,
-      customer_type: body.customer_type, // 단일값 호환
-      customer_type_multi: body.customer_type_multi, // 배열/JSON
+      customer_type: body.customer_type,
+      customer_type_multi: body.customer_type_multi,
+      fax: body.fax,
     };
-    const { data, error } = await typedQuery.customers.insert(insertData);
+    const { data, error } = await supabase
+      .from('customers')
+      .insert(insertData)
+      .select();
     if (error) {
       console.error('Database error:', error);
       if (error.code === '23505') {
@@ -187,7 +194,15 @@ export async function POST(request: Request) {
       );
     }
     // id 등 전체 row 반환 (프론트 사진 업로드 연동용)
-    return NextResponse.json(data?.[0], {
+    if (!data || !data[0]) {
+      return NextResponse.json({}, {
+        status: 201,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+    }
+    return NextResponse.json(data[0], {
       status: 201,
       headers: {
         'Content-Type': 'application/json',

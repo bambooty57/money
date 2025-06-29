@@ -60,6 +60,7 @@ const createTransactions = (customerIds) => [
     amount: 150000,
     status: 'unpaid',
     description: '가을 작물용 복합비료 10포',
+    balance: 0,
   },
   {
     customer_id: customerIds[0],
@@ -67,6 +68,7 @@ const createTransactions = (customerIds) => [
     amount: 80000,
     status: 'paid',
     description: '살충제 및 살균제',
+    balance: 0,
   },
   
   // (주)그린센터
@@ -76,6 +78,7 @@ const createTransactions = (customerIds) => [
     amount: 2500000,
     status: 'unpaid',
     description: '센터 전체 물량 공급계약',
+    balance: 0,
   },
   {
     customer_id: customerIds[1],
@@ -83,6 +86,7 @@ const createTransactions = (customerIds) => [
     amount: 500000,
     status: 'paid',
     description: '농업 기술 컨설팅',
+    balance: 0,
   },
   
   // 안산시청
@@ -92,6 +96,7 @@ const createTransactions = (customerIds) => [
     amount: 5000000,
     status: 'paid',
     description: '시민 텃밭 조성 사업',
+    balance: 0,
   },
   
   // 박개인사업자
@@ -101,6 +106,7 @@ const createTransactions = (customerIds) => [
     amount: 300000,
     status: 'unpaid',
     description: '소규모 농자재 구매',
+    balance: 0,
   },
   {
     customer_id: customerIds[3],
@@ -108,6 +114,7 @@ const createTransactions = (customerIds) => [
     amount: 50000,
     status: 'unpaid',
     description: '원거리 배송 추가비용',
+    balance: 0,
   },
   
   // 최농장
@@ -117,6 +124,7 @@ const createTransactions = (customerIds) => [
     amount: 1200000,
     status: 'paid',
     description: '비닐하우스 자재 구매',
+    balance: 0,
   },
   {
     customer_id: customerIds[4],
@@ -124,6 +132,7 @@ const createTransactions = (customerIds) => [
     amount: 200000,
     status: 'unpaid',
     description: '내년 봄 작물용 종자',
+    balance: 0,
   },
 ];
 

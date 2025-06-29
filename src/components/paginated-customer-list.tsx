@@ -4,6 +4,18 @@ import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Pagination, usePagination } from '@/components/ui/pagination';
 import type { Customer } from '@/types/database';
+import { Button } from './ui/button';
+import { Input } from './ui/input';
+import { Alert } from './ui/alert';
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell
+} from './ui/table';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
 
 interface ApiResponse {
   data: Customer[];
@@ -141,6 +153,50 @@ export function PaginatedCustomerList({
     }
   };
 
+  // 상세/삭제 상태 관리
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [detailCustomer, setDetailCustomer] = useState<any>(null);
+  const [detailSummary, setDetailSummary] = useState<any>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState<string | null>(null);
+
+  // 상세 fetch
+  const handleDetail = async (customer: any) => {
+    setDetailOpen(true);
+    setDetailCustomer(null);
+    setDetailSummary(null);
+    setDetailLoading(true);
+    try {
+      const [res1, res2] = await Promise.all([
+        fetch(`/api/customers/${customer.id}`),
+        fetch(`/api/customers/${customer.id}/summary`)
+      ]);
+      const data1 = await res1.json();
+      const data2 = await res2.json();
+      setDetailCustomer(data1);
+      setDetailSummary(data2);
+    } catch (e) {
+      setDetailCustomer({ error: '상세 정보를 불러오지 못했습니다.' });
+    } finally {
+      setDetailLoading(false);
+    }
+  };
+
+  // 삭제
+  const handleDelete = async (id: string) => {
+    if (!window.confirm('정말로 이 고객을 삭제하시겠습니까?')) return;
+    setDeleteLoading(id);
+    try {
+      const res = await fetch(`/api/customers/${id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('삭제 실패');
+      fetchCustomers();
+    } catch (e) {
+      alert('삭제 중 오류 발생');
+    } finally {
+      setDeleteLoading(null);
+    }
+  };
+
   // 로딩 스켈레톤
   if (loading && !data) {
     return (
@@ -168,7 +224,7 @@ export function PaginatedCustomerList({
       {/* 검색 및 필터 영역 */}
       <div className="flex flex-col sm:flex-row gap-4 justify-between items-center">
         <div className="flex-1 max-w-md">
-          <input
+          <Input
             type="text"
             placeholder="고객명, 전화번호, 사업자번호로 검색..."
             value={searchInputValue}
@@ -184,48 +240,45 @@ export function PaginatedCustomerList({
       {/* 테이블 */}
       <div className="bg-white rounded-lg shadow overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="min-w-full">
-            <thead>
-              <tr className="bg-gray-50 border-b border-gray-200">
-                <th 
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                  onClick={() => handleSort('name')}
-                >
-                  거래처명 {getSortIcon('name')}
-                </th>
-                <th 
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                  onClick={() => handleSort('customer_type')}
-                >
-                  고객유형 {getSortIcon('customer_type')}
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">주소</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">사진</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">휴대전화</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">일반전화</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">사업자명</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">사업자번호</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">대표자명</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">주민등록번호</th>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>거래처명</TableHead>
+                <TableHead>거래건수</TableHead>
+                <TableHead>고객유형</TableHead>
+                <TableHead>주소</TableHead>
+                <TableHead>연락처</TableHead>
+                <TableHead>주민등록번호</TableHead>
+                <TableHead>사업자번호</TableHead>
+                <TableHead>사진</TableHead>
                 {enableActions && (
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    작업
-                  </th>
+                  <TableHead>작업</TableHead>
                 )}
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {data.data.map(customer => (
-                <tr key={customer.id} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-6 py-4 whitespace-nowrap">
+                <TableRow key={customer.id} className="hover:bg-gray-50 transition-colors">
+                  <TableCell className="px-6 py-4 whitespace-nowrap">
                     <div className="font-medium text-gray-900">{customer.name}</div>
-                    <div className="text-sm text-gray-500">{customer.representative_name}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm text-gray-500">{customer.business_name || ''}</div>
+                  </TableCell>
+                  <TableCell className="px-6 py-4 whitespace-nowrap text-center">{customer.transaction_count ?? 0}건</TableCell>
+                  <TableCell className="px-6 py-4 whitespace-nowrap">
                     {Array.isArray(customer.customer_type_multi) && customer.customer_type_multi.length > 0 ? customer.customer_type_multi.join(', ') : customer.customer_type || '-'}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">{[customer.address_road, customer.address_jibun, customer.zipcode].filter(Boolean).join(' / ')}</td>
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  </TableCell>
+                  <TableCell className="px-6 py-4 whitespace-nowrap">
+                    <div>{customer.address_road || '-'}</div>
+                    <div>{customer.address_jibun || ''}</div>
+                  </TableCell>
+                  <TableCell className="px-6 py-4 whitespace-nowrap">
+                    <div>{customer.mobile || '-'}</div>
+                    <div>{customer.phone || ''}</div>
+                    <div>{customer.fax || ''}</div>
+                  </TableCell>
+                  <TableCell className="px-6 py-4 whitespace-nowrap">{customer.ssn}</TableCell>
+                  <TableCell className="px-6 py-4 whitespace-nowrap">{customer.business_no}</TableCell>
+                  <TableCell className="px-6 py-4 whitespace-nowrap">
                     {customer.photos && customer.photos.length > 0 ? (
                       <div className="flex space-x-1">
                         {customer.photos.slice(0, 3).map((photo, idx) => (
@@ -239,45 +292,28 @@ export function PaginatedCustomerList({
                         ))}
                       </div>
                     ) : '-'}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">{customer.mobile}</td>
-                  <td className="px-6 py-4 whitespace-nowrap">{customer.phone}</td>
-                  <td className="px-6 py-4 whitespace-nowrap">{customer.business_name}</td>
-                  <td className="px-6 py-4 whitespace-nowrap">{customer.business_no}</td>
-                  <td className="px-6 py-4 whitespace-nowrap">{customer.representative_name}</td>
-                  <td className="px-6 py-4 whitespace-nowrap">{customer.ssn}</td>
+                  </TableCell>
                   {enableActions && (
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                    <TableCell className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                       <div className="flex space-x-2">
                         <button
-                          onClick={() => router.push(`/customers/${customer.id}`)}
-                          className="text-blue-600 hover:text-blue-900"
-                        >
-                          보기
-                        </button>
-                        {onEdit && (
-                          <button
-                            onClick={() => onEdit(customer)}
-                            className="text-green-600 hover:text-green-900"
-                          >
-                            수정
-                          </button>
-                        )}
-                        {onDelete && (
-                          <button
-                            onClick={() => onDelete(customer.id)}
-                            className="text-red-600 hover:text-red-900"
-                          >
-                            삭제
-                          </button>
-                        )}
+                          onClick={() => onEdit && onEdit(customer)}
+                          className="text-green-600 hover:text-green-900"
+                          title="수정"
+                        >✏️</button>
+                        <button
+                          onClick={() => handleDelete(customer.id)}
+                          className="text-red-600 hover:text-red-900"
+                          title="삭제"
+                          disabled={deleteLoading === customer.id}
+                        >{deleteLoading === customer.id ? '...' : '🗑️'}</button>
                       </div>
-                    </td>
+                    </TableCell>
                   )}
-                </tr>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
 
         {/* 데이터가 없을 때 */}

@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from 'react';
-import { CustomerList } from '@/components/customer-list';
+import { PaginatedCustomerList } from '@/components/paginated-customer-list';
 import { CustomerForm } from '@/components/customer-form';
 import SmsSender from '@/components/sms-sender';
 import type { Customer } from '@/types/database';
@@ -17,6 +17,8 @@ import { ExcelUploadForm } from '@/components/excel-upload-form';
 
 export default function CustomersPage() {
   const [customers, setCustomers] = useState<Customer[]>([]);
+  const [formOpen, setFormOpen] = useState(false);
+  const [editCustomer, setEditCustomer] = useState<Customer | null>(null);
 
   useEffect(() => {
     fetchCustomers();
@@ -26,6 +28,18 @@ export default function CustomersPage() {
     const response = await fetch('/api/customers');
     const data = await response.json();
     setCustomers(data.data || []);
+  }
+
+  // 신규 등록 버튼 클릭
+  function handleNew() {
+    setEditCustomer(null);
+    setFormOpen(true);
+  }
+
+  // 수정 버튼 클릭
+  function handleEdit(customer: Customer) {
+    setEditCustomer(customer);
+    setFormOpen(true);
   }
 
   return (
@@ -46,22 +60,21 @@ export default function CustomersPage() {
               <ExcelUploadForm />
             </DialogContent>
           </Dialog>
-          <Dialog>
-            <DialogTrigger asChild>
-              <Button>
-                <PlusCircle className="mr-2 h-4 w-4" /> 신규 고객 추가
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>신규 고객 등록</DialogTitle>
-              </DialogHeader>
-              <CustomerForm onSuccess={fetchCustomers} />
-            </DialogContent>
-          </Dialog>
+          <Button onClick={handleNew}>
+            <PlusCircle className="mr-2 h-4 w-4" /> 신규 고객 추가
+          </Button>
         </div>
       </div>
-      <CustomerList customers={customers} />
+      <CustomerForm
+        open={formOpen}
+        setOpen={setFormOpen}
+        onSuccess={() => {
+          setFormOpen(false);
+          fetchCustomers();
+        }}
+        customer={editCustomer}
+      />
+      <PaginatedCustomerList enableActions={true} onEdit={handleEdit} />
       <SmsSender customers={customers} onSuccess={fetchCustomers} />
     </div>
   );
