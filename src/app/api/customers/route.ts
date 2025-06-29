@@ -16,7 +16,7 @@ export async function GET(request: Request) {
     // 페이지네이션 및 필터링 파라미터
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get('page') || '1');
-    const pageSize = parseInt(searchParams.get('pageSize') || '20');
+    const pageSize = parseInt(searchParams.get('pageSize') || '15');
     const search = searchParams.get('search') || '';
     const sortBy = searchParams.get('sortBy') || 'created_at';
     const sortOrder = searchParams.get('sortOrder') || 'desc';
@@ -63,7 +63,7 @@ export async function GET(request: Request) {
         .from('transactions')
         .select('customer_id,amount,status')
         .eq('status', 'unpaid');
-      const unpaidMap = {};
+      const unpaidMap: Record<string, number> = {};
       (txs || []).forEach(tx => {
         unpaidMap[tx.customer_id] = (unpaidMap[tx.customer_id] || 0) + (tx.amount || 0);
       });
@@ -94,6 +94,14 @@ export async function GET(request: Request) {
         .select('*', { count: 'exact' })
         .eq('customer_id', customer.id);
       customer.transaction_count = transaction_count || 0;
+
+      // 총미수금(미납합계) 추가
+      const { data: unpaidTxs } = await supabase
+        .from('transactions')
+        .select('amount')
+        .eq('customer_id', customer.id)
+        .eq('status', 'unpaid');
+      customer.total_unpaid = (unpaidTxs || []).reduce((sum, tx) => sum + (tx.amount || 0), 0);
     }
 
     // 런타임 검증을 임시로 완전히 제거

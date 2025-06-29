@@ -165,6 +165,7 @@ export function Pagination({
             value={itemsPerPage}
             onChange={(e) => handlePageSizeChange(Number(e.target.value))}
             className="px-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            title="페이지당 항목 수 선택"
           >
             {pageSizeOptions.map((size) => (
               <option key={size} value={size}>
@@ -229,7 +230,7 @@ export function QuickJump({
 }
 
 // 페이지네이션 정보 훅 (로직 재사용)
-export function usePagination(totalItems: number, itemsPerPage: number = 20) {
+export function usePagination(totalItems: number, itemsPerPage: number = 15) {
   const searchParams = useSearchParams();
   const currentPage = parseInt(searchParams.get('page') || '1');
   const pageSize = parseInt(searchParams.get('pageSize') || itemsPerPage.toString());

@@ -25,6 +25,7 @@ export interface Customer {
   model_type?: string; // 형식명
   transaction_count?: number;
   fax?: string;
+  total_unpaid?: number; // 총미수금(미납합계)
 }
 
 export interface CustomerPhoto {

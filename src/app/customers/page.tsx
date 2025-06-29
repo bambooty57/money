@@ -19,6 +19,7 @@ export default function CustomersPage() {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [formOpen, setFormOpen] = useState(false);
   const [editCustomer, setEditCustomer] = useState<Customer | null>(null);
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
 
   useEffect(() => {
     fetchCustomers();
@@ -40,6 +41,11 @@ export default function CustomersPage() {
   function handleEdit(customer: Customer) {
     setEditCustomer(customer);
     setFormOpen(true);
+  }
+
+  // 고객 체크박스 선택 핸들러
+  function handleSelectCustomer(customer: Customer | null) {
+    setSelectedCustomer(customer);
   }
 
   return (
@@ -74,8 +80,8 @@ export default function CustomersPage() {
         }}
         customer={editCustomer}
       />
-      <PaginatedCustomerList enableActions={true} onEdit={handleEdit} />
-      <SmsSender customers={customers} onSuccess={fetchCustomers} />
+      <PaginatedCustomerList enableActions={true} onEdit={handleEdit} onSelectCustomer={handleSelectCustomer} />
+      <SmsSender selectedCustomer={selectedCustomer} onSuccess={fetchCustomers} />
     </div>
   );
 } 

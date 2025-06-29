@@ -39,6 +39,7 @@ interface PaginatedCustomerListProps {
   onEdit?: (customer: Customer) => void;
   onDelete?: (id: string) => void;
   enableActions?: boolean;
+  onSelectCustomer?: (customer: Customer | null) => void;
 }
 
 const openKakaoMap = (address: string) => {
@@ -46,10 +47,61 @@ const openKakaoMap = (address: string) => {
   window.open(kakaoMapUrl, '_blank');
 };
 
+function CustomerDetailModal({ customer, open, onClose }: { customer: any, open: boolean, onClose: () => void }) {
+  const [smsMessages, setSmsMessages] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  // 발송내역 fetch
+  useEffect(() => {
+    if (open && customer?.id) {
+      setLoading(true);
+      fetch(`/api/sms-messages?customer_id=${customer.id}`)
+        .then(res => res.json())
+        .then(data => setSmsMessages(data.data || []))
+        .finally(() => setLoading(false));
+    }
+  }, [open, customer]);
+
+  if (!customer) return null;
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{customer.name} 상세정보</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-2">
+          <div><b>이름:</b> {customer.name}</div>
+          <div><b>연락처:</b> {customer.mobile || customer.phone || '-'}</div>
+          <div><b>주소:</b> {customer.address_road || customer.address_jibun || '-'}</div>
+          <div><b>미수금:</b> {customer.total_unpaid?.toLocaleString() ?? '0'}원</div>
+          <div><b>거래건수:</b> {customer.transaction_count ?? 0}건</div>
+          <div><b>사진:</b> {customer.photos && customer.photos.length > 0 ? (
+            <div className="flex space-x-1 mt-1">{customer.photos.map((photo: any, idx: number) => (
+              <img key={idx} src={photo.url} alt="고객사진" className="w-12 h-12 rounded object-cover border" />
+            ))}</div>
+          ) : '-'}
+          </div>
+          <div><b>발송 메시지 내역:</b></div>
+          {loading ? <div>로딩중...</div> : (
+            <ul className="text-xs max-h-40 overflow-y-auto space-y-1">
+              {smsMessages.length === 0 ? <li className="text-gray-400">내역 없음</li> : smsMessages.map((msg, i) => (
+                <li key={i}>
+                  <span className="font-mono">[{msg.sent_at?.slice(0,16).replace('T',' ')}]</span> {msg.content}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export function PaginatedCustomerList({ 
   onEdit, 
   onDelete, 
-  enableActions = false 
+  enableActions = false,
+  onSelectCustomer
 }: PaginatedCustomerListProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -197,6 +249,30 @@ export function PaginatedCustomerList({
     }
   };
 
+  // 체크박스 상태 관리 (1명만 선택 가능)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const handleCheck = (id: string, checked: boolean) => {
+    setSelectedIds(() => {
+      const next = new Set<string>();
+      if (checked) next.add(id); // 1명만 선택
+      return next;
+    });
+  };
+
+  // selectedIds가 바뀔 때마다 onSelectCustomer 호출
+  useEffect(() => {
+    const checked = Array.from(selectedIds);
+    if (checked.length === 1) {
+      const customer = data?.data?.find(c => c.id === checked[0]);
+      onSelectCustomer?.(customer || null);
+    } else {
+      onSelectCustomer?.(null);
+    }
+  }, [selectedIds, data, onSelectCustomer]);
+
+  // 체크된 고객 목록
+  const checkedCustomers = data?.data?.filter(c => selectedIds.has(c.id)) || [];
+
   // 로딩 스켈레톤
   if (loading && !data) {
     return (
@@ -243,8 +319,10 @@ export function PaginatedCustomerList({
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead></TableHead>
                 <TableHead>거래처명</TableHead>
                 <TableHead>거래건수</TableHead>
+                <TableHead>총미수금</TableHead>
                 <TableHead>고객유형</TableHead>
                 <TableHead>주소</TableHead>
                 <TableHead>연락처</TableHead>
@@ -260,20 +338,86 @@ export function PaginatedCustomerList({
               {data.data.map(customer => (
                 <TableRow key={customer.id} className="hover:bg-gray-50 transition-colors">
                   <TableCell className="px-6 py-4 whitespace-nowrap">
-                    <div className="font-medium text-gray-900">{customer.name}</div>
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.has(customer.id)}
+                      onChange={e => handleCheck(customer.id, e.target.checked)}
+                      className="mr-2"
+                      title="고객 선택"
+                    />
+                  </TableCell>
+                  <TableCell className="px-6 py-4 whitespace-nowrap">
+                    <div className="font-medium text-gray-900 cursor-pointer underline" onClick={() => handleDetail(customer)}>{customer.name}</div>
                     <div className="text-sm text-gray-500">{customer.business_name || ''}</div>
                   </TableCell>
                   <TableCell className="px-6 py-4 whitespace-nowrap text-center">{customer.transaction_count ?? 0}건</TableCell>
+                  <TableCell className="px-6 py-4 whitespace-nowrap text-right">
+                    {customer.total_unpaid && customer.total_unpaid > 0 ? (
+                      <span>{customer.total_unpaid.toLocaleString()}원</span>
+                    ) : (
+                      <span className="text-gray-400">0원</span>
+                    )}
+                  </TableCell>
                   <TableCell className="px-6 py-4 whitespace-nowrap">
                     {Array.isArray(customer.customer_type_multi) && customer.customer_type_multi.length > 0 ? customer.customer_type_multi.join(', ') : customer.customer_type || '-'}
                   </TableCell>
                   <TableCell className="px-6 py-4 whitespace-nowrap">
-                    <div>{customer.address_road || '-'}</div>
-                    <div>{customer.address_jibun || ''}</div>
+                    <div>
+                      {customer.address_road ? (
+                        <button
+                          onClick={() => openKakaoMap(customer.address_road!)}
+                          className="text-blue-600 underline hover:text-blue-800"
+                          style={{ cursor: 'pointer', background: 'none', border: 'none', padding: 0 }}
+                          title="카카오맵에서 보기"
+                        >
+                          {customer.address_road}
+                        </button>
+                      ) : (
+                        <span className="text-gray-400">-</span>
+                      )}
+                    </div>
+                    <div>
+                      {customer.address_jibun ? (
+                        <button
+                          onClick={() => openKakaoMap(customer.address_jibun!)}
+                          className="text-blue-600 underline hover:text-blue-800"
+                          style={{ cursor: 'pointer', background: 'none', border: 'none', padding: 0 }}
+                          title="카카오맵에서 보기"
+                        >
+                          {customer.address_jibun}
+                        </button>
+                      ) : (
+                        <span className="text-gray-400">-</span>
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell className="px-6 py-4 whitespace-nowrap">
-                    <div>{customer.mobile || '-'}</div>
-                    <div>{customer.phone || ''}</div>
+                    <div>
+                      {customer.mobile ? (
+                        <a
+                          href={`tel:${customer.mobile.replace(/[^0-9]/g, '')}`}
+                          className="text-blue-600 underline hover:text-blue-800"
+                          style={{ wordBreak: 'break-all' }}
+                        >
+                          {customer.mobile}
+                        </a>
+                      ) : (
+                        <span className="text-gray-400">-</span>
+                      )}
+                    </div>
+                    <div>
+                      {customer.phone ? (
+                        <a
+                          href={`tel:${customer.phone.replace(/[^0-9]/g, '')}`}
+                          className="text-blue-600 underline hover:text-blue-800"
+                          style={{ wordBreak: 'break-all' }}
+                        >
+                          {customer.phone}
+                        </a>
+                      ) : (
+                        <span className="text-gray-400">-</span>
+                      )}
+                    </div>
                     <div>{customer.fax || ''}</div>
                   </TableCell>
                   <TableCell className="px-6 py-4 whitespace-nowrap">{customer.ssn}</TableCell>
@@ -352,12 +496,31 @@ export function PaginatedCustomerList({
         />
       )}
 
+      {/* 수신자 선택: 체크된 고객만 표시 */}
+      <div className="mt-4 p-3 bg-gray-50 rounded border text-sm">
+        <div className="font-semibold mb-1">수신자 선택</div>
+        <ul className="space-y-1">
+          {checkedCustomers.length === 0 ? (
+            <li className="text-gray-400">선택된 고객이 없습니다.</li>
+          ) : (
+            checkedCustomers.map(c => (
+              <li key={c.id}>
+                {c.name} {c.mobile ? `(${c.mobile})` : ''}
+              </li>
+            ))
+          )}
+        </ul>
+      </div>
+
       {/* 로딩 오버레이 */}
       {loading && (
         <div className="absolute inset-0 bg-white bg-opacity-50 flex items-center justify-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
         </div>
       )}
+
+      {/* 고객 상세 모달 */}
+      <CustomerDetailModal customer={detailCustomer} open={detailOpen} onClose={() => setDetailOpen(false)} />
     </div>
   );
 } 
