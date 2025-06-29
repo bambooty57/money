@@ -116,4 +116,6 @@ export interface Payment {
   used_by?: string | null;
   /** 중고인수 일자 */
   used_at?: string | null;
+  /** 기타/융자 등 상세정보 */
+  detail?: string | null;
 } 

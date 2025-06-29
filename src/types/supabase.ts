@@ -257,10 +257,18 @@ export type Database = {
           created_at: string | null
           id: string
           method: string
-          note: string | null
+          detail: string | null; // 기타/융자 등 상세정보
+          note: string | null; // 비고
           paid_at: string
           payer_name: string | null
           transaction_id: string | null
+          paid_by: string | null
+          paid_location: string | null
+          used_at: string | null
+          used_by: string | null
+          used_model: string | null
+          used_model_type: string | null
+          used_place: string | null
         }
         Insert: {
           account_holder?: string | null
@@ -274,10 +282,18 @@ export type Database = {
           created_at?: string | null
           id?: string
           method: string
-          note?: string | null
+          detail?: string | null; // 기타/융자 등 상세정보
+          note?: string | null; // 비고
           paid_at?: string
           payer_name?: string | null
           transaction_id?: string | null
+          paid_by?: string | null
+          paid_location?: string | null
+          used_at?: string | null
+          used_by?: string | null
+          used_model?: string | null
+          used_model_type?: string | null
+          used_place?: string | null
         }
         Update: {
           account_holder?: string | null
@@ -291,10 +307,18 @@ export type Database = {
           created_at?: string | null
           id?: string
           method?: string
-          note?: string | null
+          detail?: string | null; // 기타/융자 등 상세정보
+          note?: string | null; // 비고
           paid_at?: string
           payer_name?: string | null
           transaction_id?: string | null
+          paid_by?: string | null
+          paid_location?: string | null
+          used_at?: string | null
+          used_by?: string | null
+          used_model?: string | null
+          used_model_type?: string | null
+          used_place?: string | null
         }
         Relationships: [
           {
