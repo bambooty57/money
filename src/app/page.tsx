@@ -58,6 +58,21 @@ interface DashboardData {
     status: string;
     total: number;
   }>;
+  dueThisMonth: Array<{
+    id: string;
+    customer_id: string;
+    due_date?: string;
+    amount?: number;
+    status: string;
+  }>;
+  overdueTxs: Array<{
+    id: string;
+    customer_id: string;
+    due_date?: string;
+    amount?: number;
+    status: string;
+    overdue_days?: number;
+  }>;
 }
 
 export default function DashboardPage() {
@@ -254,6 +269,65 @@ export default function DashboardPage() {
               backgroundColor: 'rgba(54, 162, 235, 0.5)'
             }]
           }} />
+        </div>
+      )}
+
+      {/* 이번달 지급예정 거래건 테이블 */}
+      {Array.isArray((data as any).dueThisMonth) && (data as any).dueThisMonth.length > 0 && (
+        <div className="bg-white p-4 rounded-lg shadow mt-8">
+          <h3 className="text-lg font-semibold mb-4 text-blue-700">이번달 지급예정 거래건</h3>
+          <table className="min-w-full">
+            <thead>
+              <tr className="bg-blue-50">
+                <th className="px-4 py-2">거래ID</th>
+                <th className="px-4 py-2">고객ID</th>
+                <th className="px-4 py-2">지급예정일</th>
+                <th className="px-4 py-2">금액</th>
+                <th className="px-4 py-2">상태</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(data as any).dueThisMonth.map((tx: any) => (
+                <tr key={tx.id} className="border-b">
+                  <td className="px-4 py-2">{tx.id}</td>
+                  <td className="px-4 py-2">{tx.customer_id}</td>
+                  <td className="px-4 py-2">{tx.due_date ? new Date(tx.due_date).toLocaleDateString() : '-'}</td>
+                  <td className="px-4 py-2 text-right">{tx.amount?.toLocaleString()}원</td>
+                  <td className="px-4 py-2">{tx.status}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {/* 지급예정일이 지난 거래건 테이블 */}
+      {Array.isArray((data as any).overdueTxs) && (data as any).overdueTxs.length > 0 && (
+        <div className="bg-white p-4 rounded-lg shadow mt-8">
+          <h3 className="text-lg font-semibold mb-4 text-red-700">지급예정일이 지난 거래건</h3>
+          <table className="min-w-full">
+            <thead>
+              <tr className="bg-red-50">
+                <th className="px-4 py-2">거래ID</th>
+                <th className="px-4 py-2">고객ID</th>
+                <th className="px-4 py-2">지급예정일</th>
+                <th className="px-4 py-2">금액</th>
+                <th className="px-4 py-2">상태</th>
+                <th className="px-4 py-2">경과일수</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(data as any).overdueTxs.map((tx: any) => (
+                <tr key={tx.id} className="border-b">
+                  <td className="px-4 py-2">{tx.id}</td>
+                  <td className="px-4 py-2">{tx.customer_id}</td>
+                  <td className="px-4 py-2">{tx.due_date ? new Date(tx.due_date).toLocaleDateString() : '-'}</td>
+                  <td className="px-4 py-2 text-right">{tx.amount?.toLocaleString()}원</td>
+                  <td className="px-4 py-2">{tx.status}</td>
+                  <td className="px-4 py-2 text-red-600 font-bold">{typeof tx.overdue_days === 'number' ? `${tx.overdue_days}일` : '-'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
     </main>

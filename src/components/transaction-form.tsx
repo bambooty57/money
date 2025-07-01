@@ -7,6 +7,7 @@ import { ProductModelTypeDropdown } from './product-model-type-autocomplete'
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Alert } from './ui/alert';
+import { Upload, FileIcon, ImageIcon, Trash2, Download } from 'lucide-react';
 
 interface TransactionFormProps {
   customers: Customer[];
@@ -25,6 +26,7 @@ export default function TransactionForm({ customers, onSuccess, transaction }: T
     status: transaction?.status || 'unpaid',
     description: transaction?.description || '',
     date: transaction?.date || '',
+    due_date: transaction?.due_date || '',
     proofs: [] as File[],
     models_types_id: transaction?.models_types_id || '',
   });
@@ -38,6 +40,7 @@ export default function TransactionForm({ customers, onSuccess, transaction }: T
         status: transaction.status || 'unpaid',
         description: transaction.description || '',
         date: transaction.date || '',
+        due_date: transaction.due_date || '',
         proofs: [],
         models_types_id: transaction.models_types_id || '',
       });
@@ -62,6 +65,7 @@ export default function TransactionForm({ customers, onSuccess, transaction }: T
           status: formData.status,
           description: formData.description || null,
           models_types_id: formData.models_types_id,
+          due_date: formData.due_date || null,
         };
         ({ error } = await supabase
           .from('transactions')
@@ -77,6 +81,7 @@ export default function TransactionForm({ customers, onSuccess, transaction }: T
           status: formData.status,
           description: formData.description || null,
           models_types_id: formData.models_types_id,
+          due_date: formData.due_date || null,
         };
         ({ error } = await supabase
           .from('transactions')
@@ -92,6 +97,7 @@ export default function TransactionForm({ customers, onSuccess, transaction }: T
           status: 'unpaid',
           description: '',
           date: '',
+          due_date: '',
           proofs: [],
           models_types_id: '',
         });
@@ -104,23 +110,62 @@ export default function TransactionForm({ customers, onSuccess, transaction }: T
     }
   };
 
-  // 파일 선택 핸들러
-  const handleProofsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
-      setFormData(prev => ({
-        ...prev,
-        proofs: [...prev.proofs, ...Array.from(e.target.files!)]
-      }));
-    }
-  };
-
-  // 파일 삭제 핸들러
-  const handleRemoveProof = (idx: number) => {
-    setFormData(prev => ({
-      ...prev,
-      proofs: prev.proofs.filter((_, i) => i !== idx)
-    }));
-  };
+  // 파일 첨부 드롭존/리스트 UI
+  function FileDropzone({ files, onFilesChange }: { files: File[]; onFilesChange: (files: File[]) => void }) {
+    const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+      e.preventDefault();
+      const dropped = Array.from(e.dataTransfer.files);
+      onFilesChange([...files, ...dropped].slice(0, 5));
+    };
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      if (e.target.files) {
+        onFilesChange([...files, ...Array.from(e.target.files)].slice(0, 5));
+      }
+    };
+    return (
+      <div>
+        <div
+          className="border-2 border-dashed rounded-lg p-6 text-center cursor-pointer bg-gray-50 hover:bg-blue-50 mb-2"
+          onDrop={handleDrop}
+          onDragOver={e => e.preventDefault()}
+          onClick={() => document.getElementById('file-upload-input')?.click()}
+        >
+          <Upload className="mx-auto h-8 w-8 text-blue-400 mb-2" />
+          <div className="text-gray-600">여기로 파일을 드래그하거나 <span className="underline text-blue-600">클릭</span>하여 첨부</div>
+          <div className="text-xs text-gray-400 mt-1">최대 5개, 파일당 10MB</div>
+          <input
+            id="file-upload-input"
+            type="file"
+            multiple
+            className="hidden"
+            onChange={handleFileChange}
+            accept="image/*,application/pdf"
+            title="첨부파일 선택"
+            placeholder="첨부할 파일을 선택하세요"
+          />
+        </div>
+        <div className="space-y-2">
+          {files.map((file, idx) => (
+            <div key={file.name + idx} className="flex items-center bg-white rounded shadow-sm px-2 py-1">
+              {file.type.startsWith('image') ? (
+                <img src={URL.createObjectURL(file)} alt={file.name} className="w-8 h-8 object-cover rounded mr-2" />
+              ) : (
+                <FileIcon className="w-6 h-6 text-gray-400 mr-2" />
+              )}
+              <span className="flex-1 truncate text-sm">{file.name}</span>
+              <span className="text-xs text-gray-400 ml-2">{(file.size/1024).toFixed(1)}KB</span>
+              <Button variant="ghost" size="icon" type="button" onClick={e => { e.stopPropagation(); onFilesChange(files.filter((_, i) => i !== idx)); }}>
+                <Trash2 className="w-4 h-4 text-red-500" />
+              </Button>
+              <Button variant="ghost" size="icon" type="button" onClick={e => { e.stopPropagation(); window.open(URL.createObjectURL(file)); }}>
+                <Download className="w-4 h-4 text-blue-500" />
+              </Button>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     setFormData(prev => ({ ...prev, type: e.target.value }));
@@ -197,7 +242,7 @@ export default function TransactionForm({ customers, onSuccess, transaction }: T
 
       <div>
         <label className="block text-sm font-medium text-gray-700">
-          일자
+          거래일자
         </label>
         <input
           type="date"
@@ -205,8 +250,21 @@ export default function TransactionForm({ customers, onSuccess, transaction }: T
           onChange={e => setFormData(prev => ({ ...prev, date: e.target.value }))}
           className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
           required
-          title="거래 일자를 입력하세요"
-          aria-label="거래 일자"
+          title="거래일자를 입력하세요"
+          aria-label="거래일자"
+        />
+      </div>
+
+      <div>
+        <label htmlFor="due_date">지급예정일</label>
+        <input
+          type="date"
+          id="due_date"
+          name="due_date"
+          value={formData.due_date}
+          onChange={e => setFormData(prev => ({ ...prev, due_date: e.target.value }))}
+          className="w-full border rounded p-2"
+          required
         />
       </div>
 
@@ -226,22 +284,7 @@ export default function TransactionForm({ customers, onSuccess, transaction }: T
 
       <div>
         <label htmlFor="proofs">첨부파일(여러 개 선택 가능)</label>
-        <input
-          id="proofs"
-          name="proofs"
-          type="file"
-          multiple
-          onChange={handleProofsChange}
-          className="w-full border rounded p-2"
-        />
-        <div className="flex flex-wrap gap-2 mt-2">
-          {formData.proofs.map((file, idx) => (
-            <div key={idx} className="relative border rounded p-1 bg-gray-50 flex items-center">
-              <span className="truncate max-w-xs text-sm">{file.name}</span>
-              <button type="button" className="ml-2 text-red-500" onClick={() => handleRemoveProof(idx)}>삭제</button>
-            </div>
-          ))}
-        </div>
+        <FileDropzone files={formData.proofs} onFilesChange={files => setFormData(prev => ({ ...prev, proofs: files }))} />
       </div>
 
       <div>

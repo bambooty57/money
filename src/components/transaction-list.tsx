@@ -33,6 +33,7 @@ export function TransactionList() {
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
   const [formOpen, setFormOpen] = useState(false);
+  const [totalCount, setTotalCount] = useState<number>(0);
 
   useEffect(() => {
     async function fetchData() {
@@ -47,6 +48,10 @@ export function TransactionList() {
           )
         );
         setSummaries(summaryResults);
+        // 전체 거래 row 수 fetch
+        const txRes = await fetch('/api/transactions?count=1');
+        const txData = await txRes.json();
+        setTotalCount(txData.count || 0);
       } catch (err) {
         setError(err instanceof Error ? err.message : '알 수 없는 오류가 발생했습니다.');
       } finally {
@@ -78,7 +83,6 @@ export function TransactionList() {
   const totalSales = summaries.reduce((sum, s) => sum + (s.total_amount || 0), 0);
   const totalPaid = summaries.reduce((sum, s) => sum + (s.total_paid || 0), 0);
   const totalUnpaid = summaries.reduce((sum, s) => sum + (s.total_unpaid || 0), 0);
-  const totalCount = summaries.length;
   const totalRatio = totalSales ? ((totalPaid / totalSales) * 100).toFixed(1) : '0.0';
 
   // Remove duplicate customers by name

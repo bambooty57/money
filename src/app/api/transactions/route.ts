@@ -1,8 +1,17 @@
 import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
+    const url = request instanceof Request ? new URL(request.url) : null;
+    const countOnly = url?.searchParams.get('count') === '1';
+    if (countOnly) {
+      const { count, error } = await supabase
+        .from('transactions')
+        .select('*', { count: 'exact', head: true });
+      if (error) throw error;
+      return NextResponse.json({ count: count ?? 0 });
+    }
     const { data, error } = await supabase
       .from('transactions')
       .select('*,customers(*)')
