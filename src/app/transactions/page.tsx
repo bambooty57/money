@@ -16,9 +16,11 @@ export default function TransactionsPage() {
   }, []);
 
   return (
-    <main className="p-4">
-      <h1 className="text-2xl font-bold mb-4">거래 관리</h1>
-      <TransactionList />
-    </main>
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-screen-2xl mx-auto px-5 py-6">
+        <h1 className="text-3xl font-bold mb-6 text-gray-800">거래 관리</h1>
+        <TransactionList />
+      </div>
+    </div>
   );
 } 

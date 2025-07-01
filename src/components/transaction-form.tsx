@@ -98,6 +98,7 @@ export default function TransactionForm({ customers, onSuccess, transaction }: T
           description: formData.description || null,
           models_types_id: formData.models_types_id,
           due_date: formData.due_date || null,
+          created_at: formData.date || undefined,
         };
         ({ error } = await supabase
           .from('transactions')
@@ -114,6 +115,7 @@ export default function TransactionForm({ customers, onSuccess, transaction }: T
           description: formData.description || null,
           models_types_id: formData.models_types_id,
           due_date: formData.due_date || null,
+          created_at: formData.date || undefined,
         };
         const { data: inserted, error: insertError } = await supabase
           .from('transactions')

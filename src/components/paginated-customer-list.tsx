@@ -249,10 +249,6 @@ export function PaginatedCustomerList({
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-end mb-2">
-        <button onClick={handleExcelDownload} className="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700">엑셀 다운로드</button>
-        <a ref={downloadRef} style={{ display: 'none' }} />
-      </div>
       {/* 검색 및 필터 영역 */}
       <div className="flex flex-col sm:flex-row gap-4 justify-between items-center">
         <div className="flex-1 max-w-md">
@@ -270,84 +266,84 @@ export function PaginatedCustomerList({
       </div>
 
       {/* 테이블 */}
-      <div className="bg-white rounded-lg shadow overflow-hidden">
+      <div className="bg-white rounded-lg shadow-lg overflow-hidden border border-gray-200">
         <div className="overflow-x-auto">
           <Table>
-            <TableHeader>
+            <TableHeader className="bg-gray-100">
               <TableRow>
-                <TableHead></TableHead>
-                <TableHead>거래처명</TableHead>
-                <TableHead>거래건수</TableHead>
-                <TableHead>총미수금</TableHead>
-                <TableHead>고객유형</TableHead>
-                <TableHead>주소</TableHead>
-                <TableHead>연락처</TableHead>
-                <TableHead>주민등록번호</TableHead>
-                <TableHead>사업자번호</TableHead>
-                <TableHead>사진</TableHead>
+                <TableHead className="px-4 py-2 text-base font-semibold text-gray-700"></TableHead>
+                <TableHead className="px-4 py-2 text-base font-semibold text-gray-700">거래처명</TableHead>
+                <TableHead className="px-4 py-2 text-base font-semibold text-gray-700">거래건수</TableHead>
+                <TableHead className="px-4 py-2 text-base font-semibold text-gray-700">총미수금</TableHead>
+                <TableHead className="px-4 py-2 text-base font-semibold text-gray-700">고객유형</TableHead>
+                <TableHead className="px-4 py-2 text-base font-semibold text-gray-700">주소</TableHead>
+                <TableHead className="px-4 py-2 text-base font-semibold text-gray-700">연락처</TableHead>
+                <TableHead className="px-4 py-2 text-base font-semibold text-gray-700">주민등록번호</TableHead>
+                <TableHead className="px-4 py-2 text-base font-semibold text-gray-700">사업자번호</TableHead>
+                <TableHead className="px-4 py-2 text-base font-semibold text-gray-700">사진</TableHead>
                 {enableActions && (
-                  <TableHead>작업</TableHead>
+                  <TableHead className="px-4 py-2 text-base font-semibold text-gray-700">작업</TableHead>
                 )}
               </TableRow>
             </TableHeader>
             <TableBody>
               {data.data.map(customer => (
-                <TableRow key={customer.id} className="hover:bg-gray-50 transition-colors">
-                  <TableCell className="px-6 py-4 whitespace-nowrap">
+                <TableRow key={customer.id} className="hover:bg-gray-50 transition-colors border-b border-gray-200">
+                  <TableCell className="px-4 py-2 whitespace-nowrap">
                     <input
                       type="checkbox"
                       checked={selectedIds.has(customer.id)}
                       onChange={e => handleCheck(customer.id, e.target.checked)}
-                      className="mr-2"
+                      className="mr-3 w-5 h-5"
                       title="고객 선택"
                     />
                   </TableCell>
-                  <TableCell className="px-6 py-4 whitespace-nowrap">
-                    <div className="font-medium text-gray-900">{customer.name}</div>
-                    <div className="text-sm text-gray-500">{customer.business_name || ''}</div>
+                  <TableCell className="px-4 py-2 whitespace-nowrap">
+                    <div className="font-semibold text-lg text-gray-900">{customer.name}</div>
+                    <div className="text-base text-gray-600">{customer.business_name || ''}</div>
                   </TableCell>
-                  <TableCell className="px-6 py-4 whitespace-nowrap text-center">{customer.transaction_count ?? 0}건</TableCell>
-                  <TableCell className="px-6 py-4 whitespace-nowrap text-right">
+                  <TableCell className="px-4 py-2 whitespace-nowrap text-center text-lg text-gray-900">{customer.transaction_count ?? 0}건</TableCell>
+                  <TableCell className="px-4 py-2 whitespace-nowrap text-right">
                     {customer.total_unpaid && customer.total_unpaid > 0 ? (
-                      <span>{customer.total_unpaid.toLocaleString()}원</span>
+                      <span className="text-lg font-semibold text-red-700">{customer.total_unpaid.toLocaleString()}원</span>
                     ) : (
-                      <span className="text-gray-400">0원</span>
+                      <span className="text-lg text-gray-400">0원</span>
                     )}
                   </TableCell>
-                  <TableCell className="px-6 py-4 whitespace-nowrap">
+                  <TableCell className="px-4 py-2 whitespace-nowrap text-base text-gray-900">
                     {Array.isArray(customer.customer_type_multi) && customer.customer_type_multi.length > 0 ? customer.customer_type_multi.join(', ') : customer.customer_type || '-'}
                   </TableCell>
-                  <TableCell className="px-6 py-4 whitespace-nowrap">
-                    <div>
-                      {customer.address_road ? (
-                        <button
-                          onClick={() => openKakaoMap(customer.address_road!)}
-                          className="text-blue-600 underline hover:text-blue-800"
-                          style={{ cursor: 'pointer', background: 'none', border: 'none', padding: 0 }}
-                          title="카카오맵에서 보기"
-                        >
-                          {customer.address_road}
-                        </button>
-                      ) : (
-                        <span className="text-gray-400">-</span>
-                      )}
-                    </div>
-                    <div>
-                      {customer.address_jibun ? (
-                        <button
-                          onClick={() => openKakaoMap(customer.address_jibun!)}
-                          className="text-blue-600 underline hover:text-blue-800"
-                          style={{ cursor: 'pointer', background: 'none', border: 'none', padding: 0 }}
-                          title="카카오맵에서 보기"
-                        >
-                          {customer.address_jibun}
-                        </button>
-                      ) : (
-                        <span className="text-gray-400">-</span>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell className="px-6 py-4 whitespace-nowrap">
+                  <TableCell className="px-4 py-2 whitespace-nowrap">
+                                          <div>
+                        {customer.address_road ? (
+                          <button
+                            onClick={() => openKakaoMap(customer.address_road!)}
+                            className="text-base text-blue-600 underline hover:text-blue-800 font-medium"
+                            style={{ cursor: 'pointer', background: 'none', border: 'none', padding: 0 }}
+                            title="카카오맵에서 보기"
+                          >
+                            {customer.address_road}
+                          </button>
+                        ) : (
+                          <span className="text-base text-gray-400">-</span>
+                        )}
+                      </div>
+                      <div>
+                        {customer.address_jibun ? (
+                          <button
+                            onClick={() => openKakaoMap(customer.address_jibun!)}
+                            className="text-base text-blue-600 underline hover:text-blue-800 font-medium"
+                            style={{ cursor: 'pointer', background: 'none', border: 'none', padding: 0 }}
+                            title="카카오맵에서 보기"
+                          >
+                            {customer.address_jibun}
+                          </button>
+                        ) : (
+                          <span className="text-base text-gray-400">-</span>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell className="px-4 py-2 whitespace-nowrap">
                     <div>
                       {customer.mobile ? (
                         <a
@@ -460,22 +456,6 @@ export function PaginatedCustomerList({
           className="mt-6"
         />
       )}
-
-      {/* 수신자 선택: 체크된 고객만 표시 */}
-      <div className="mt-4 p-3 bg-gray-50 rounded border text-sm">
-        <div className="font-semibold mb-1">수신자 선택</div>
-        <ul className="space-y-1">
-          {checkedCustomers.length === 0 ? (
-            <li className="text-gray-400">선택된 고객이 없습니다.</li>
-          ) : (
-            checkedCustomers.map(c => (
-              <li key={c.id}>
-                {c.name} {c.mobile ? `(${c.mobile})` : ''}
-              </li>
-            ))
-          )}
-        </ul>
-      </div>
 
       {/* 로딩 오버레이 */}
       {loading && (

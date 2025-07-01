@@ -68,10 +68,19 @@ export default async function CustomerTransactionsPage(props: any) {
   // 고객명 추출
   const customerName = txs[0]?.customers?.name || customerId;
   return (
-    <div className="max-w-4xl mx-auto p-4">
-      <HeaderButtons />
-      <h1 className="text-2xl font-bold mb-4">거래상세 - {customerName}</h1>
-      <TransactionDetailClient transactions={txs.map(tx => ({ ...tx, customer_id: tx.customer_id || customerId }))} customerId={customerId} />
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-screen-2xl mx-auto px-8 py-8">
+        <h1 className="text-3xl md:text-4xl font-bold text-gray-800 flex items-center gap-3 mb-8">
+          📑 거래 관리
+        </h1>
+        <div className="bg-white rounded-lg shadow-lg p-8 mb-8 border-2 border-blue-200">
+          <div className="flex justify-between items-center mb-8">
+            <h1 className="text-4xl font-bold text-gray-800">거래상세 - {customerName}</h1>
+            <HeaderButtons />
+          </div>
+          <TransactionDetailClient transactions={txs.map(tx => ({ ...tx, customer_id: tx.customer_id || customerId }))} customerId={customerId} />
+        </div>
+      </div>
     </div>
   );
 } 

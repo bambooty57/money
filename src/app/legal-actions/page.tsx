@@ -18,7 +18,7 @@ export default function LegalActionsPage() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="max-w-screen-2xl mx-auto px-5 py-8">
       <h1 className="text-2xl font-bold mb-8">법적 조치 관리</h1>
       <div className="grid grid-cols-1 gap-8">
         <LegalActionList />

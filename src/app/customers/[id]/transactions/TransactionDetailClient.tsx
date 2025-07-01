@@ -179,25 +179,33 @@ function PaymentForm({ transactionId, onSuccess, setSuccessMsg, setErrorMsg }: {
     }
   }
   return (
-    <form onSubmit={handleSubmit} className="space-y-2 bg-blue-50 p-3 rounded mb-4">
-      <div className="flex gap-2 items-center">
-        <label>입금방법</label>
-        <select value={method} onChange={e => setMethod(e.target.value)} className="border rounded px-2 py-1" title="입금방법 선택">
-          <option value="현금">현금</option>
-          <option value="계좌이체">계좌이체</option>
-          <option value="카드">카드</option>
-          <option value="중고인수">중고인수</option>
-          <option value="융자">융자</option>
-          <option value="기타">기타</option>
-        </select>
+    <form onSubmit={handleSubmit} className="space-y-6 bg-blue-50 p-6 rounded-lg mb-6 border-2 border-blue-200">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="flex flex-col gap-2">
+          <label className="text-lg font-bold text-gray-800">입금방법</label>
+          <select value={method} onChange={e => setMethod(e.target.value)} className="border-2 border-gray-300 rounded-lg px-4 py-3 text-lg bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-200" title="입금방법 선택">
+            <option value="현금">현금</option>
+            <option value="계좌이체">계좌이체</option>
+            <option value="카드">카드</option>
+            <option value="중고인수">중고인수</option>
+            <option value="융자">융자</option>
+            <option value="기타">기타</option>
+          </select>
+        </div>
+        <div className="flex flex-col gap-2">
+          <label className="text-lg font-bold text-gray-800">입금일자</label>
+          <input type="date" value={paidAt} onChange={e => setPaidAt(e.target.value)} className="border-2 border-gray-300 rounded-lg px-4 py-3 text-lg bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-200" required title="입금일자" placeholder="입금일자" />
+        </div>
       </div>
-      <div className="flex gap-2 items-center">
-        <label>입금일자</label>
-        <input type="date" value={paidAt} onChange={e => setPaidAt(e.target.value)} className="border rounded px-2 py-1" required title="입금일자" placeholder="입금일자" />
-        <label>입금자</label>
-        <input type="text" value={payerName} onChange={e => setPayerName(e.target.value)} className="border rounded px-2 py-1" required title="입금자" placeholder="입금자" />
-        <label>금액</label>
-        <input type="number" value={amount} onChange={e => setAmount(e.target.value)} className="border rounded px-2 py-1" required title="금액" placeholder="금액" />
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="flex flex-col gap-2">
+          <label className="text-lg font-bold text-gray-800">입금자</label>
+          <input type="text" value={payerName} onChange={e => setPayerName(e.target.value)} className="border-2 border-gray-300 rounded-lg px-4 py-3 text-lg bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-200" required title="입금자" placeholder="입금자를 입력하세요" />
+        </div>
+        <div className="flex flex-col gap-2">
+          <label className="text-lg font-bold text-gray-800">금액</label>
+          <input type="number" value={amount} onChange={e => setAmount(e.target.value)} className="border-2 border-gray-300 rounded-lg px-4 py-3 text-lg bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-200" required title="금액" placeholder="금액을 입력하세요" />
+        </div>
       </div>
       {method === '카드' && (
         <div className="flex flex-wrap gap-2 items-center bg-white p-2 rounded">
@@ -290,8 +298,10 @@ function PaymentForm({ transactionId, onSuccess, setSuccessMsg, setErrorMsg }: {
           <input type="text" value={otherNote} onChange={e => setOtherNote(e.target.value)} className="border rounded px-2 py-1" title="비고" placeholder="비고" />
         </div>
       )}
-      <div className="flex justify-end">
-        <button type="submit" className="bg-blue-600 text-white px-4 py-1 rounded" disabled={loading}>{loading ? '저장중...' : '입금 등록'}</button>
+      <div className="flex justify-center mt-8">
+        <button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-lg text-xl font-bold min-w-[200px] shadow-lg transition-colors duration-200 focus:ring-4 focus:ring-blue-300" disabled={loading}>
+          {loading ? '저장 중...' : '💾 입금 등록'}
+        </button>
       </div>
     </form>
   );
@@ -325,15 +335,18 @@ async function handlePdfExportPdfLib(selectedTx: TransactionWithDetails, filtere
     const fontBytes = await fetch(fontUrl).then(res => res.arrayBuffer());
     const font = await pdfDoc.embedFont(fontBytes);
 
-    // 1. 상단 로고 이미지 (좌측 상단 배치, 크기 축소)
+    // 1. 상단 헤더 정렬 (로고, 제목, 출력일 같은 높이로 배치)
+    const headerY = 780; // 공통 기준선
+    
+    // 로고 이미지 (좌측)
     try {
       const logoUrl = '/kubotalogo5.png';
       const logoResponse = await fetch(logoUrl);
       if (logoResponse.ok) {
         const logoBytes = await logoResponse.arrayBuffer();
         const logoImg = await pdfDoc.embedPng(logoBytes);
-        // 좌측 상단 배치, 크기 축소로 공간 절약
-        page.drawImage(logoImg, { x: 50, y: 760, width: 180, height: 72 });
+        // 로고 중앙 정렬을 위해 y 위치 조정
+        page.drawImage(logoImg, { x: 50, y: headerY - 20, width: 150, height: 60 });
         console.log('✅ 로고 이미지 로드 성공');
       } else {
         console.warn('⚠️ 로고 파일을 찾을 수 없습니다:', logoUrl);
@@ -342,12 +355,28 @@ async function handlePdfExportPdfLib(selectedTx: TransactionWithDetails, filtere
       console.error('❌ 로고 로드 실패:', logoError);
     }
 
-    // 제목 (우측 상단 배치)
-    page.drawText('거래명세서', { x: 400, y: 790, size: 24, font, color: rgb(0,0,0) });
-    page.drawText('Transaction Statement', { x: 400, y: 770, size: 12, font, color: rgb(0.5,0.5,0.5) });
+    // 입금명세서 제목 (로고 옆)
+    page.drawText('입금명세서', { 
+      x: 220, 
+      y: headerY, 
+      size: 28, 
+      font, 
+      color: rgb(0,0,0) 
+    });
     
-    // y 위치 변수 선언 (헤더 영역 아래로 조정)
-    let y = 720;
+    // 출력일 (우측, 좌측으로 이동)
+    const today = new Date();
+    const printDate = `${today.getFullYear()}.${String(today.getMonth() + 1).padStart(2, '0')}.${String(today.getDate()).padStart(2, '0')}`;
+    page.drawText(`출력일: ${printDate}`, { 
+      x: 420, 
+      y: headerY, 
+      size: 11, 
+      font, 
+      color: rgb(0.5,0.5,0.5) 
+    });
+    
+    // y 위치 변수 선언 (입금명세서와 구분선 간격 단축)
+    let y = 760;
     
     page.drawLine({ start: {x: 50, y}, end: {x: 545, y}, thickness: 2, color: rgb(0.7,0.7,0.8) });
     y -= 25;
@@ -383,26 +412,74 @@ async function handlePdfExportPdfLib(selectedTx: TransactionWithDetails, filtere
     };
     const customerTable = [
       ['고객명', displayValue(getField('name', 'customer_name'))],
-      ['고객유형', displayValue(getField('type', 'customer_type'))],
+      ['고객유형', displayValue(getField('customer_type', 'type'))],
       ['주민번호', displayValue(getField('ssn', 'rrn'))],
-      ['사업자번호', displayValue(getField('business_number', 'biznum', 'business_reg_no', 'biz_no'))],
-      ['휴대폰번호', displayValue(getField('mobile', 'mobile_phone', 'cell_phone', 'phone', 'phone_number'))],
-      ['주소', displayValue(getField('address', 'addr'))]
+      ['사업자번호', displayValue(getField('business_no', 'business_number', 'biznum', 'business_reg_no', 'biz_no'))],
+      ['휴대폰번호', displayValue(getField('mobile', 'phone', 'mobile_phone', 'cell_phone', 'phone_number'))],
+      ['주소', displayValue(getField('address', 'addr', 'road_address', 'road_addr'))],
+      ['지번주소', displayValue(getField('jibun_address', 'jibun_addr', 'lot_address', 'old_address', 'jibun', 'lot_addr', 'address_jibun'))]
     ];
-    // 고객정보 테이블 (깔끔한 스타일, 배경색/테두리 제거)
+    // 고객정보 박스 테이블 (2열 구조: 1열=고객정보 7행, 2열=고객사진 1행) - 간격 최적화
+    const customerBoxX = 60;
+    const customerBoxY = y;
+    const customerBoxWidth = 350;
+    const customerBoxHeight = 126; // 7행 * 15px + 여백 21px = 126px (기존 158px에서 32px 축소)
+    const photoBoxX = customerBoxX + customerBoxWidth + 10;
+    const photoBoxWidth = 120;
+    
+    // 고객정보 제목 (박스 밖 좌측 상단) - 삭제됨
+    
+    // 1열: 고객정보 박스 (테두리 그리기)
+    page.drawRectangle({
+      x: customerBoxX,
+      y: customerBoxY - customerBoxHeight,
+      width: customerBoxWidth,
+      height: customerBoxHeight,
+      borderColor: rgb(0.7, 0.7, 0.7),
+      borderWidth: 1
+    });
+    
+    // 고객정보 7행 표시 (박스 내부, 간격 최적화)
     customerTable.forEach(([k, v], i) => {
-      // 텍스트만 표시 (박스 제거)
-      page.drawText(`${k}:`, { x: 65, y: y-22*i+6, size: 12, font, color: rgb(0.3,0.3,0.3) });
-      page.drawText(v, { x: 140, y: y-22*i+6, size: 12, font, color: rgb(0,0,0) });
-      // 구분선 (옵션)
+      const rowY = customerBoxY - 15 - (i * 15); // 행 간격 15px로 축소 (기존 18px)
+      // 라벨
+      page.drawText(`${k}:`, { 
+        x: customerBoxX + 10, 
+        y: rowY, 
+        size: 9, 
+        font, 
+        color: rgb(0.3,0.3,0.3) 
+      });
+      // 값
+      page.drawText(v, { 
+        x: customerBoxX + 100, 
+        y: rowY, 
+        size: 9, 
+        font, 
+        color: rgb(0,0,0) 
+      });
+      
+      // 행 구분선 (텍스트 바로 아래 정렬)
       if (i < customerTable.length - 1) {
         page.drawLine({ 
-          start: {x: 60, y: y-22*i-11}, 
-          end: {x: 460, y: y-22*i-11}, 
-          thickness: 0.5, 
+          start: {x: customerBoxX + 5, y: rowY - 3}, 
+          end: {x: customerBoxX + customerBoxWidth - 5, y: rowY - 3}, 
+          thickness: 0.3, 
           color: rgb(0.9,0.9,0.9) 
         });
       }
+    });
+    
+    // 고객사진 제목 (박스 밖 좌측 상단) - 삭제됨
+    
+    // 2열: 고객사진 박스 (테두리 그리기)
+    page.drawRectangle({
+      x: photoBoxX,
+      y: customerBoxY - customerBoxHeight,
+      width: photoBoxWidth,
+      height: customerBoxHeight,
+      borderColor: rgb(0.7, 0.7, 0.7),
+      borderWidth: 1
     });
     // 고객 사진 (우측) - 실시간 API 호출로 사진 가져오기
     let photoUrl = '';
@@ -617,15 +694,23 @@ async function handlePdfExportPdfLib(selectedTx: TransactionWithDetails, filtere
           }
         }
         
-        // PDF에 이미지 그리기 (크기 2배 확대, 우측으로 재조정)
+        // PDF에 이미지 그리기 (박스 크기에 정확히 맞춤)
+        const maxPhotoWidth = photoBoxWidth - 10;  // 여백 줄임
+        const maxPhotoHeight = customerBoxHeight - 10; // 여백 줄임
+        const photoDims = photoImg.scale(Math.min(maxPhotoWidth/photoImg.width, maxPhotoHeight/photoImg.height));
+        
+        // 사진 박스 중앙에 배치
+        const photoX = photoBoxX + (photoBoxWidth - photoDims.width) / 2;
+        const photoY = customerBoxY - 5 - photoDims.height; // 상단 여백 최소화
+        
         page.drawImage(photoImg, { 
-          x: 400, 
-          y: y-90, 
-          width: 140, 
-          height: 140 
+          x: photoX, 
+          y: photoY, 
+          width: photoDims.width, 
+          height: photoDims.height 
         });
         
-        console.log('✅ 고객 사진 PDF 출력 성공!');
+        console.log('✅ 고객 사진 박스 내부 출력 성공!');
         
       } catch (photoError) {
         const errorMessage = photoError instanceof Error ? photoError.message : String(photoError);
@@ -638,39 +723,147 @@ async function handlePdfExportPdfLib(selectedTx: TransactionWithDetails, filtere
           '전체 오류': photoError
         });
         
-        // 사용자에게 더 구체적인 오류 메시지 표시
+        // 사용자에게 더 구체적인 오류 메시지 표시 (박스 내부)
         const errorMsg = errorMessage.includes('JPEG') || errorMessage.includes('PNG') 
           ? '이미지 형식 오류' 
           : errorMessage.includes('fetch') || errorMessage.includes('다운로드')
           ? '이미지 다운로드 실패'
           : '이미지 처리 실패';
           
-        page.drawText(errorMsg, { x: 440, y: y-40, size: 9, font, color: rgb(0.8,0.2,0.2) });
+        page.drawText(errorMsg, { 
+          x: photoBoxX + 15, 
+          y: customerBoxY - 70, 
+          size: 9, 
+          font, 
+          color: rgb(0.8,0.2,0.2) 
+        });
       }
     } else {
       console.warn('⚠️ 사진 URL을 찾을 수 없음');
-              page.drawText('사진 없음', { x: 440, y: y-40, size: 12, font, color: rgb(0.5,0.5,0.5) });
+      page.drawText('사진 없음', { 
+        x: photoBoxX + 35, 
+        y: customerBoxY - 70, 
+        size: 10, 
+        font, 
+        color: rgb(0.5,0.5,0.5) 
+      });
     }
-    y -= Math.max(22*customerTable.length+20, 160); // 사진 크기 고려하여 더 많은 공간 확보
+    
+    y -= customerBoxHeight + 10; // 고객정보 박스 높이만큼 y 위치 조정 (126px + 10px)
 
-    // 3. 거래 정보 (컬러 강조)
-    const info = [
-      [`거래ID`, selectedTx.id || '', rgb(0.2,0.2,0.2)],
-      [`거래일자`, selectedTx.created_at?.slice(0,10) || '', rgb(0,0,0)],
-      [`거래유형`, selectedTx.type || '', rgb(0.2,0.2,0.5)],
-      [`기종/모델`, `${selectedTx.models_types?.model || ''} / ${selectedTx.models_types?.type || ''}`, rgb(0.2,0.2,0.5)],
-      [`매출액`, `${selectedTx.amount?.toLocaleString() || ''}원`, rgb(0.1,0.4,0.1)],
-      [`입금액`, `${(selectedTx.paid_amount||0).toLocaleString()}원`, rgb(0.1,0.4,0.1)],
-      [`잔금`, `${(selectedTx.unpaid_amount||0).toLocaleString()}원`, rgb(0.7,0.1,0.1)],
-      [`입금율`, selectedTx.paid_ratio !== undefined && selectedTx.paid_ratio !== null ? (selectedTx.paid_ratio*100).toFixed(1)+'%' : '-', rgb(0.1,0.4,0.1)],
-      [`상태`, selectedTx.status || '', rgb(0.7,0.1,0.1)],
-      [`비고`, selectedTx.description || '', rgb(0.3,0.3,0.3)]
-    ];
-    info.forEach(([k, v, color]) => {
-      page.drawText(`${k}: ${v}`, { x: 60, y, size: 12, font, color });
-      y -= 18;
+    // 3. 거래 정보 (박스 형태, 1행3열-2행4열-3행1열 구조)
+    const transactionData = {
+      row1: [
+        ['거래일자', selectedTx.created_at?.slice(0,10) || ''],
+        ['거래유형', selectedTx.type || ''],
+        ['기종/모델', `${selectedTx.models_types?.model || ''} / ${selectedTx.models_types?.type || ''}`]
+      ],
+      row2: [
+        ['매출액', `${selectedTx.amount?.toLocaleString() || ''}원`],
+        ['입금액', `${(selectedTx.paid_amount||0).toLocaleString()}원`],
+        ['잔금', `${(selectedTx.unpaid_amount||0).toLocaleString()}원`],
+        ['입금율', selectedTx.paid_ratio !== undefined && selectedTx.paid_ratio !== null ? selectedTx.paid_ratio.toFixed(1)+'%' : '-']
+      ],
+      row3: [
+        ['비고', selectedTx.description || '']
+      ]
+    };
+
+    // 거래정보 박스
+    const transactionBoxX = 60;
+    const transactionBoxY = y;
+    const transactionBoxWidth = 480;
+    const transactionBoxHeight = 90; // 행간격 확대로 높이 증가 (74 → 90)
+    
+    // 거래정보 박스 테두리
+    page.drawRectangle({
+      x: transactionBoxX,
+      y: transactionBoxY - transactionBoxHeight,
+      width: transactionBoxWidth,
+      height: transactionBoxHeight,
+      borderColor: rgb(0.7,0.7,0.8),
+      borderWidth: 1
     });
-    y -= 10;
+
+    // 1행 3열 (거래일자, 거래유형, 기종/모델)
+    const row1Y = transactionBoxY - 18;
+    const col3Width = transactionBoxWidth / 3;
+    transactionData.row1.forEach(([k, v], i) => {
+      const colX = transactionBoxX + 10 + (i * col3Width);
+      // 라벨
+      page.drawText(`${k}:`, { 
+        x: colX, 
+        y: row1Y, 
+        size: 9, 
+        font, 
+        color: rgb(0.3,0.3,0.3) 
+      });
+      // 값
+      page.drawText(v, { 
+        x: colX, 
+        y: row1Y - 12, 
+        size: 9, 
+        font, 
+        color: rgb(0,0,0) 
+      });
+    });
+
+    // 2행 4열 (매출액, 입금액, 잔금, 입금율)
+    const row2Y = transactionBoxY - 48; // 간격 확대 (44 → 48)
+    const col4Width = transactionBoxWidth / 4;
+    transactionData.row2.forEach(([k, v], i) => {
+      const colX = transactionBoxX + 10 + (i * col4Width);
+      // 라벨
+      page.drawText(`${k}:`, { 
+        x: colX, 
+        y: row2Y, 
+        size: 9, 
+        font, 
+        color: rgb(0.3,0.3,0.3) 
+      });
+      // 값
+      page.drawText(v, { 
+        x: colX, 
+        y: row2Y - 12, 
+        size: 9, 
+        font, 
+        color: rgb(0,0,0) 
+      });
+    });
+
+    // 3행 1열 (비고)
+    const row3Y = transactionBoxY - 78; // 간격 확대 (68 → 78)
+    const [remarkLabel, remarkValue] = transactionData.row3[0];
+    page.drawText(`${remarkLabel}:`, { 
+      x: transactionBoxX + 10, 
+      y: row3Y, 
+      size: 9, 
+      font, 
+      color: rgb(0.3,0.3,0.3) 
+    });
+    page.drawText(remarkValue, { 
+      x: transactionBoxX + 50, 
+      y: row3Y, 
+      size: 9, 
+      font, 
+      color: rgb(0,0,0) 
+    });
+
+    // 행간 구분선
+    page.drawLine({ 
+      start: {x: transactionBoxX + 5, y: row1Y - 18}, 
+      end: {x: transactionBoxX + transactionBoxWidth - 5, y: row1Y - 18}, 
+      thickness: 0.3, 
+      color: rgb(0.9,0.9,0.9) 
+    });
+    page.drawLine({ 
+      start: {x: transactionBoxX + 5, y: row2Y - 18}, 
+      end: {x: transactionBoxX + transactionBoxWidth - 5, y: row2Y - 18}, 
+      thickness: 0.3, 
+      color: rgb(0.9,0.9,0.9) 
+    });
+    
+    y -= transactionBoxHeight + 10; // 거래정보 박스 높이만큼 y 위치 조정
 
     // 4. 입금내역 표 (생략, 기존 코드 유지)
     // ... (생략: 기존 표 코드)
@@ -681,7 +874,7 @@ async function handlePdfExportPdfLib(selectedTx: TransactionWithDetails, filtere
     page.drawText('고객 확인/서명:', { x: 60, y: y+8, size: 12, font, color: rgb(0.1,0.2,0.5) });
     // (실제 서명 이미지는 추후 첨부 가능)
 
-    // 6. 공급자 정보 (하단)
+    // 6. 공급자 정보 (하단 중앙 정렬)
     const supplier = {
       name: '구보다농기계영암대리점',
       biznum: '743-39-01106',
@@ -691,10 +884,54 @@ async function handlePdfExportPdfLib(selectedTx: TransactionWithDetails, filtere
       accounts: ACCOUNT_LIST
     };
     page.drawLine({ start: {x: 50, y: 80}, end: {x: 545, y: 80}, thickness: 1, color: rgb(0.7,0.7,0.8) });
-    page.drawText(`공급자: ${supplier.name}  |  사업자번호: ${supplier.biznum}  |  대표: ${supplier.ceo}`, { x: 60, y: 65, size: 11, font, color: rgb(0.2,0.2,0.2) });
-    page.drawText(`주소: ${supplier.address}  |  연락처: ${supplier.phone}`, { x: 60, y: 50, size: 11, font, color: rgb(0.2,0.2,0.2) });
-    supplier.accounts.forEach((acc, i) => {
-      page.drawText(`계좌${i+1}: ${acc.bank} ${acc.number} (${acc.holder})`, { x: 60, y: 35 - i*15, size: 11, font, color: rgb(0.2,0.2,0.2) });
+    
+    // 첫 번째 줄 중앙 정렬
+    const supplierLine1 = `공급자: ${supplier.name}  |  사업자번호: ${supplier.biznum}  |  대표: ${supplier.ceo}`;
+    const line1Width = font.widthOfTextAtSize(supplierLine1, 11);
+    const line1CenterX = (595 - line1Width) / 2;
+    page.drawText(supplierLine1, { x: line1CenterX, y: 65, size: 11, font, color: rgb(0.2,0.2,0.2) });
+    
+    // 두 번째 줄 중앙 정렬
+    const supplierLine2 = `주소: ${supplier.address}  |  연락처: ${supplier.phone}`;
+    const line2Width = font.widthOfTextAtSize(supplierLine2, 11);
+    const line2CenterX = (595 - line2Width) / 2;
+    page.drawText(supplierLine2, { x: line2CenterX, y: 50, size: 11, font, color: rgb(0.2,0.2,0.2) });
+    
+    // 계좌 정보 (계좌1 중앙 배치, 강조 표시)
+    if (supplier.accounts.length >= 1) {
+      const acc1 = supplier.accounts[0];
+      const accountText = `계좌1: ${acc1.bank} ${acc1.number} (${acc1.holder})`;
+      // 텍스트 폭 계산하여 중앙 정렬 (A4 페이지 폭 595px)
+      const textWidth = font.widthOfTextAtSize(accountText, 14);
+      const centerX = (595 - textWidth) / 2;
+      
+      page.drawText(accountText, { 
+        x: centerX, 
+        y: 35, 
+        size: 14, 
+        font, 
+        color: rgb(0.1, 0.3, 0.8) // 파란색으로 강조
+      });
+    }
+    // 3개 이상의 계좌가 있을 경우 아래 줄에 배치
+    if (supplier.accounts.length >= 3) {
+      const remainingAccounts = supplier.accounts.slice(2);
+      remainingAccounts.forEach((acc, i) => {
+        page.drawText(`계좌${i+3}: ${acc.bank} ${acc.number} (${acc.holder})`, { x: 60, y: 20 - i*15, size: 11, font, color: rgb(0.2,0.2,0.2) });
+      });
+    }
+
+    // 페이지 번호 표시 (하단 중앙)
+    const pageNumber = '1/1'; // 현재는 단일 페이지이므로 1/1
+    const pageWidth = 595; // A4 페이지 폭
+    const pageTextWidth = font.widthOfTextAtSize(pageNumber, 10);
+    const pageX = (pageWidth - pageTextWidth) / 2; // 중앙 정렬
+    page.drawText(pageNumber, { 
+      x: pageX, 
+      y: 15, 
+      size: 10, 
+      font, 
+      color: rgb(0.5, 0.5, 0.5) 
     });
 
     // PDF 저장 및 다운로드
@@ -703,7 +940,7 @@ async function handlePdfExportPdfLib(selectedTx: TransactionWithDetails, filtere
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = '거래상세내역.pdf';
+    a.download = 'statement.pdf';
     document.body.appendChild(a);
     a.click();
     a.remove();
@@ -953,218 +1190,437 @@ export default function TransactionDetailClient({ transactions, initialSelectedI
 
   return (
     <div>
-      {/* 상단 거래별 목록 */}
-      <div className="flex gap-2 mb-6">
-        {txList.map((tx) => (
-          <div key={tx.id} className="flex items-center gap-1">
+      {/* 거래 탐색 UI: 드롭다운+좌우 화살표+탭 UI (시니어 모드) */}
+      <div className="flex items-center gap-4 mb-8">
+        <button
+          className="px-6 py-3 text-2xl rounded-lg bg-blue-100 hover:bg-blue-200 text-blue-700 font-bold shadow-lg transition-colors duration-200"
+          onClick={() => {
+            const idx = txList.findIndex(tx => tx.id === selectedId);
+            if (idx > 0) setSelectedId(txList[idx - 1].id);
+          }}
+          disabled={txList.findIndex(tx => tx.id === selectedId) === 0}
+          aria-label="이전 거래"
+          title="이전 거래"
+        >
+          ◀️
+        </button>
+        <select
+          className="text-xl px-6 py-3 rounded-lg border-2 border-blue-300 bg-white font-bold focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+          value={selectedId}
+          onChange={e => setSelectedId(e.target.value)}
+          aria-label="거래 선택"
+          title="거래 선택"
+        >
+          {txList.map(tx => (
+            <option key={tx.id} value={tx.id}>
+              {tx.created_at?.slice(0,10)} / {tx.type} / {tx.amount?.toLocaleString()}원
+            </option>
+          ))}
+        </select>
+        <button
+          className="px-6 py-3 text-2xl rounded-lg bg-blue-100 hover:bg-blue-200 text-blue-700 font-bold shadow-lg transition-colors duration-200"
+          onClick={() => {
+            const idx = txList.findIndex(tx => tx.id === selectedId);
+            if (idx < txList.length - 1) setSelectedId(txList[idx + 1].id);
+          }}
+          disabled={txList.findIndex(tx => tx.id === selectedId) === txList.length - 1}
+          aria-label="다음 거래"
+          title="다음 거래"
+        >
+          ▶️
+        </button>
+        {/* 탭 UI */}
+        <div className="flex gap-2 ml-8">
+          {txList.map(tx => (
             <button
-              className={`px-3 py-1 rounded ${tx.id === selectedId ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}
+              key={tx.id}
               onClick={() => setSelectedId(tx.id)}
-              disabled={tx.id === selectedId}
+              className={`px-5 py-2 text-xl rounded-lg font-bold shadow-md border-2 transition-colors duration-200 ${selectedId === tx.id ? 'bg-blue-600 text-white border-blue-700' : 'bg-gray-100 text-blue-700 border-blue-200 hover:bg-blue-200'}`}
+              aria-label={`거래 ${tx.created_at?.slice(0,10)} / ${tx.type}`}
+              title={`거래 ${tx.created_at?.slice(0,10)} / ${tx.type}`}
             >
-              {tx.created_at?.slice(0, 10)} {tx.type} {tx.amount?.toLocaleString()}원
+              {tx.created_at?.slice(0,10)}<br/>{tx.type}
             </button>
-            <button
-              className="text-red-500 hover:text-red-700"
-              title="거래 삭제"
-              onClick={async () => {
-                if (!window.confirm('정말로 이 거래를 삭제하시겠습니까?')) return;
-                const res = await fetch(`/api/transactions?id=${tx.id}`, { method: 'DELETE' });
-                if (res.ok) {
-                  setTxList(prev => prev.filter(t => t.id !== tx.id));
-                  setSuccessMsg('거래가 삭제되었습니다.');
-                  if (selectedId === tx.id && txList.length > 1) {
-                    const nextTx = txList.find(t => t.id !== tx.id);
-                    if (nextTx) setSelectedId(nextTx.id);
-                  }
-                } else {
-                  const { error } = await res.json();
-                  setErrorMsg('삭제 실패: ' + error);
-                }
-              }}
-            >🗑️</button>
-          </div>
-                ))}
+          ))}
+        </div>
       </div>
-      
-
- 
       {/* 거래 상세정보 */}
-      <div className="bg-white rounded shadow p-4 mb-6">
-        <div className="grid grid-cols-2 gap-4">
-          <div><b>고객ID</b>: {selectedTx.customer_id}</div>
-          <div><b>고객명</b>: {selectedTx.customers?.name || selectedTx.customer_id}</div>
-          <div><b>거래일자</b>: {selectedTx.created_at?.slice(0, 10)}</div>
-          <div><b>거래유형</b>: {selectedTx.type}</div>
-          <div><b>기종/모델</b>: {selectedTx.models_types?.model || ''} / {selectedTx.models_types?.type || ''}</div>
-          <div><b>매출액</b>: {selectedTx.amount?.toLocaleString()}원</div>
-          <div><b>입금액</b>: {selectedTx.paid_amount?.toLocaleString()}원</div>
-          <div><b>잔금</b>: {selectedTx.unpaid_amount?.toLocaleString()}원</div>
-          <div><b>입금율</b>: {selectedTx.paid_ratio}%</div>
+      <div className="bg-white rounded-lg shadow-lg p-8 mb-8 border-2 border-gray-200">
+        <h2 className="text-2xl font-bold mb-6 text-gray-800 flex items-center gap-2">
+          📋 거래정보
+        </h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {/* 1행 4열 */}
+          <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+            <div className="text-lg font-bold text-blue-700 mb-2">👤 고객명</div>
+            <div className="text-xl font-semibold text-gray-800">{selectedTx.customers?.name || selectedTx.customer_id}</div>
+          </div>
+          <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+            <div className="text-lg font-bold text-green-700 mb-2">📅 거래일자</div>
+            <div className="text-xl font-semibold text-gray-800">{selectedTx.created_at?.slice(0, 10)}</div>
+          </div>
+          <div className="bg-purple-50 p-4 rounded-lg border border-purple-200">
+            <div className="text-lg font-bold text-purple-700 mb-2">📝 거래유형</div>
+            <div className="text-xl font-semibold text-gray-800">{selectedTx.type}</div>
+          </div>
+          <div className="bg-orange-50 p-4 rounded-lg border border-orange-200">
+            <div className="text-lg font-bold text-orange-700 mb-2">🚜 기종/모델</div>
+            <div className="text-xl font-semibold text-gray-800">{selectedTx.models_types?.model || ''} / {selectedTx.models_types?.type || ''}</div>
+          </div>
+          
+          {/* 2행 4열 */}
+          <div className="bg-red-50 p-4 rounded-lg border border-red-200">
+            <div className="text-lg font-bold text-red-700 mb-2">💰 매출액</div>
+            <div className="text-2xl font-bold text-red-600">{selectedTx.amount?.toLocaleString()}원</div>
+          </div>
+          <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+            <div className="text-lg font-bold text-blue-700 mb-2">💳 입금액</div>
+            <div className="text-2xl font-bold text-blue-600">{selectedTx.paid_amount?.toLocaleString()}원</div>
+          </div>
+          <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
+            <div className="text-lg font-bold text-yellow-700 mb-2">💸 잔금</div>
+            <div className="text-2xl font-bold text-yellow-600">{selectedTx.unpaid_amount?.toLocaleString()}원</div>
+          </div>
+          <div className="bg-indigo-50 p-4 rounded-lg border border-indigo-200">
+            <div className="text-lg font-bold text-indigo-700 mb-2">📊 입금율</div>
+            <div className="mt-3">
+              <div className="flex-1 bg-gray-200 rounded-full h-8 relative mb-2">
+                <div 
+                  className="bg-indigo-500 h-8 rounded-full transition-all duration-300 ease-in-out" 
+                  style={{ width: `${Math.min(selectedTx.paid_ratio || 0, 100)}%` }}
+                ></div>
+                <div className="absolute inset-0 flex items-center justify-center text-lg font-bold text-white">
+                  {selectedTx.paid_ratio}%
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          {/* 3행 1열 (전체 너비) */}
           {selectedTx?.description && (
-            <div className="col-span-2"><b>비고</b>: {selectedTx.description}</div>
+            <div className="col-span-full bg-gray-50 p-4 rounded-lg border border-gray-200">
+              <div className="text-lg font-bold text-gray-700 mb-2">📝 비고</div>
+              <div className="text-xl font-semibold text-gray-800">{selectedTx.description}</div>
+            </div>
           )}
         </div>
       </div>
       {/* 입금 등록 폼 */}
-      <div className="mb-6">
-        <h2 className="font-semibold mb-2">입금(결제) 등록</h2>
+      <div className="mb-8">
+        <h2 className="text-2xl font-bold mb-6 text-gray-800 flex items-center gap-2">
+          💰 입금(결제) 등록
+        </h2>
         <PaymentForm transactionId={selectedTx.id} onSuccess={handlePaymentSuccess} setSuccessMsg={setSuccessMsg} setErrorMsg={setErrorMsg} />
       </div>
       {/* 입금내역 필터/검색/정렬 UI */}
-      <div className="flex flex-wrap gap-2 mb-2 items-end">
-        <input type="text" placeholder="입금자" title="입금자" value={paymentFilter.payer} onChange={e => setPaymentFilter(f => ({ ...f, payer: e.target.value }))} className="border rounded px-2 py-1" />
-        <select value={paymentFilter.method} onChange={e => setPaymentFilter(f => ({ ...f, method: e.target.value }))} className="border rounded px-2 py-1" title="입금방법" aria-label="입금방법">
-          <option value="">전체방법</option>
-          <option value="현금">현금</option>
-          <option value="계좌이체">계좌이체</option>
-          <option value="카드">카드</option>
-          <option value="중고인수">중고인수</option>
-          <option value="융자">융자</option>
-          <option value="기타">기타</option>
-        </select>
-        <input type="date" value={paymentFilter.startDate} onChange={e => setPaymentFilter(f => ({ ...f, startDate: e.target.value }))} className="border rounded px-2 py-1" title="시작일" placeholder="시작일" />
-        <input type="date" value={paymentFilter.endDate} onChange={e => setPaymentFilter(f => ({ ...f, endDate: e.target.value }))} className="border rounded px-2 py-1" title="종료일" placeholder="종료일" />
-        <input type="number" placeholder="최소금액" title="최소금액" value={paymentFilter.minAmount} onChange={e => setPaymentFilter(f => ({ ...f, minAmount: e.target.value }))} className="border rounded px-2 py-1 w-24" />
-        <input type="number" placeholder="최대금액" title="최대금액" value={paymentFilter.maxAmount} onChange={e => setPaymentFilter(f => ({ ...f, maxAmount: e.target.value }))} className="border rounded px-2 py-1 w-24" />
-        <input type="text" placeholder="비고" title="비고" value={paymentFilter.note} onChange={e => setPaymentFilter(f => ({ ...f, note: e.target.value }))} className="border rounded px-2 py-1" />
-        <input type="text" placeholder="통합검색" title="통합검색" value={paymentFilter.search} onChange={e => setPaymentFilter(f => ({ ...f, search: e.target.value }))} className="border rounded px-2 py-1" />
-        <select value={paymentFilter.sortBy} onChange={e => setPaymentFilter(f => ({ ...f, sortBy: e.target.value }))} className="border rounded px-2 py-1" title="정렬기준" aria-label="정렬기준">
-          <option value="paid_at">일자순</option>
-          <option value="amount">금액순</option>
-        </select>
-        <select value={paymentFilter.sortOrder} onChange={e => setPaymentFilter(f => ({ ...f, sortOrder: e.target.value }))} className="border rounded px-2 py-1" title="정렬방식" aria-label="정렬방식">
-          <option value="desc">내림차순</option>
-          <option value="asc">오름차순</option>
-        </select>
+      <div className="bg-blue-50 p-6 rounded-lg mb-6 border-2 border-blue-200">
+        <h3 className="text-xl font-bold mb-4 text-gray-800 flex items-center gap-2">
+          🔍 입금내역 조회
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="flex flex-col gap-2">
+            <label className="text-lg font-semibold text-gray-700">👤 입금자</label>
+            <input 
+              type="text" 
+              placeholder="입금자명을 입력하세요" 
+              title="입금자" 
+              value={paymentFilter.payer} 
+              onChange={e => setPaymentFilter(f => ({ ...f, payer: e.target.value }))} 
+              className="border-2 border-gray-300 rounded-lg px-4 py-3 text-lg bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-200" 
+            />
+          </div>
+          <div className="flex flex-col gap-2">
+            <label className="text-lg font-semibold text-gray-700">💳 입금방법</label>
+            <select 
+              value={paymentFilter.method} 
+              onChange={e => setPaymentFilter(f => ({ ...f, method: e.target.value }))} 
+              className="border-2 border-gray-300 rounded-lg px-4 py-3 text-lg bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-200" 
+              title="입금방법" 
+              aria-label="입금방법"
+            >
+              <option value="">전체 방법</option>
+              <option value="현금">💰 현금</option>
+              <option value="계좌이체">🏦 계좌이체</option>
+              <option value="카드">💳 카드</option>
+              <option value="중고인수">🚜 중고인수</option>
+              <option value="융자">📋 융자</option>
+              <option value="기타">📝 기타</option>
+            </select>
+          </div>
+          <div className="flex flex-col gap-2">
+            <label className="text-lg font-semibold text-gray-700">📅 시작일</label>
+            <input 
+              type="date" 
+              value={paymentFilter.startDate} 
+              onChange={e => setPaymentFilter(f => ({ ...f, startDate: e.target.value }))} 
+              className="border-2 border-gray-300 rounded-lg px-4 py-3 text-lg bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-200" 
+              title="시작일" 
+            />
+          </div>
+          <div className="flex flex-col gap-2">
+            <label className="text-lg font-semibold text-gray-700">📅 종료일</label>
+            <input 
+              type="date" 
+              value={paymentFilter.endDate} 
+              onChange={e => setPaymentFilter(f => ({ ...f, endDate: e.target.value }))} 
+              className="border-2 border-gray-300 rounded-lg px-4 py-3 text-lg bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-200" 
+              title="종료일" 
+            />
+          </div>
+          <div className="flex flex-col gap-2">
+            <label className="text-lg font-semibold text-gray-700">🔍 통합검색</label>
+            <input 
+              type="text" 
+              placeholder="입금자, 방법, 비고 등 검색" 
+              title="통합검색" 
+              value={paymentFilter.search} 
+              onChange={e => setPaymentFilter(f => ({ ...f, search: e.target.value }))} 
+              className="border-2 border-gray-300 rounded-lg px-4 py-3 text-lg bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-200" 
+            />
+          </div>
+          <div className="flex flex-col gap-2">
+            <label className="text-lg font-semibold text-gray-700">📊 정렬방식</label>
+            <div className="flex gap-2">
+              <select 
+                value={paymentFilter.sortBy} 
+                onChange={e => setPaymentFilter(f => ({ ...f, sortBy: e.target.value }))} 
+                className="flex-1 border-2 border-gray-300 rounded-lg px-3 py-3 text-lg bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-200" 
+                title="정렬기준" 
+                aria-label="정렬기준"
+              >
+                <option value="paid_at">📅 일자순</option>
+                <option value="amount">💰 금액순</option>
+              </select>
+              <select 
+                value={paymentFilter.sortOrder} 
+                onChange={e => setPaymentFilter(f => ({ ...f, sortOrder: e.target.value }))} 
+                className="flex-1 border-2 border-gray-300 rounded-lg px-3 py-3 text-lg bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-200" 
+                title="정렬방식" 
+                aria-label="정렬방식"
+              >
+                <option value="desc">⬇️ 최신순</option>
+                <option value="asc">⬆️ 오래된순</option>
+              </select>
+            </div>
+          </div>
+        </div>
       </div>
       {/* 입금내역 상세 */}
-      <div className="mb-6">
-        <h2 className="font-semibold mb-2">입금내역</h2>
-        <table className="w-full text-sm border">
-          <thead>
-            <tr className="bg-gray-100">
-              <th className="border px-2 py-1">일자</th>
-              <th className="border px-2 py-1">입금자</th>
-              <th className="border px-2 py-1">방식</th>
-              <th className="border px-2 py-1">금액</th>
-              <th className="border px-2 py-1">입금은행</th>
-              <th className="border px-2 py-1">상세정보</th>
-              <th className="border px-2 py-1">비고</th>
-              <th className="border px-2 py-1">삭제</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredPayments.length > 0 ? (
-              filteredPayments.map(p => (
-                <tr key={p.id}>
-                  <td className="border px-2 py-1">{p.paid_at?.slice(0, 10)}</td>
-                  <td className="border px-2 py-1">{p.payer_name}</td>
-                  <td className="border px-2 py-1">{p.method}</td>
-                  <td className="border px-2 py-1 text-right">{p.amount?.toLocaleString()}원</td>
-                  <td className="border px-2 py-1">{p.bank_name || ''}</td>
-                  <td className="border px-2 py-1">
-                    {p.method === '카드' && (
-                      <span>장소: {p.paid_location || ''} / 담당: ${p.paid_by || ''}</span>
-                    )}
-                    {p.method === '중고인수' && (
-                      <span>기종: ${p.used_model_type || ''} / 모델: ${p.used_model || ''} / 장소: ${p.used_place || ''} / 담당: ${p.used_by || ''}</span>
-                    )}
-                    {p.method === '기타' && (
-                      <span>{p.detail ?? ''}</span>
-                    )}
-                    {p.method === '현금' && (
-                      <span>
-                        장소: {p.cash_place || ''} / 수령: {p.cash_receiver || ''}
-                        {p.cash_detail ? ` / 상세: ${p.cash_detail}` : ''}
+      <div className="mb-8">
+        <h2 className="text-2xl font-bold mb-6 text-gray-800 flex items-center gap-2">
+          📋 입금내역
+        </h2>
+        <div className="overflow-x-auto bg-white rounded-lg shadow-lg border-2 border-gray-200">
+          <table className="w-full text-lg border-collapse">
+            <thead>
+              <tr className="bg-blue-100 border-b-2 border-blue-200">
+                <th className="border border-gray-300 px-4 py-4 font-bold text-gray-800">일자</th>
+                <th className="border border-gray-300 px-4 py-4 font-bold text-gray-800">입금자</th>
+                <th className="border border-gray-300 px-4 py-4 font-bold text-gray-800">방식</th>
+                <th className="border border-gray-300 px-4 py-4 font-bold text-gray-800">금액</th>
+                <th className="border border-gray-300 px-4 py-4 font-bold text-gray-800">입금은행</th>
+                <th className="border border-gray-300 px-4 py-4 font-bold text-gray-800">상세정보</th>
+                <th className="border border-gray-300 px-4 py-4 font-bold text-gray-800">비고</th>
+                <th className="border border-gray-300 px-4 py-4 font-bold text-gray-800">삭제</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredPayments.length > 0 ? (
+                filteredPayments.map(p => (
+                  <tr key={p.id} className="hover:bg-blue-50 border-b border-gray-200">
+                    <td className="border border-gray-300 px-4 py-4 text-center">{p.paid_at?.slice(0, 10)}</td>
+                    <td className="border border-gray-300 px-4 py-4 font-semibold">{p.payer_name}</td>
+                    <td className="border border-gray-300 px-4 py-4 text-center">
+                      <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">
+                        {p.method}
                       </span>
-                    )}
-                    {p.method === '계좌이체' && (
-                      <span>계좌: ${p.account_number || ''} / 예금주: ${p.account_holder || ''}</span>
-                    )}
-                    {p.method === '융자' && p.detail}
-                  </td>
-                  <td className="border px-2 py-1">{p.note}</td>
-                  <td className="border px-2 py-1 text-center">
-                    <button onClick={() => handleDeletePayment(p.id)} title="삭제" className="text-red-500 hover:text-red-700">
-                      <Trash2 size={16} />
-                    </button>
-                  </td>
-                </tr>
-              ))
-            ) : (
-              <tr><td colSpan={8} className="text-center text-gray-400">입금내역 없음</td></tr>
-            )}
-          </tbody>
-        </table>
+                    </td>
+                    <td className="border border-gray-300 px-4 py-4 text-right font-bold text-blue-600">{p.amount?.toLocaleString()}원</td>
+                    <td className="border border-gray-300 px-4 py-4 text-center">
+                      {p.bank_name ? (
+                        <span className="bg-green-100 text-green-800 px-3 py-2 rounded-full text-base font-semibold">
+                          🏦 {p.bank_name}
+                        </span>
+                      ) : (
+                        <span className="text-gray-400 text-base">-</span>
+                      )}
+                    </td>
+                    <td className="border border-gray-300 px-4 py-4 text-base leading-relaxed">
+                      {p.method === '카드' && (
+                        <div className="space-y-1">
+                          <div><span className="font-semibold text-blue-600">📍 장소:</span> <span className="text-gray-800">{p.paid_location || '미기입'}</span></div>
+                          <div><span className="font-semibold text-blue-600">👤 담당:</span> <span className="text-gray-800">{p.paid_by || '미기입'}</span></div>
+                        </div>
+                      )}
+                      {p.method === '중고인수' && (
+                        <div className="space-y-1">
+                          <div><span className="font-semibold text-purple-600">🚜 기종:</span> <span className="text-gray-800">{p.used_model_type || '미기입'}</span></div>
+                          <div><span className="font-semibold text-purple-600">📱 모델:</span> <span className="text-gray-800">{p.used_model || '미기입'}</span></div>
+                          <div><span className="font-semibold text-purple-600">📍 장소:</span> <span className="text-gray-800">{p.used_place || '미기입'}</span></div>
+                          <div><span className="font-semibold text-purple-600">👤 담당:</span> <span className="text-gray-800">{p.used_by || '미기입'}</span></div>
+                        </div>
+                      )}
+                      {p.method === '기타' && (
+                        <div>
+                          <span className="font-semibold text-orange-600">📝 상세:</span> <span className="text-gray-800">{p.detail || '상세 정보 없음'}</span>
+                        </div>
+                      )}
+                      {p.method === '현금' && (
+                        <div className="space-y-1">
+                          <div><span className="font-semibold text-green-600">📍 장소:</span> <span className="text-gray-800">{p.cash_place || '미기입'}</span></div>
+                          <div><span className="font-semibold text-green-600">👤 수령:</span> <span className="text-gray-800">{p.cash_receiver || '미기입'}</span></div>
+                          {p.cash_detail && (
+                            <div><span className="font-semibold text-green-600">📝 상세:</span> <span className="text-gray-800">{p.cash_detail}</span></div>
+                          )}
+                        </div>
+                      )}
+                      {p.method === '계좌이체' && (
+                        <div className="space-y-1">
+                          <div><span className="font-semibold text-indigo-600">💳 계좌:</span> <span className="text-gray-800 font-mono">{p.account_number || '미기입'}</span></div>
+                          <div><span className="font-semibold text-indigo-600">👤 예금주:</span> <span className="text-gray-800">{p.account_holder || '미기입'}</span></div>
+                        </div>
+                      )}
+                      {p.method === '융자' && (
+                        <div>
+                          <span className="font-semibold text-red-600">📋 융자상세:</span> <span className="text-gray-800">{p.detail || '상세 정보 없음'}</span>
+                        </div>
+                      )}
+                    </td>
+                    <td className="border border-gray-300 px-4 py-4">{p.note}</td>
+                    <td className="border border-gray-300 px-4 py-4 text-center">
+                      <button onClick={() => handleDeletePayment(p.id)} title="삭제" className="text-red-500 hover:text-red-700 bg-red-100 hover:bg-red-200 px-3 py-2 rounded-lg transition-colors duration-200">
+                        <Trash2 size={20} />
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr><td colSpan={8} className="text-center text-gray-400 py-8 text-xl">📭 입금내역이 없습니다</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
       {/* 증빙서류 첨부 */}
-      <div className="mb-6">
-        <h2 className="font-semibold mb-2">증빙서류 첨부</h2>
-        <div className="flex flex-wrap gap-2 mb-2">
-          {ATTACHMENT_TYPES.map(type => (
+      <div className="bg-white rounded-lg shadow-lg p-8 mb-8 border-2 border-gray-200">
+        <h2 className="text-2xl font-bold mb-6 text-gray-800 flex items-center gap-2">
+          📎 증빙서류 첨부
+        </h2>
+        
+        {/* 첨부 유형 선택 */}
+        <div className="mb-6">
+          <h3 className="text-lg font-bold mb-4 text-gray-700 flex items-center gap-2">
+            📋 서류 유형 선택
+          </h3>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+            {ATTACHMENT_TYPES.map(type => (
+              <button
+                key={type}
+                className={`px-6 py-4 rounded-lg text-lg font-semibold transition-all duration-200 ${
+                  selectedAttachmentType === type 
+                    ? 'bg-blue-500 text-white shadow-lg border-2 border-blue-600' 
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border-2 border-gray-300'
+                }`}
+                onClick={() => setSelectedAttachmentType(type)}
+                type="button"
+              >
+                {type}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* 첨부된 파일들 */}
+        <div className="mb-6">
+          <h3 className="text-lg font-bold mb-4 text-gray-700 flex items-center gap-2">
+            📁 첨부된 {selectedAttachmentType} 파일
+          </h3>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            {(selectedTx.files || []).filter(f => f.type === selectedAttachmentType).length > 0 ? (
+              (selectedTx.files || []).filter(f => f.type === selectedAttachmentType).map(f => (
+                <div key={f.id} className="relative border-2 border-gray-200 rounded-lg p-4 bg-gray-50 flex flex-col items-center hover:shadow-lg transition-shadow duration-200">
+                  {f.url && f.url.match(/\.(jpg|jpeg|png|gif|bmp|webp)$/i) ? (
+                    <>
+                      <img
+                        src={f.url}
+                        alt={f.name}
+                        className="w-32 h-32 object-cover rounded-lg mb-3 cursor-pointer hover:opacity-80 border-2 border-gray-300"
+                        onClick={() => setPreviewImage(f.url)}
+                      />
+                      <span className="text-sm font-semibold text-gray-700 truncate w-full text-center mb-1">{f.name}</span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="text-6xl text-gray-400 mb-3">📄</span>
+                      <span className="text-sm font-semibold text-gray-700 truncate w-full text-center mb-1">{f.name}</span>
+                    </>
+                  )}
+                  <span className="text-xs text-gray-500 mb-3">{f.created_at?.slice(0,16).replace('T',' ')}</span>
+                  <div className="flex gap-2 w-full">
+                    <button 
+                      className="flex-1 bg-blue-500 text-white px-3 py-2 rounded-lg text-sm font-semibold hover:bg-blue-600 transition-colors duration-200" 
+                      onClick={() => handleFileDownload(f.url, f.name)} 
+                      type="button"
+                    >
+                      📥 다운로드
+                    </button>
+                    <button 
+                      className="flex-1 bg-red-500 text-white px-3 py-2 rounded-lg text-sm font-semibold hover:bg-red-600 transition-colors duration-200" 
+                      onClick={() => handleDeleteFile(f.id)} 
+                      disabled={uploading}
+                    >
+                      🗑️ 삭제
+                    </button>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="col-span-full bg-gray-100 border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
+                <span className="text-4xl text-gray-400 mb-2 block">📭</span>
+                <span className="text-lg text-gray-500 font-semibold">첨부된 {selectedAttachmentType} 파일이 없습니다</span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* 파일 업로드 */}
+        <div className="bg-blue-50 p-6 rounded-lg border-2 border-blue-200">
+          <h3 className="text-lg font-bold mb-4 text-blue-700 flex items-center gap-2">
+            📤 새 파일 업로드
+          </h3>
+          <div className="flex flex-col gap-4">
+            <input
+              id="file-upload"
+              type="file"
+              ref={fileInputRef}
+              className="hidden"
+              onChange={handleFileUpload}
+              accept="image/*,application/pdf"
+              title="첨부파일 선택"
+              aria-label="첨부파일 업로드"
+            />
             <button
-              key={type}
-              className={`px-3 py-1 rounded ${selectedAttachmentType === type ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700'}`}
-              onClick={() => setSelectedAttachmentType(type)}
+              className="bg-blue-500 text-white px-8 py-4 rounded-lg text-xl font-bold hover:bg-blue-600 transition-colors duration-200 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading}
               type="button"
             >
-              {type}
+              {uploading ? (
+                <>
+                  ⏳ 업로드 중...
+                </>
+              ) : (
+                <>
+                  📁 {selectedAttachmentType} 파일 선택하기
+                </>
+              )}
             </button>
-          ))}
-        </div>
-        {/* 업로드/미리보기/삭제 */}
-        <div className="flex flex-wrap gap-2">
-          {(selectedTx.files || []).filter(f => f.type === selectedAttachmentType).length > 0 ? (
-            (selectedTx.files || []).filter(f => f.type === selectedAttachmentType).map(f => (
-              <div key={f.id} className="relative border rounded p-2 bg-gray-50 flex flex-col items-center w-32">
-                {f.url && f.url.match(/\.(jpg|jpeg|png|gif|bmp|webp)$/i) ? (
-                  <>
-                    <img
-                      src={f.url}
-                      alt={f.name}
-                      className="w-24 h-24 object-cover rounded mb-1 cursor-pointer hover:opacity-80"
-                      onClick={() => setPreviewImage(f.url)}
-                    />
-                    <span className="text-xs text-gray-700 truncate w-full text-center">{f.name}</span>
-                  </>
-                ) : (
-                  <>
-                    <span className="text-3xl text-gray-400 mb-1">📄</span>
-                    <span className="text-xs text-gray-700 truncate w-full text-center">{f.name}</span>
-                  </>
-                )}
-                <span className="text-[10px] text-gray-400 mt-1">{f.created_at?.slice(0,16).replace('T',' ')}</span>
-                <div className="flex gap-1 mt-1">
-                  <button className="text-blue-500 text-xs" onClick={() => handleFileDownload(f.url, f.name)} type="button">다운로드</button>
-                  <button className="text-red-500 text-xs" onClick={() => handleDeleteFile(f.id)} disabled={uploading}>삭제</button>
-                </div>
-              </div>
-            ))
-          ) : (
-            <div className="w-24 h-24 bg-gray-100 flex items-center justify-center rounded text-gray-400">첨부 없음</div>
-          )}
-        </div>
-        <div className="mt-2 flex items-center gap-2">
-          <input
-            id="file-upload"
-            type="file"
-            ref={fileInputRef}
-            className="hidden"
-            onChange={handleFileUpload}
-            accept="image/*,application/pdf"
-            title="첨부파일 선택"
-            aria-label="첨부파일 업로드"
-          />
-          <button
-            className="px-3 py-1 bg-blue-500 text-white rounded"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={uploading}
-            type="button"
-          >
-            {uploading ? '업로드 중...' : `${selectedAttachmentType} 업로드`}
-          </button>
-          <span className="text-xs text-gray-500">(최대 5건)</span>
+            <div className="text-center">
+              <span className="text-base text-blue-600 font-semibold bg-blue-100 px-4 py-2 rounded-full">
+                💡 최대 5개 파일까지 업로드 가능 (이미지/PDF)
+              </span>
+            </div>
+          </div>
         </div>
       </div>
       {/* 이미지 미리보기 모달 */}

@@ -11,7 +11,7 @@ export async function GET() {
     if (unpaidError) throw unpaidError;
     const totalUnpaid = unpaidTransactions?.reduce((sum, tx) => sum + (tx.amount || 0), 0) || 0;
 
-    // 2. 미수금 연령 분석
+    // 2. 채권 연령 분석(기존: 미수금 연령 분석)
     const { data: agingAnalysis, error: agingError } = await supabase
       .from('transactions')
       .select('created_at,amount')
@@ -22,7 +22,7 @@ export async function GET() {
     // 3. 상위 미수금 고객
     const { data: customers, error: customerError } = await supabase
       .from('customers')
-      .select('*,transactions!inner(amount,status),address_road,address_jibun,zipcode,customer_type_multi')
+      .select('*,transactions!inner(id,amount,status,type,model,model_type),address_road,address_jibun,zipcode,customer_type_multi')
       .order('created_at', { ascending: false });
     if (customerError) throw customerError;
     // 사진(files) 동기화
@@ -43,10 +43,13 @@ export async function GET() {
     topCustomers.sort((a, b) => b.unpaidAmount - a.unpaidAmount);
 
     // 4. 월별 미수금 통계
-    const { data: monthlyStats } = await supabase
+    const { data: monthlyStats } = await (supabase as any)
       .rpc('monthly_unpaid_stats'); // 예시: 월별 미수금 합계
+    // 4-1. 월별 매출액 통계(신규 거래 등록액)
+    const { data: monthlySalesStats } = await (supabase as any)
+      .rpc('monthly_sales_stats'); // 모든 거래유형을 매출로 집계
     // 5. 고객유형별 미수금 통계
-    const { data: typeStats } = await supabase
+    const { data: typeStats } = await (supabase as any)
       .rpc('customer_type_unpaid_stats'); // 예시: 유형별 미수금 합계
     // 6. 이번달 지급예정 거래건 (고객, 모델, 기종, 입금액 등 조인)
     const now = new Date();
@@ -131,6 +134,7 @@ export async function GET() {
       agingAnalysis,
       topCustomers: topCustomers.slice(0, 5),
       monthlyStats: monthlyStats || [],
+      monthlySalesStats: monthlySalesStats || [],
       typeStats: typeStats || [],
       dueThisMonth,
       dueThisMonthSummary,

@@ -90,32 +90,32 @@ export function TransactionList() {
 
   return (
     <div className="overflow-x-auto">
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-2 mb-4">
-        <div className="bg-blue-50 rounded p-2 text-center">
-          <div className="text-xs text-gray-500">전체 거래</div>
-          <div className="text-lg font-bold">{totalCount}건</div>
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
+        <div className="bg-blue-50 rounded-lg p-3 text-center border border-blue-200">
+          <div className="text-xs text-gray-600 mb-1">전체 거래</div>
+          <div className="text-lg font-bold text-blue-700">{totalCount}건</div>
         </div>
-        <div className="bg-green-50 rounded p-2 text-center">
-          <div className="text-xs text-gray-500">총 매출액</div>
-          <div className="text-lg font-bold">{totalSales.toLocaleString()}원</div>
+        <div className="bg-green-50 rounded-lg p-3 text-center border border-green-200">
+          <div className="text-xs text-gray-600 mb-1">총 매출액</div>
+          <div className="text-lg font-bold text-green-700">{totalSales.toLocaleString()}원</div>
         </div>
-        <div className="bg-indigo-50 rounded p-2 text-center">
-          <div className="text-xs text-gray-500">총 입금액</div>
-          <div className="text-lg font-bold">{totalPaid.toLocaleString()}원</div>
+        <div className="bg-indigo-50 rounded-lg p-3 text-center border border-indigo-200">
+          <div className="text-xs text-gray-600 mb-1">총 입금액</div>
+          <div className="text-lg font-bold text-indigo-700">{totalPaid.toLocaleString()}원</div>
         </div>
-        <div className="bg-red-50 rounded p-2 text-center">
-          <div className="text-xs text-gray-500">총 미수금</div>
-          <div className="text-lg font-bold">{totalUnpaid.toLocaleString()}원</div>
+        <div className="bg-red-50 rounded-lg p-3 text-center border border-red-200">
+          <div className="text-xs text-gray-600 mb-1">총 미수금</div>
+          <div className="text-lg font-bold text-red-700">{totalUnpaid.toLocaleString()}원</div>
         </div>
-        <div className="bg-yellow-50 rounded p-2 text-center">
-          <div className="text-xs text-gray-500">입금률</div>
-          <div className="text-lg font-bold">{totalRatio}%</div>
+        <div className="bg-yellow-50 rounded-lg p-3 text-center border border-yellow-200">
+          <div className="text-xs text-gray-600 mb-1">입금률</div>
+          <div className="text-lg font-bold text-yellow-700">{totalRatio}%</div>
         </div>
       </div>
-      <div className="flex justify-end mb-2">
+      <div className="flex justify-end mb-4 gap-3">
         <button
           onClick={handleExcelDownload}
-          className="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+          className="inline-flex items-center px-4 py-2 bg-green-600 text-white text-base rounded-lg hover:bg-green-700 font-medium shadow-md"
         >
           <Download className="mr-2 h-4 w-4" />
           엑셀 다운로드
@@ -123,15 +123,15 @@ export function TransactionList() {
         <Dialog open={formOpen} onOpenChange={setFormOpen}>
           <DialogTrigger asChild>
             <button
-              className="ml-2 inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+              className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-base rounded-lg hover:bg-blue-700 font-medium shadow-md"
               onClick={() => setFormOpen(true)}
             >
               <PlusCircle className="mr-2 h-4 w-4" /> 신규 거래 등록
             </button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="max-w-4xl">
             <DialogHeader>
-              <DialogTitle>신규 거래 등록</DialogTitle>
+              <DialogTitle className="text-2xl">신규 거래 등록</DialogTitle>
             </DialogHeader>
             <TransactionForm onSuccess={() => { setFormOpen(false); router.refresh(); }} />
           </DialogContent>
@@ -139,47 +139,48 @@ export function TransactionList() {
         <Dialog>
           <DialogTrigger asChild>
             <button
-              className="ml-2 inline-flex items-center px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700"
+              className="inline-flex items-center px-4 py-2 bg-gray-600 text-white text-base rounded-lg hover:bg-gray-700 font-medium shadow-md"
             >
               기종/형식명 관리
             </button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="max-w-4xl">
             <DialogHeader>
-              <DialogTitle>기종/형식명 관리</DialogTitle>
+              <DialogTitle className="text-2xl">기종/형식명 관리</DialogTitle>
             </DialogHeader>
             <ModelTypeManager />
           </DialogContent>
         </Dialog>
       </div>
-      <Table>
-        <TableHeader className="bg-gray-50">
-          <TableRow>
-            <TableHead className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">고객명</TableHead>
-            <TableHead className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">거래건수</TableHead>
-            <TableHead className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">총 매출액</TableHead>
-            <TableHead className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">입금액</TableHead>
-            <TableHead className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">미수금</TableHead>
-            <TableHead className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">입금%</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody className="bg-white divide-y divide-gray-200">
+      <div className="bg-white rounded-lg shadow-lg overflow-hidden">
+        <Table>
+          <TableHeader className="bg-gray-100">
+            <TableRow>
+              <TableHead className="px-4 py-2 text-left text-sm font-semibold text-gray-700">고객명</TableHead>
+              <TableHead className="px-4 py-2 text-left text-sm font-semibold text-gray-700">거래건수</TableHead>
+              <TableHead className="px-4 py-2 text-left text-sm font-semibold text-gray-700">총 매출액</TableHead>
+              <TableHead className="px-4 py-2 text-left text-sm font-semibold text-gray-700">입금액</TableHead>
+              <TableHead className="px-4 py-2 text-left text-sm font-semibold text-gray-700">미수금</TableHead>
+              <TableHead className="px-4 py-2 text-left text-sm font-semibold text-gray-700">입금%</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody className="bg-white divide-y divide-gray-200">
           {uniqueCustomers.map((c, i) => {
             const summary = summaries[customers.findIndex(x => x.id === c.id)] || {};
             const transactionCount = Array.isArray(summary.transactions)
               ? summary.transactions.length
               : 0;
             return (
-              <TableRow key={c.id} className="hover:bg-gray-50 cursor-pointer">
-                <TableCell className="px-6 py-4 whitespace-nowrap text-blue-700 underline" onClick={() => router.push(`/customers/${c.id}/transactions`)}>{c.name}</TableCell>
-                <TableCell className="px-6 py-4 whitespace-nowrap">{transactionCount}건</TableCell>
-                <TableCell className="px-6 py-4 whitespace-nowrap">{(summary.total_amount || 0).toLocaleString()}원</TableCell>
-                <TableCell className="px-6 py-4 whitespace-nowrap">{(summary.total_paid || 0).toLocaleString()}원</TableCell>
-                <TableCell className="px-6 py-4 whitespace-nowrap">{(summary.total_unpaid || 0).toLocaleString()}원</TableCell>
-                <TableCell className="px-6 py-4 whitespace-nowrap flex items-center gap-2">
-                  {summary.total_ratio || 0}%
+              <TableRow key={c.id} className="hover:bg-gray-50 cursor-pointer border-b border-gray-200">
+                <TableCell className="px-4 py-2 whitespace-nowrap text-base text-blue-700 underline font-medium" onClick={() => router.push(`/customers/${c.id}/transactions`)}>{c.name}</TableCell>
+                <TableCell className="px-4 py-2 whitespace-nowrap text-base text-gray-900">{transactionCount}건</TableCell>
+                <TableCell className="px-4 py-2 whitespace-nowrap text-base text-gray-900 font-semibold">{(summary.total_amount || 0).toLocaleString()}원</TableCell>
+                <TableCell className="px-4 py-2 whitespace-nowrap text-base text-green-700 font-semibold">{(summary.total_paid || 0).toLocaleString()}원</TableCell>
+                <TableCell className="px-4 py-2 whitespace-nowrap text-base text-red-700 font-semibold">{(summary.total_unpaid || 0).toLocaleString()}원</TableCell>
+                <TableCell className="px-4 py-2 whitespace-nowrap flex items-center gap-2">
+                  <span className="text-base text-gray-900 font-semibold">{summary.total_ratio || 0}%</span>
                   <button
-                    className="text-red-600 hover:text-red-900 ml-2"
+                    className="text-red-600 hover:text-red-900 text-lg p-1 hover:bg-red-50 rounded transition-colors"
                     title="고객 및 거래 전체 삭제"
                     onClick={async (e) => {
                       e.stopPropagation();
@@ -199,7 +200,8 @@ export function TransactionList() {
             );
           })}
         </TableBody>
-      </Table>
+        </Table>
+      </div>
     </div>
   );
 } 

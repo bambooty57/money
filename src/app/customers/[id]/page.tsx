@@ -76,7 +76,7 @@ export default function CustomerDetailPage() {
   if (!summary) return <div>로딩 중...</div>;
 
   return (
-    <main className="p-4">
+    <main className="max-w-screen-2xl mx-auto px-5 py-4">
       <button
         className="mb-4 px-4 py-2 bg-gray-200 rounded hover:bg-gray-300 text-sm"
         onClick={() => router.push('/customers')}
@@ -218,7 +218,7 @@ export default function CustomerDetailPage() {
               <tbody className="bg-white divide-y divide-gray-200">
                 {summary.transactions.map((tx: any) => {
                   // 입금수단별 합계 계산
-                  const paymentSums = { 현금: 0, 카드: 0, 무통장: 0, 중고인수: 0, 기타: 0 };
+                  const paymentSums: Record<string, number> = { 현금: 0, 카드: 0, 무통장: 0, 중고인수: 0, 기타: 0 };
                   (tx.payments || []).forEach((p: any) => {
                     if (p.method && paymentSums.hasOwnProperty(p.method)) {
                       paymentSums[p.method] += p.amount || 0;
@@ -234,9 +234,9 @@ export default function CustomerDetailPage() {
                       <td className="px-4 py-2">{tx.model_type || '-'}</td>
                       <td className="px-4 py-2">{tx.amount?.toLocaleString()}원</td>
                       <td className="px-4 py-2">
-                        {['현금', '카드', '무통장', '중고인수', '기타'].map((m) => (
+                        {Object.keys(paymentSums).map((m) => (
                           <span key={m} className="inline-block mr-2">
-                            {m}:{(paymentSums as Record<string, number>)[m]?.toLocaleString()}원
+                            {m}:{paymentSums[m]?.toLocaleString()}원
                           </span>
                         ))}
                       </td>

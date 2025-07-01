@@ -43,69 +43,34 @@ function NavigationContent() {
   const isActive = (path: string) => pathname === path;
 
   return (
-    <nav className="bg-white shadow sticky top-0 z-50">
-      <div className="container mx-auto px-4">
-        <div className="flex justify-between h-16">
-          <div className="flex">
-            <div className="flex-shrink-0 flex items-center">
-              <Link 
-                href="/" 
-                className="text-xl font-bold text-gray-800 hover:text-blue-600 transition-colors duration-200"
-                prefetch={true}
-              >
-                크레딧-노트
-              </Link>
-            </div>
-            <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
-              {navigationItems.map((item) => (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  prefetch={item.prefetch}
-                  className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium transition-all duration-200 ${
-                    isActive(item.href)
-                      ? 'border-blue-500 text-gray-900'
-                      : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
-                  }`}
-                >
-                  {item.label}
-                </Link>
-              ))}
-            </div>
+    <nav className="w-full bg-white border-b-4 border-blue-400 shadow-xl">
+      <div className="max-w-screen-2xl mx-auto flex flex-row items-center justify-between px-12 h-24">
+        <div className="flex flex-row items-center gap-2">
+          <div className="flex items-center h-24">
+            <img src="/kubotalogo5.png" alt="크레딧-노트" className="h-24 w-auto mr-2 drop-shadow-xl" />
           </div>
-          
-          {/* 성능 최적화: 모바일 메뉴 버튼 (필요시 확장) */}
-          <div className="sm:hidden flex items-center">
-            <button
-              type="button"
-              className="text-gray-500 hover:text-gray-700 focus:outline-none focus:text-gray-700 transition-colors duration-200"
-              aria-label="메뉴 열기"
-            >
-              <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-              </svg>
-            </button>
-          </div>
-        </div>
-        
-        {/* 성능 최적화: 모바일 메뉴 (숨김 상태, 필요시 확장) */}
-        <div className="sm:hidden hidden">
-          <div className="pt-2 pb-3 space-y-1">
+          <div className="hidden sm:ml-0 sm:flex sm:space-x-4">
             {navigationItems.map((item) => (
               <Link
-                key={`mobile-${item.href}`}
+                key={item.href}
                 href={item.href}
                 prefetch={item.prefetch}
-                className={`block pl-3 pr-4 py-2 border-l-4 text-base font-medium transition-all duration-200 ${
+                className={`inline-flex items-center px-6 py-4 border-b-4 text-2xl font-extrabold transition-all duration-200 rounded-lg shadow-md ${
                   isActive(item.href)
-                    ? 'bg-blue-50 border-blue-500 text-blue-700'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50 hover:border-gray-300'
+                    ? 'border-blue-600 text-blue-800 bg-blue-50'
+                    : 'border-transparent text-gray-700 hover:border-blue-300 hover:text-blue-900 hover:bg-blue-100'
                 }`}
+                style={{letterSpacing:'0.05em'}}
               >
                 {item.label}
               </Link>
             ))}
           </div>
+        </div>
+        <div className="flex-1 flex flex-col items-end justify-center">
+          <span className="text-2xl md:text-3xl font-extrabold text-blue-800 text-right mb-2 drop-shadow-lg">
+            정현목은 언제나 진심으로 고객을 대합니다.
+          </span>
         </div>
       </div>
     </nav>
