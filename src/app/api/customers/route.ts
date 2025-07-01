@@ -27,6 +27,7 @@ export async function GET(request: Request) {
     const maxUnpaid = searchParams.get('maxUnpaid');
     const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');
+    const hasTransactions = searchParams.get('hasTransactions') === 'true';
     
     // 스키마 체크는 임시로 비활성화
     // if (process.env.NODE_ENV === 'development') {
@@ -78,6 +79,20 @@ export async function GET(request: Request) {
     } else {
       const { data: allCustomers } = await query;
       customers = allCustomers || [];
+    }
+
+    // 거래가 있는 고객만 필터링
+    if (hasTransactions) {
+      const { data: customerIdsWithTransactions } = await supabase
+        .from('transactions')
+        .select('customer_id')
+        .not('customer_id', 'is', null);
+      
+      const customerIdsSet = new Set(
+        (customerIdsWithTransactions || []).map(tx => tx.customer_id)
+      );
+      
+      customers = customers.filter(customer => customerIdsSet.has(customer.id));
     }
     // 사진 동기화
     for (const customer of customers) {

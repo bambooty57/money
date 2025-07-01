@@ -8,14 +8,16 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Alert } from './ui/alert';
 import { Upload, FileIcon, ImageIcon, Trash2, Download } from 'lucide-react';
+import { sanitizeFileName } from '@/lib/utils';
 
 interface TransactionFormProps {
-  customers: Customer[];
+  customers?: Customer[];
   onSuccess?: () => void;
   transaction?: any; // 수정 대상 거래(있으면 수정 모드)
 }
 
 export default function TransactionForm({ customers, onSuccess, transaction }: TransactionFormProps) {
+  const [allCustomers, setAllCustomers] = useState<Customer[]>(customers || []);
   const [loading, setLoading] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
@@ -30,6 +32,16 @@ export default function TransactionForm({ customers, onSuccess, transaction }: T
     proofs: [] as File[],
     models_types_id: transaction?.models_types_id || '',
   });
+
+  // 모든 고객 목록 가져오기 (신규 거래 등록용)
+  useEffect(() => {
+    if (!customers) {
+      fetch('/api/customers')
+        .then(res => res.json())
+        .then(data => setAllCustomers(data.data || []))
+        .catch(err => console.error('Failed to fetch customers:', err));
+    }
+  }, [customers]);
 
   useEffect(() => {
     if (transaction) {
@@ -47,6 +59,25 @@ export default function TransactionForm({ customers, onSuccess, transaction }: T
     }
   }, [transaction]);
 
+  const handleFileUpload = async (files: File[], transactionId: string) => {
+    const supabase = createClient();
+    for (const file of files) {
+      const safeName = sanitizeFileName(file.name);
+      const path = `proofs/${transactionId}/${safeName}`;
+      // Supabase Storage 업로드
+      const { error: uploadError } = await supabase.storage.from('photos').upload(path, file);
+      if (uploadError) throw uploadError;
+      // files 테이블 메타데이터 저장
+      const { error: metaError } = await supabase.from('files').insert({
+        name: safeName,
+        type: file.type,
+        url: path,
+        transaction_id: transactionId,
+      });
+      if (metaError) throw metaError;
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -55,6 +86,7 @@ export default function TransactionForm({ customers, onSuccess, transaction }: T
     try {
       const supabase = createClient();
       let error;
+      let txId = transaction?.id;
       if (transaction) {
         // 수정
         const { proofs, date, ...rest } = formData;
@@ -83,11 +115,19 @@ export default function TransactionForm({ customers, onSuccess, transaction }: T
           models_types_id: formData.models_types_id,
           due_date: formData.due_date || null,
         };
-        ({ error } = await supabase
+        const { data: inserted, error: insertError } = await supabase
           .from('transactions')
-          .insert(insertPayload));
+          .insert(insertPayload)
+          .select('id')
+          .single();
+        if (insertError) throw insertError;
+        txId = inserted.id;
       }
       if (error) throw error;
+      // 파일 업로드 및 메타데이터 저장
+      if (formData.proofs.length > 0 && txId) {
+        await handleFileUpload(formData.proofs, txId);
+      }
       setSuccessMsg(transaction ? '거래 수정이 완료되었습니다.' : '거래 등록이 완료되었습니다.');
       if (!transaction) {
         setFormData({
@@ -186,7 +226,7 @@ export default function TransactionForm({ customers, onSuccess, transaction }: T
           className="w-full border rounded p-2"
         >
           <option value="">고객명을 선택하세요</option>
-          {customers.filter((c, i, arr) => arr.findIndex(x => x.name === c.name) === i).map((c) => (
+                          {allCustomers.filter((c, i, arr) => arr.findIndex(x => x.name === c.name) === i).map((c) => (
             <option key={c.id} value={c.id}>{c.name}</option>
           ))}
         </select>

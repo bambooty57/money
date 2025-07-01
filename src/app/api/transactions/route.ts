@@ -10,14 +10,27 @@ export async function GET(request: Request) {
         .from('transactions')
         .select('*', { count: 'exact', head: true });
       if (error) throw error;
-      return NextResponse.json({ count: count ?? 0 });
+      const { data: sumData, error: sumError } = await supabase
+        .from('transactions')
+        .select('amount')
+        .neq('status', 'deleted');
+      if (sumError) throw sumError;
+      const totalAmount = (sumData || []).reduce((sum, tx) => sum + (tx.amount || 0), 0);
+      return NextResponse.json({ count: count ?? 0, totalAmount });
     }
     const { data, error } = await supabase
       .from('transactions')
-      .select('*,customers(*)')
+      .select('*,customers(*),models_types(model,type)')
       .order('created_at', { ascending: false });
     if (error) throw error;
-    return NextResponse.json(data);
+    const result = (data || []).map((tx: any) => ({
+      ...tx,
+      model: tx.models_types?.model || '',
+      model_type: tx.models_types?.type || '',
+      due_date: tx.due_date,
+      status: tx.status,
+    }));
+    return NextResponse.json(result);
   } catch (error) {
     console.error('Error fetching transactions:', error);
     return NextResponse.json({ error: 'Failed to fetch transactions' }, { status: 500 });

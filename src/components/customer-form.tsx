@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
-import { ProductModelTypeAutocomplete } from './product-model-type-autocomplete'
+import { ProductModelTypeDropdown } from './product-model-type-autocomplete'
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Alert } from './ui/alert';
@@ -38,7 +38,7 @@ export function CustomerForm({ onSuccess, open, setOpen, customer }: CustomerFor
     address_jibun: '',
     zipcode: '',
   });
-  const [photos, setPhotos] = useState<(File | { url: string })[]>([]);
+  const [photos, setPhotos] = useState<(File | { id: string; url: string })[]>([]);
   const [addressSearchOpen, setAddressSearchOpen] = useState(false);
   const [draggedPhotoIndex, setDraggedPhotoIndex] = useState<number | null>(null);
 
@@ -120,17 +120,38 @@ export function CustomerForm({ onSuccess, open, setOpen, customer }: CustomerFor
 
   const removePhoto = async (index: number) => {
     const photo = photos[index];
+    
     // 서버에 저장된 사진이면 삭제 API 호출
-    if ((photo as any).url && customer && customer.id) {
+    if ((photo as any).id && (photo as any).url && customer && customer.id) {
       if (window.confirm('이 사진을 삭제하시겠습니까?')) {
-        // 파일 id를 url에서 추출하거나, files API에서 id를 받아와야 함
-        // 간단히 url 전체를 file_id로 가정(실제 id가 필요하면 추가 fetch 필요)
-        const res = await fetch(`/api/files?file_id=${encodeURIComponent((photo as any).url)}`, {
-          method: 'DELETE',
-        });
-        if (!res.ok) alert('사진 삭제 실패');
+        try {
+          console.log('🗑️ 사진 삭제 시도 - ID:', (photo as any).id);
+          
+          // 실제 파일 ID로 삭제 API 호출
+          const res = await fetch(`/api/files?file_id=${(photo as any).id}`, {
+            method: 'DELETE',
+          });
+          
+          if (!res.ok) {
+            const errorText = await res.text();
+            console.error('❌ 사진 삭제 API 실패:', res.status, errorText);
+            alert('사진 삭제 실패: ' + errorText);
+            return; // 실패 시 UI에서 제거하지 않음
+          }
+          
+          console.log('✅ 사진 삭제 성공');
+          
+        } catch (error) {
+          console.error('❌ 사진 삭제 중 오류:', error);
+          alert('사진 삭제 중 오류가 발생했습니다.');
+          return; // 실패 시 UI에서 제거하지 않음
+        }
+      } else {
+        return; // 사용자가 취소 시 삭제하지 않음
       }
     }
+    
+    // 성공적으로 삭제되었거나 새로 추가한 파일인 경우 UI에서 제거
     setPhotos(prev => prev.filter((_, i) => i !== index));
   };
 
@@ -173,7 +194,7 @@ export function CustomerForm({ onSuccess, open, setOpen, customer }: CustomerFor
     async function fetchExistingPhotos(customerId: string) {
       const res = await fetch(`/api/files?customer_id=${customerId}`);
       const files = await res.json();
-      return Array.isArray(files) ? files.map((f: any) => ({ url: f.url })) : [];
+      return Array.isArray(files) ? files.map((f: any) => ({ id: f.id, url: f.url })) : [];
     }
     if (customer) {
       setFormData({

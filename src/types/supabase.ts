@@ -77,7 +77,7 @@ export type Database = {
           is_admin?: boolean | null
           mobile?: string | null
           name: string
-          phone: string
+          phone?: string
           representative_name?: string | null
           ssn?: string | null
           updated_at?: string
@@ -255,15 +255,15 @@ export type Database = {
           cash_place: string | null
           cash_receiver: string | null
           created_at: string | null
+          detail: string | null
           id: string
           method: string
-          detail: string | null; // 기타/융자 등 상세정보
-          note: string | null; // 비고
+          note: string | null
           paid_at: string
-          payer_name: string | null
-          transaction_id: string | null
           paid_by: string | null
           paid_location: string | null
+          payer_name: string | null
+          transaction_id: string | null
           used_at: string | null
           used_by: string | null
           used_model: string | null
@@ -280,15 +280,15 @@ export type Database = {
           cash_place?: string | null
           cash_receiver?: string | null
           created_at?: string | null
+          detail?: string | null
           id?: string
           method: string
-          detail?: string | null; // 기타/융자 등 상세정보
-          note?: string | null; // 비고
+          note?: string | null
           paid_at?: string
-          payer_name?: string | null
-          transaction_id?: string | null
           paid_by?: string | null
           paid_location?: string | null
+          payer_name?: string | null
+          transaction_id?: string | null
           used_at?: string | null
           used_by?: string | null
           used_model?: string | null
@@ -305,15 +305,15 @@ export type Database = {
           cash_place?: string | null
           cash_receiver?: string | null
           created_at?: string | null
+          detail?: string | null
           id?: string
           method?: string
-          detail?: string | null; // 기타/융자 등 상세정보
-          note?: string | null; // 비고
+          note?: string | null
           paid_at?: string
-          payer_name?: string | null
-          transaction_id?: string | null
           paid_by?: string | null
           paid_location?: string | null
+          payer_name?: string | null
+          transaction_id?: string | null
           used_at?: string | null
           used_by?: string | null
           used_model?: string | null
@@ -339,6 +339,8 @@ export type Database = {
           description: string | null
           due_date: string | null
           id: string
+          model: string | null
+          model_type: string | null
           models_types_id: string | null
           paid_amount: number | null
           paid_ratio: number | null
@@ -355,6 +357,8 @@ export type Database = {
           description?: string | null
           due_date?: string | null
           id?: string
+          model?: string | null
+          model_type?: string | null
           models_types_id?: string | null
           paid_amount?: number | null
           paid_ratio?: number | null
@@ -371,6 +375,8 @@ export type Database = {
           description?: string | null
           due_date?: string | null
           id?: string
+          model?: string | null
+          model_type?: string | null
           models_types_id?: string | null
           paid_amount?: number | null
           paid_ratio?: number | null
@@ -510,7 +516,7 @@ export type CompositeTypes<
   }
     ? keyof Database[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
     : never = never,
-> = DefaultSchemaTableNameOrOptions extends { schema: keyof Database }
+> = PublicCompositeTypeNameOrOptions extends { schema: keyof Database }
   ? Database[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
   : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
     ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]

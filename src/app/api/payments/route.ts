@@ -19,6 +19,7 @@ export async function POST(request: Request) {
     paymentData.cash_place = cash_place;
     paymentData.cash_receiver = cash_receiver;
     paymentData.cash_detail = cash_detail;
+    paymentData.note = note;
   }
   if (method === '계좌이체') {
     paymentData.account_number = account_number;

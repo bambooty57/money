@@ -4,7 +4,8 @@ import { notFound } from 'next/navigation';
 import { createClient } from '@/lib/supabase';
 import TransactionDetailClient from './TransactionDetailClient';
 import type { Transaction, File } from '@/types/database';
-import BackToListButton from './BackToListButton';
+
+import HeaderButtons from './HeaderButtons';
 
 // 거래, 입금, 파일 타입
 interface Payment {
@@ -68,7 +69,7 @@ export default async function CustomerTransactionsPage(props: any) {
   const customerName = txs[0]?.customers?.name || customerId;
   return (
     <div className="max-w-4xl mx-auto p-4">
-      <BackToListButton />
+      <HeaderButtons />
       <h1 className="text-2xl font-bold mb-4">거래상세 - {customerName}</h1>
       <TransactionDetailClient transactions={txs.map(tx => ({ ...tx, customer_id: tx.customer_id || customerId }))} customerId={customerId} />
     </div>

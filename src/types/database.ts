@@ -118,4 +118,14 @@ export interface Payment {
   used_at?: string | null;
   /** 기타/융자 등 상세정보 */
   detail?: string | null;
+}
+
+export interface TransactionWithDetails extends Transaction {
+  customers?: Customer;
+  payments?: Payment[];
+  files?: File[];
+  paid_amount?: number;
+  unpaid_amount?: number;
+  paid_ratio?: number;
+  models_types?: { model?: string; type?: string };
 } 

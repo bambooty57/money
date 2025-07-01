@@ -38,7 +38,7 @@ export function TransactionList() {
   useEffect(() => {
     async function fetchData() {
       try {
-        const res = await fetch('/api/customers');
+        const res = await fetch('/api/customers?hasTransactions=true');
         const data = await res.json();
         setCustomers(data.data || []);
         // 고객별 summary 병렬 호출
@@ -133,7 +133,7 @@ export function TransactionList() {
             <DialogHeader>
               <DialogTitle>신규 거래 등록</DialogTitle>
             </DialogHeader>
-            <TransactionForm customers={customers} onSuccess={() => { setFormOpen(false); router.refresh(); }} />
+            <TransactionForm onSuccess={() => { setFormOpen(false); router.refresh(); }} />
           </DialogContent>
         </Dialog>
         <Dialog>

@@ -56,7 +56,7 @@ export async function GET() {
     // 지급예정일이 이번달인 거래(미수금 남은 건만)
     const { data: dueThisMonthRaw, error: dueMonthError } = await supabase
       .from('transactions')
-      .select('id,customer_id,amount,due_date,status,model,model_type,payments(amount),customers(name)' as any)
+      .select('id,customer_id,amount,due_date,status,models_types_id,payments(amount),customers(name),models_types(model,type)' as any)
       .gte('due_date' as any, `${monthStr}-01` as any)
       .lte('due_date' as any, `${monthStr}-31` as any)
       .neq('status' as any, 'paid' as any);
@@ -65,25 +65,28 @@ export async function GET() {
       const paid = (tx.payments || []).reduce((sum: any, p: any) => sum + (p.amount || 0), 0);
       const unpaid = (tx.amount || 0) - paid;
       const ratio = tx.amount ? Math.round((paid / tx.amount) * 100) : 0;
+      const due = tx.due_date ? new Date(tx.due_date) : null;
+      const days_left = due ? Math.ceil((due.getTime() - now.getTime()) / (1000*60*60*24)) : null;
       return {
         id: tx.id,
         customer_id: tx.customer_id,
         customer_name: tx.customers?.name || '',
-        model: tx.model || '',
-        model_type: tx.model_type || '',
+        model: tx.models_types?.model || '',
+        model_type: tx.models_types?.type || '',
         amount: tx.amount || 0,
         paid_amount: paid,
         unpaid_amount: unpaid,
         paid_ratio: ratio,
         due_date: tx.due_date,
         status: tx.status,
+        days_left,
       };
     });
-    // 7. 지급예정일이 지난 거래건(경과일수, 고객, 모델, 기종, 입금액 등 포함)
+    // 7. 지급예정일이 지난 거래건(경과일수 포함)
     const todayStr = now.toISOString().slice(0, 10);
     const { data: overdueTxsRaw, error: overdueError } = await supabase
       .from('transactions')
-      .select('id,customer_id,amount,due_date,status,model,model_type,payments(amount),customers(name)' as any)
+      .select('id,customer_id,amount,due_date,status,models_types_id,payments(amount),customers(name),models_types(model,type)' as any)
       .lt('due_date' as any, todayStr as any)
       .neq('status' as any, 'paid' as any);
     if (overdueError) throw overdueError;
@@ -97,8 +100,8 @@ export async function GET() {
         id: tx.id,
         customer_id: tx.customer_id,
         customer_name: tx.customers?.name || '',
-        model: tx.model || '',
-        model_type: tx.model_type || '',
+        model: tx.models_types?.model || '',
+        model_type: tx.models_types?.type || '',
         amount: tx.amount || 0,
         paid_amount: paid,
         unpaid_amount: unpaid,
@@ -108,14 +111,31 @@ export async function GET() {
         overdue_days: days,
       };
     });
+    // 지급예정/지급지연 거래건 요약
+    const dueThisMonthSummary = {
+      count: dueThisMonth.length,
+      totalAmount: dueThisMonth.reduce((sum, tx) => sum + (tx.amount || 0), 0),
+      totalUnpaid: dueThisMonth.reduce((sum, tx) => sum + (tx.unpaid_amount || 0), 0),
+      avgPaidRatio: dueThisMonth.length ? Math.round(dueThisMonth.reduce((sum, tx) => sum + (tx.paid_ratio || 0), 0) / dueThisMonth.length) : 0,
+    };
+    const overdueTxsSummary = {
+      count: overdueTxs.length,
+      totalAmount: overdueTxs.reduce((sum, tx) => sum + (tx.amount || 0), 0),
+      totalUnpaid: overdueTxs.reduce((sum, tx) => sum + (tx.unpaid_amount || 0), 0),
+      avgOverdueDays: overdueTxs.length ? Math.round(overdueTxs.reduce((sum, tx) => sum + (tx.overdue_days || 0), 0) / overdueTxs.length) : 0,
+    };
+    const today = now.toISOString().slice(0, 10);
     return NextResponse.json({
+      today,
       totalUnpaid,
       agingAnalysis,
       topCustomers: topCustomers.slice(0, 5),
       monthlyStats: monthlyStats || [],
       typeStats: typeStats || [],
       dueThisMonth,
+      dueThisMonthSummary,
       overdueTxs,
+      overdueTxsSummary,
     });
   } catch (error) {
     console.error('Error fetching dashboard data:', error);
