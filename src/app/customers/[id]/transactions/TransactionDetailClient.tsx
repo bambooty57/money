@@ -8,6 +8,8 @@ import { Trash2, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { PDFDocument, rgb } from 'pdf-lib';
 import fontkit from '@pdf-lib/fontkit';
+import fs from 'fs/promises';
+import path from 'path';
 
 type Payment = PaymentType;
 
@@ -752,127 +754,137 @@ async function handlePdfExportPdfLib(selectedTx: TransactionWithDetails, filtere
     y -= customerBoxHeight + 10; // 고객정보 박스 높이만큼 y 위치 조정 (126px + 10px)
 
     // 3. 거래 정보 (박스 형태, 1행3열-2행4열-3행1열 구조)
-    const transactionData = {
-      row1: [
-        ['거래일자', selectedTx.created_at?.slice(0,10) || ''],
-        ['거래유형', selectedTx.type || ''],
-        ['기종/모델', `${selectedTx.models_types?.model || ''} / ${selectedTx.models_types?.type || ''}`]
-      ],
-      row2: [
-        ['매출액', `${selectedTx.amount?.toLocaleString() || ''}원`],
-        ['입금액', `${(selectedTx.paid_amount||0).toLocaleString()}원`],
-        ['잔금', `${(selectedTx.unpaid_amount||0).toLocaleString()}원`],
-        ['입금율', selectedTx.paid_ratio !== undefined && selectedTx.paid_ratio !== null ? selectedTx.paid_ratio.toFixed(1)+'%' : '-']
-      ],
-      row3: [
-        ['비고', selectedTx.description || '']
-      ]
-    };
-
-    // 거래정보 박스
-    const transactionBoxX = 60;
-    const transactionBoxY = y;
-    const transactionBoxWidth = 480;
-    const transactionBoxHeight = 90; // 행간격 확대로 높이 증가 (74 → 90)
-    
-    // 거래정보 박스 테두리
+    const row1 = [
+      ['거래일자', selectedTx.created_at?.slice(0,10) || ''],
+      ['거래유형', selectedTx.type || ''],
+      ['기종/모델', `${selectedTx.models_types?.model || ''} / ${selectedTx.models_types?.type || ''}`],
+      ['비고', selectedTx.description || '']
+    ];
+    const row2 = [
+      ['매출액', `${selectedTx.amount?.toLocaleString() || ''}원`],
+      ['입금액', `${(selectedTx.paid_amount||0).toLocaleString()}원`],
+      ['잔금', `${(selectedTx.unpaid_amount||0).toLocaleString()}원`],
+      ['입금율', selectedTx.paid_ratio !== undefined && selectedTx.paid_ratio !== null ? selectedTx.paid_ratio.toFixed(1)+'%' : '-']
+    ];
+    const boxX = 60;
+    const boxY = y;
+    const boxWidth = 480;
+    const boxHeight = 70; // 2행 기준
+    const colWidths = [60, 60, 55, 80, 65, 108, 40]; // 입금은행 80→65, 상세 93→108
+    // 박스 테두리
     page.drawRectangle({
-      x: transactionBoxX,
-      y: transactionBoxY - transactionBoxHeight,
-      width: transactionBoxWidth,
-      height: transactionBoxHeight,
+      x: boxX,
+      y: boxY - boxHeight,
+      width: boxWidth,
+      height: boxHeight,
       borderColor: rgb(0.7,0.7,0.8),
       borderWidth: 1
     });
+    // 거래정보 박스 내부 항목 좌우 간격 균등 분포
+    const colWidth = (boxWidth - 20) / 4;
+    // 1행 4열
+    row1.forEach(([k, v], i) => {
+      const colX = boxX + 10 + (i * colWidth);
+      page.drawText(`${k}:`, { x: colX, y: boxY - 18, size: 9, font, color: rgb(0.3,0.3,0.3) });
+      page.drawText(v, { x: colX, y: boxY - 32, size: 9, font, color: rgb(0,0,0) });
+    });
+    // 2행 4열
+    row2.forEach(([k, v], i) => {
+      const colX = boxX + 10 + (i * colWidth);
+      page.drawText(`${k}:`, { x: colX, y: boxY - 48, size: 9, font, color: rgb(0.3,0.3,0.3) });
+      page.drawText(v, { x: colX, y: boxY - 62, size: 9, font, color: rgb(0,0,0) });
+    });
+    y -= boxHeight + 10;
 
-    // 1행 3열 (거래일자, 거래유형, 기종/모델)
-    const row1Y = transactionBoxY - 18;
-    const col3Width = transactionBoxWidth / 3;
-    transactionData.row1.forEach(([k, v], i) => {
-      const colX = transactionBoxX + 10 + (i * col3Width);
-      // 라벨
-      page.drawText(`${k}:`, { 
-        x: colX, 
-        y: row1Y, 
-        size: 9, 
-        font, 
-        color: rgb(0.3,0.3,0.3) 
+    // 4. 입금내역 표 (입금현황)
+    const paymentBoxX = 60;
+    const paymentBoxInnerX = paymentBoxX + 6;
+    const paymentBoxY = y;
+    const paymentBoxWidth = 480;
+    const paymentTableHeaders = ['입금일', '입금자', '방식', '금액', '입금은행', '상세', '비고'];
+    const paymentColWidths = [60, 60, 55, 80, 65, 108, 40]; // 입금은행 80→65, 상세 93→108
+    const rowHeight = 18;
+    const maxRows = 15;
+    // 거래내역 박스 높이를 데이터 개수에 따라 동적으로 계산
+    const paymentRowCount = Math.max(filteredPayments.length, 1); // 최소 1행
+    const paymentBoxHeight = (rowHeight * (paymentRowCount + 1)) + 60; // 헤더+데이터+하단여백
+
+    // 거래내역 표 테두리(고객정보/거래정보와 완전히 동일)
+    page.drawRectangle({
+      x: boxX,
+      y: paymentBoxY - paymentBoxHeight,
+      width: boxWidth,
+      height: paymentBoxHeight,
+      borderColor: rgb(0.5,0.5,0.7),
+      borderWidth: 0.4
+    });
+    // 거래내역 표 상단 밑줄(drawLine)은 drawRectangle과 겹치므로 제거
+    // 내부 행 밑줄 drawLine(연녹색)은 모두 제거
+    // 헤더와 밑줄 간 간격 맞춤 (헤더 y좌표 조정)
+    const paymentHeaderY = paymentBoxY - 18;
+    paymentTableHeaders.forEach((header, i) => {
+      page.drawText(header, {
+        x: paymentBoxInnerX + paymentColWidths.slice(0, i).reduce((a, b) => a + b, 0),
+        y: paymentHeaderY,
+        size: 9,
+        font,
+        color: rgb(0.1,0.2,0.5)
       });
-      // 값
-      page.drawText(v, { 
-        x: colX, 
-        y: row1Y - 12, 
-        size: 9, 
-        font, 
-        color: rgb(0,0,0) 
+    });
+    // splitTextByWidth 함수 선언을 이 위치로 이동
+    function splitTextByWidth(text: string, maxWidth: number, font: any, size: number) {
+      if (!text) return [''];
+      const words = text.split(' ');
+      let lines = [];
+      let current = '';
+      words.forEach(word => {
+        const test = current ? current + ' ' + word : word;
+        if (font.widthOfTextAtSize(test, size) > maxWidth) {
+          if (current) lines.push(current);
+          current = word;
+        } else {
+          current = test;
+        }
       });
+      if (current) lines.push(current);
+      return lines;
+    }
+    let paymentRowY = paymentHeaderY - rowHeight;
+    filteredPayments.slice(0, maxRows).forEach((p, rowIdx) => {
+      const cells = [
+        p.paid_at?.slice(0,10) || '',
+        p.payer_name || '',
+        p.method || '',
+        (p.amount || 0).toLocaleString() + '원',
+        p.bank_name || '',
+        p.method === '현금'
+          ? `장소:${p.cash_place||''} 수령:${p.cash_receiver||''}`
+          : p.method === '계좌이체'
+            ? `계좌:${p.account_number||''} (${p.account_holder||''})`
+            : p.detail || '',
+        p.note || ''
+      ];
+      const maxDetailWidth = paymentColWidths[5] - 4;
+      const detailLines = splitTextByWidth(cells[5], maxDetailWidth, font, 9);
+      const rowLines = Math.max(1, detailLines.length);
+      for (let lineIdx = 0; lineIdx < rowLines; lineIdx++) {
+        cells.forEach((cell, i) => {
+          let text = cell;
+          if (i === 5) text = detailLines[lineIdx] || '';
+          if (i === 6 && lineIdx > 0) text = '';
+          page.drawText(text, {
+            x: paymentBoxInnerX + paymentColWidths.slice(0, i).reduce((a, b) => a + b, 0),
+            y: paymentRowY - lineIdx * rowHeight,
+            size: 9,
+            font,
+            color: rgb(0,0,0)
+          });
+        });
+      }
+      paymentRowY -= rowLines * rowHeight;
     });
 
-    // 2행 4열 (매출액, 입금액, 잔금, 입금율)
-    const row2Y = transactionBoxY - 48; // 간격 확대 (44 → 48)
-    const col4Width = transactionBoxWidth / 4;
-    transactionData.row2.forEach(([k, v], i) => {
-      const colX = transactionBoxX + 10 + (i * col4Width);
-      // 라벨
-      page.drawText(`${k}:`, { 
-        x: colX, 
-        y: row2Y, 
-        size: 9, 
-        font, 
-        color: rgb(0.3,0.3,0.3) 
-      });
-      // 값
-      page.drawText(v, { 
-        x: colX, 
-        y: row2Y - 12, 
-        size: 9, 
-        font, 
-        color: rgb(0,0,0) 
-      });
-    });
-
-    // 3행 1열 (비고)
-    const row3Y = transactionBoxY - 78; // 간격 확대 (68 → 78)
-    const [remarkLabel, remarkValue] = transactionData.row3[0];
-    page.drawText(`${remarkLabel}:`, { 
-      x: transactionBoxX + 10, 
-      y: row3Y, 
-      size: 9, 
-      font, 
-      color: rgb(0.3,0.3,0.3) 
-    });
-    page.drawText(remarkValue, { 
-      x: transactionBoxX + 50, 
-      y: row3Y, 
-      size: 9, 
-      font, 
-      color: rgb(0,0,0) 
-    });
-
-    // 행간 구분선
-    page.drawLine({ 
-      start: {x: transactionBoxX + 5, y: row1Y - 18}, 
-      end: {x: transactionBoxX + transactionBoxWidth - 5, y: row1Y - 18}, 
-      thickness: 0.3, 
-      color: rgb(0.9,0.9,0.9) 
-    });
-    page.drawLine({ 
-      start: {x: transactionBoxX + 5, y: row2Y - 18}, 
-      end: {x: transactionBoxX + transactionBoxWidth - 5, y: row2Y - 18}, 
-      thickness: 0.3, 
-      color: rgb(0.9,0.9,0.9) 
-    });
-    
-    y -= transactionBoxHeight + 10; // 거래정보 박스 높이만큼 y 위치 조정
-
-    // 4. 입금내역 표 (생략, 기존 코드 유지)
-    // ... (생략: 기존 표 코드)
-
-    // 5. 거래확인/사인란
-    y -= 30;
-    page.drawLine({ start: {x: 60, y}, end: {x: 300, y}, thickness: 1, color: rgb(0.7,0.7,0.8) });
-    page.drawText('고객 확인/서명:', { x: 60, y: y+8, size: 12, font, color: rgb(0.1,0.2,0.5) });
-    // (실제 서명 이미지는 추후 첨부 가능)
+    y = paymentRowY - 30; // 표와 서명란 사이 충분히 띄움
 
     // 6. 공급자 정보 (하단 중앙 정렬)
     const supplier = {
@@ -883,56 +895,70 @@ async function handlePdfExportPdfLib(selectedTx: TransactionWithDetails, filtere
       phone: '010-2602-3276',
       accounts: ACCOUNT_LIST
     };
-    page.drawLine({ start: {x: 50, y: 80}, end: {x: 545, y: 80}, thickness: 1, color: rgb(0.7,0.7,0.8) });
-    
-    // 첫 번째 줄 중앙 정렬
-    const supplierLine1 = `공급자: ${supplier.name}  |  사업자번호: ${supplier.biznum}  |  대표: ${supplier.ceo}`;
-    const line1Width = font.widthOfTextAtSize(supplierLine1, 11);
-    const line1CenterX = (595 - line1Width) / 2;
-    page.drawText(supplierLine1, { x: line1CenterX, y: 65, size: 11, font, color: rgb(0.2,0.2,0.2) });
-    
-    // 두 번째 줄 중앙 정렬
-    const supplierLine2 = `주소: ${supplier.address}  |  연락처: ${supplier.phone}`;
-    const line2Width = font.widthOfTextAtSize(supplierLine2, 11);
-    const line2CenterX = (595 - line2Width) / 2;
-    page.drawText(supplierLine2, { x: line2CenterX, y: 50, size: 11, font, color: rgb(0.2,0.2,0.2) });
-    
-    // 계좌 정보 (계좌1 중앙 배치, 강조 표시)
-    if (supplier.accounts.length >= 1) {
-      const acc1 = supplier.accounts[0];
-      const accountText = `계좌1: ${acc1.bank} ${acc1.number} (${acc1.holder})`;
-      // 텍스트 폭 계산하여 중앙 정렬 (A4 페이지 폭 595px)
-      const textWidth = font.widthOfTextAtSize(accountText, 14);
-      const centerX = (595 - textWidth) / 2;
-      
-      page.drawText(accountText, { 
-        x: centerX, 
-        y: 35, 
-        size: 14, 
-        font, 
-        color: rgb(0.1, 0.3, 0.8) // 파란색으로 강조
-      });
-    }
-    // 3개 이상의 계좌가 있을 경우 아래 줄에 배치
-    if (supplier.accounts.length >= 3) {
-      const remainingAccounts = supplier.accounts.slice(2);
-      remainingAccounts.forEach((acc, i) => {
-        page.drawText(`계좌${i+3}: ${acc.bank} ${acc.number} (${acc.holder})`, { x: 60, y: 20 - i*15, size: 11, font, color: rgb(0.2,0.2,0.2) });
-      });
+
+    // 공급자 정보 fetch 함수 (클라이언트/서버 컴포넌트 모두 지원)
+    async function fetchSupplierInfo() {
+      const res = await fetch('/api/supplier-info');
+      if (!res.ok) throw new Error('공급자 정보 로드 실패');
+      return res.json();
     }
 
-    // 페이지 번호 표시 (하단 중앙)
-    const pageNumber = '1/1'; // 현재는 단일 페이지이므로 1/1
-    const pageWidth = 595; // A4 페이지 폭
-    const pageTextWidth = font.widthOfTextAtSize(pageNumber, 10);
-    const pageX = (pageWidth - pageTextWidth) / 2; // 중앙 정렬
-    page.drawText(pageNumber, { 
-      x: pageX, 
-      y: 15, 
-      size: 10, 
-      font, 
-      color: rgb(0.5, 0.5, 0.5) 
+    // drawLine(구분선) 추가 (공급자 정보 위)
+    page.drawLine({
+      start: { x: 40, y: 75 },
+      end: { x: 555, y: 75 },
+      thickness: 1,
+      color: rgb(0.8,0.8,0.8)
     });
+    // 하단 공급자 정보(중앙 정렬, 3행: 공급자, 주소, 계좌)
+    const accountText = supplier.accounts && supplier.accounts.length > 0
+      ? `${supplier.accounts[0].bank} ${supplier.accounts[0].number} (${supplier.accounts[0].holder})`
+      : '';
+    const supplierLine1 = `공급자: ${supplier.name} | 대표: ${supplier.ceo} | 사업자등록번호: ${supplier.biznum}`;
+    const supplierLine2 = `주소: ${supplier.address} | 연락처: ${supplier.phone}`;
+    const supplierLine3 = accountText;
+    const line1Width = font.widthOfTextAtSize(supplierLine1, 11);
+    const line2Width = font.widthOfTextAtSize(supplierLine2, 11);
+    const line3Width = font.widthOfTextAtSize(supplierLine3, 14); // 강조 위해 더 크게
+    const line1CenterX = (595 - line1Width) / 2;
+    const line2CenterX = (595 - line2Width) / 2;
+    const line3CenterX = (595 - line3Width) / 2;
+    page.drawText(supplierLine1, { x: line1CenterX, y: 60, size: 11, font, color: rgb(0.2,0.2,0.2) });
+    page.drawText(supplierLine2, { x: line2CenterX, y: 40, size: 11, font, color: rgb(0.2,0.2,0.2) });
+    if (supplierLine3) {
+      page.drawText(supplierLine3, { x: line3CenterX, y: 22, size: 14, font, color: rgb(0.09,0.46,0.82) }); // #1976d2
+    }
+    // 페이지 번호는 더 아래로
+    const pageNumber = '1/1';
+    const pageWidth = 595;
+    const pageTextWidth = font.widthOfTextAtSize(pageNumber, 10);
+    const pageX = (pageWidth - pageTextWidth) / 2;
+    page.drawText(pageNumber, {
+      x: pageX,
+      y: 10,
+      size: 10,
+      font,
+      color: rgb(0.5, 0.5, 0.5)
+    });
+
+    // 거래내역 표와 공급자 정보 사이에 일자/확인자 서명란 추가 (공급자 drawText보다 먼저)
+    let customerName = '';
+    if (selectedTx.customers && typeof selectedTx.customers === 'object' && 'name' in selectedTx.customers) {
+      customerName = (selectedTx.customers as any).name;
+    } else if ('payer_name' in selectedTx) {
+      customerName = (selectedTx as any).payer_name;
+    } else if ('payer' in selectedTx) {
+      customerName = (selectedTx as any).payer;
+    } else if ('customer_id' in selectedTx) {
+      customerName = String((selectedTx as any).customer_id);
+    }
+    const year = new Date().getFullYear();
+    const confirmFontSize = 11;
+    const confirmY = 90;
+    const confirmText = `${year}년     월     일     확인자:     ${customerName}     (서명)`;
+    const confirmWidth = font.widthOfTextAtSize(confirmText, confirmFontSize);
+    const confirmX = (595 - confirmWidth) / 2;
+    page.drawText(confirmText, { x: confirmX, y: confirmY, size: confirmFontSize, font, color: rgb(0.2,0.2,0.2) });
 
     // PDF 저장 및 다운로드
     const pdfBytes = await pdfDoc.save();
@@ -941,10 +967,19 @@ async function handlePdfExportPdfLib(selectedTx: TransactionWithDetails, filtere
     const a = document.createElement('a');
     a.href = url;
     a.download = 'statement.pdf';
+    a.target = '_blank'; // 새 창에서 열기(다운로드 차단 우회)
     document.body.appendChild(a);
     a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
+    setTimeout(() => {
+      a.remove();
+      URL.revokeObjectURL(url);
+    }, 1000);
+    // 필요시 PDF 미리보기 지원 (주석 해제 시 새 창에서 PDF 열림)
+    // window.open(url, '_blank');
+
+    // ... 고객 확인/서명란 출력 후 아래에 추가 ...
+    // confirmYear는 이미 위에서 선언되어 있으므로 재사용
+    // ... 이후 기존 코드 계속 ...
   } catch (err) {
     if (typeof setErrorMsg === 'function') setErrorMsg('PDF 생성 중 오류 발생: ' + (err as any).message);
   }
@@ -978,16 +1013,12 @@ export default function TransactionDetailClient({ transactions, initialSelectedI
 
   // 필터링된 입금내역
   const filteredPayments = (selectedTx.payments || [])
-    .filter(p => !paymentFilter.payer || (p.payer_name || '').includes(paymentFilter.payer))
-    .filter(p => !paymentFilter.method || p.method === paymentFilter.method)
     .filter(p => !paymentFilter.minAmount || (p.amount || 0) >= Number(paymentFilter.minAmount))
     .filter(p => !paymentFilter.maxAmount || (p.amount || 0) <= Number(paymentFilter.maxAmount))
     .filter(p => !paymentFilter.startDate || (p.paid_at || '') >= paymentFilter.startDate)
     .filter(p => !paymentFilter.endDate || (p.paid_at || '') <= paymentFilter.endDate)
     .filter(p => !paymentFilter.note || (p.note || '').includes(paymentFilter.note))
     .filter(p => !paymentFilter.search || (
-      (p.payer_name || '').includes(paymentFilter.search) ||
-      (p.method || '').includes(paymentFilter.search) ||
       (p.note || '').includes(paymentFilter.search)
     ))
     .sort((a, b) => {
@@ -1318,17 +1349,6 @@ export default function TransactionDetailClient({ transactions, initialSelectedI
           🔍 입금내역 조회
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          <div className="flex flex-col gap-2">
-            <label className="text-lg font-semibold text-gray-700">👤 입금자</label>
-            <input 
-              type="text" 
-              placeholder="입금자명을 입력하세요" 
-              title="입금자" 
-              value={paymentFilter.payer} 
-              onChange={e => setPaymentFilter(f => ({ ...f, payer: e.target.value }))} 
-              className="border-2 border-gray-300 rounded-lg px-4 py-3 text-lg bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-200" 
-            />
-          </div>
           <div className="flex flex-col gap-2">
             <label className="text-lg font-semibold text-gray-700">💳 입금방법</label>
             <select 

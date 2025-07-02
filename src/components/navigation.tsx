@@ -69,7 +69,7 @@ function NavigationContent() {
         </div>
         <div className="flex-1 flex flex-col items-end justify-center">
           <span className="text-2xl md:text-3xl font-extrabold text-blue-800 text-right mb-2 drop-shadow-lg">
-            정현목은 언제나 진심으로 고객을 대합니다.
+            미수금 없는 세상!
           </span>
         </div>
       </div>
