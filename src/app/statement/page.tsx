@@ -212,71 +212,73 @@ export default function StatementPage() {
       <TableHeader className="bg-gray-100 text-lg">
         <TableRow>
           <TableHead className="w-20 text-center">#</TableHead>
-          <TableHead>일자</TableHead>
-          <TableHead>거래명</TableHead>
-          <TableHead>기종/모델</TableHead>
-          <TableHead className="text-right">대변(매출)</TableHead>
-          <TableHead className="text-right">차변(입금)</TableHead>
-          <TableHead className="text-right">잔액</TableHead>
-          <TableHead>비고</TableHead>
+          <TableHead className="w-24 text-center">일자</TableHead>
+          <TableHead className="w-32 text-center">거래명</TableHead>
+          <TableHead className="w-40 text-center">기종/모델</TableHead>
+          <TableHead className="text-right w-32 pl-8">대변(매출)</TableHead>
+          <TableHead className="text-right w-32">차변(입금)</TableHead>
+          <TableHead className="text-right w-32 pl-32">잔액</TableHead>
+          <TableHead className="w-56 text-center">비고</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody className="text-lg">
         {transactions.map((tx, idx) => (
           <React.Fragment key={tx.id}>
             <TableRow className="bg-red-50 ring-2 ring-red-200 rounded-xl shadow hover:bg-red-100 min-h-[72px] transition-all duration-200">
-              <TableCell className="text-center align-middle px-8 py-8 bg-red-50 font-semibold">{idx + 1}</TableCell>
-              <TableCell className="px-8 py-8 bg-red-50 font-semibold">{tx.created_at?.slice(0, 10) || ""}</TableCell>
-              <TableCell className="px-8 py-8 bg-red-50 font-semibold">{tx.type || ""}</TableCell>
-              <TableCell className="pl-0 pr-8 py-8 bg-red-50 font-semibold">{tx.model || tx.models_types?.model || ''}{(tx.model || tx.models_types?.model) && (tx.model_type || tx.models_types?.type) ? '/' : ''}{tx.model_type || tx.models_types?.type || ''}</TableCell>
-              <TableCell className="text-right px-8 py-8 bg-red-50 font-semibold">{tx.amount?.toLocaleString() || ""}</TableCell>
-              <TableCell className="text-right px-8 py-8 bg-red-50 font-semibold">{tx.paid_amount?.toLocaleString() || ""}</TableCell>
-              <TableCell className="text-right px-8 py-8 bg-red-50 font-semibold">{tx.unpaid_amount?.toLocaleString() || ""}</TableCell>
-              <TableCell className="pl-8 pr-8 py-8 bg-red-50 font-semibold">{tx.note || ""}</TableCell>
+              <TableCell className="text-center align-middle px-4 py-8 bg-red-50 font-semibold w-20">{idx + 1}</TableCell>
+              <TableCell className="px-4 py-8 bg-red-50 font-semibold w-24 text-center">{tx.created_at?.slice(0, 10) || ""}</TableCell>
+              <TableCell className="px-4 py-8 bg-red-50 font-semibold w-32 text-center">{tx.type || ""}</TableCell>
+              <TableCell className="px-4 py-8 bg-red-50 font-semibold w-40 text-center">{tx.model || tx.models_types?.model || ''}{(tx.model || tx.models_types?.model) && (tx.model_type || tx.models_types?.type) ? '/' : ''}{tx.model_type || tx.models_types?.type || ''}</TableCell>
+              <TableCell className="text-right px-4 py-8 bg-red-50 font-semibold w-32">{tx.amount?.toLocaleString() || ""}</TableCell>
+              <TableCell className="text-right px-4 py-8 bg-red-50 font-semibold w-32 pl-32">{tx.paid_amount?.toLocaleString() || ""}</TableCell>
+              <TableCell className="text-right px-4 py-8 bg-red-50 font-semibold w-32">{tx.unpaid_amount?.toLocaleString() || ""}</TableCell>
+              <TableCell className="px-4 py-8 bg-red-50 font-semibold w-56 text-center">{tx.note || ""}</TableCell>
             </TableRow>
             {/* 입금내역 하위 표 또는 입금없음 표시 */}
             {Array.isArray(tx.payments) && tx.payments.length > 0 ? (
-              <TableRow className="bg-blue-50">
-                <TableCell colSpan={8} className="p-0">
-                  <Table className="w-full text-base rounded-lg overflow-hidden">
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>입금일</TableHead>
-                        <TableHead className="text-right">금액</TableHead>
-                        <TableHead>입금방법</TableHead>
-                        <TableHead>입금자</TableHead>
-                        <TableHead>비고</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {tx.payments.map((p, pidx) => (
-                        <TableRow key={p.id || pidx}>
-                          <TableCell>{p.paid_at?.slice(0, 10) || ""}</TableCell>
-                          <TableCell className="text-right">{p.amount?.toLocaleString() || ""}</TableCell>
-                          <TableCell>{p.method || ""}</TableCell>
-                          <TableCell>{p.payer_name || ""}</TableCell>
-                          <TableCell>{[p.bank_name, p.account_number, p.account_holder, p.cash_place, p.cash_receiver, p.detail, p.note].filter(Boolean).join(' / ')}</TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </TableCell>
-              </TableRow>
+              <>
+                <TableRow className="bg-blue-50">
+                  <TableCell className="w-20" />
+                  <TableCell className="w-20" />
+                  <TableCell className="w-24 text-center">입금일</TableCell>
+                  <TableCell className="w-28 text-right pr-4">금액</TableCell>
+                  <TableCell className="w-28 pl-4">입금방법</TableCell>
+                  <TableCell className="w-28">입금자</TableCell>
+                  <TableCell className="w-40 text-center">비고</TableCell>
+                  <TableCell />
+                </TableRow>
+                {tx.payments.map((p, pidx) => (
+                  <TableRow key={p.id || pidx}>
+                    <TableCell className="w-20" />
+                    <TableCell className="w-20" />
+                    <TableCell className="w-24 text-center">{p.paid_at?.slice(0, 10) || ""}</TableCell>
+                    <TableCell className="w-28 text-right pr-4">{p.amount?.toLocaleString() || ""}</TableCell>
+                    <TableCell className="w-28 pl-4">{p.method || ""}</TableCell>
+                    <TableCell className="w-28">{p.payer_name || ""}</TableCell>
+                    <TableCell className="w-40 text-center">{[p.bank_name, p.account_number, p.account_holder, p.cash_place, p.cash_receiver, p.detail, p.note].filter(Boolean).join(' / ')}</TableCell>
+                    <TableCell />
+                  </TableRow>
+                ))}
+              </>
             ) : (
               <TableRow className="bg-blue-50">
-                <TableCell colSpan={8} className="text-center text-blue-700 font-bold py-4 text-lg">입금없음</TableCell>
+                <TableCell className="w-20" />
+                <TableCell className="w-20" />
+                <TableCell className="w-20" />
+                <TableCell colSpan={5} className="text-center text-blue-700 font-bold py-4 text-lg">입금없음</TableCell>
+                <TableCell />
               </TableRow>
             )}
           </React.Fragment>
         ))}
         {summary && (
           <TableRow className="bg-blue-100 font-bold text-xl">
-            <TableCell className="border-none"></TableCell>
-            <TableCell className="border-none">총합계</TableCell>
-            <TableCell className="text-red-700 border-none">총매출: {summary.total_amount?.toLocaleString()}</TableCell>
-            <TableCell className="text-blue-700 border-none">총입금: {summary.total_paid?.toLocaleString()}</TableCell>
-            <TableCell className="text-yellow-700 border-none">총잔금: {summary.total_unpaid?.toLocaleString()}</TableCell>
-            <TableCell className="border-none" colSpan={4}></TableCell>
+            <TableCell className="border-none" colSpan={2}></TableCell>
+            <TableCell className="border-none text-center">총합계</TableCell>
+            <TableCell className="border-none text-center px-2 text-red-700">총매출: {summary.total_amount?.toLocaleString()}</TableCell>
+            <TableCell className="border-none text-center px-2 text-blue-700">총입금: {summary.total_paid?.toLocaleString()}</TableCell>
+            <TableCell className="border-none text-center px-2 text-yellow-700">총잔금: {summary.total_unpaid?.toLocaleString()}</TableCell>
+            <TableCell className="border-none" colSpan={2}></TableCell>
           </TableRow>
         )}
       </TableBody>
@@ -335,8 +337,8 @@ export default function StatementPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Card className="rounded-2xl shadow-xl border bg-white p-8 max-w-[1600px] w-full mx-auto">
-        <h1 className="text-3xl font-bold text-blue-800 flex items-center gap-3 mb-8">
+      <Card className="rounded-2xl shadow-xl border bg-white p-8 max-w-[1400px] w-full mx-auto">
+        <h1 className="text-3xl font-bold text-blue-800 flex items-center gap-3 mb-8 justify-center text-center">
           거래명세서
         </h1>
         <div className="mb-6 flex flex-col md:flex-row gap-4 items-center">
@@ -368,71 +370,73 @@ export default function StatementPage() {
             <TableHeader>
               <TableRow className="bg-blue-50">
                 <TableHead className="w-20 text-center">#</TableHead>
-                <TableHead>일자</TableHead>
-                <TableHead>거래명</TableHead>
-                <TableHead>기종/모델</TableHead>
-                <TableHead className="text-right">대변(매출)</TableHead>
-                <TableHead className="text-right">차변(입금)</TableHead>
-                <TableHead className="text-right">잔액</TableHead>
-                <TableHead>비고</TableHead>
+                <TableHead className="w-24 text-center">일자</TableHead>
+                <TableHead className="w-32 text-center">거래명</TableHead>
+                <TableHead className="w-40 text-center">기종/모델</TableHead>
+                <TableHead className="text-right w-32 pl-8">대변(매출)</TableHead>
+                <TableHead className="text-right w-32">차변(입금)</TableHead>
+                <TableHead className="text-right w-32 pl-32">잔액</TableHead>
+                <TableHead className="w-56 text-center">비고</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {transactions.map((tx, idx) => (
                 <React.Fragment key={tx.id}>
                   <TableRow className="bg-red-50 ring-2 ring-red-200 rounded-xl shadow hover:bg-red-100 min-h-[72px] transition-all duration-200">
-                    <TableCell className="text-center align-middle px-8 py-8 bg-red-50 font-semibold">{idx + 1}</TableCell>
-                    <TableCell className="px-8 py-8 bg-red-50 font-semibold">{tx.created_at?.slice(0, 10) || ""}</TableCell>
-                    <TableCell className="px-8 py-8 bg-red-50 font-semibold">{tx.type || ""}</TableCell>
-                    <TableCell className="pl-0 pr-8 py-8 bg-red-50 font-semibold">{tx.model || tx.models_types?.model || ''}{(tx.model || tx.models_types?.model) && (tx.model_type || tx.models_types?.type) ? '/' : ''}{tx.model_type || tx.models_types?.type || ''}</TableCell>
-                    <TableCell className="text-right px-8 py-8 bg-red-50 font-semibold">{tx.amount?.toLocaleString() || ""}</TableCell>
-                    <TableCell className="text-right px-8 py-8 bg-red-50 font-semibold">{tx.paid_amount?.toLocaleString() || ""}</TableCell>
-                    <TableCell className="text-right px-8 py-8 bg-red-50 font-semibold">{tx.unpaid_amount?.toLocaleString() || ""}</TableCell>
-                    <TableCell className="pl-8 pr-8 py-8 bg-red-50 font-semibold">{tx.note || ""}</TableCell>
+                    <TableCell className="text-center align-middle px-4 py-8 bg-red-50 font-semibold w-20">{idx + 1}</TableCell>
+                    <TableCell className="px-4 py-8 bg-red-50 font-semibold w-24 text-center">{tx.created_at?.slice(0, 10) || ""}</TableCell>
+                    <TableCell className="px-4 py-8 bg-red-50 font-semibold w-32 text-center">{tx.type || ""}</TableCell>
+                    <TableCell className="px-4 py-8 bg-red-50 font-semibold w-40 text-center">{tx.model || tx.models_types?.model || ''}{(tx.model || tx.models_types?.model) && (tx.model_type || tx.models_types?.type) ? '/' : ''}{tx.model_type || tx.models_types?.type || ''}</TableCell>
+                    <TableCell className="text-right px-4 py-8 bg-red-50 font-semibold w-32">{tx.amount?.toLocaleString() || ""}</TableCell>
+                    <TableCell className="text-right px-4 py-8 bg-red-50 font-semibold w-32 pl-32">{tx.paid_amount?.toLocaleString() || ""}</TableCell>
+                    <TableCell className="text-right px-4 py-8 bg-red-50 font-semibold w-32">{tx.unpaid_amount?.toLocaleString() || ""}</TableCell>
+                    <TableCell className="px-4 py-8 bg-red-50 font-semibold w-56 text-center">{tx.note || ""}</TableCell>
                   </TableRow>
                   {/* 입금내역 하위 표 또는 입금없음 표시 */}
                   {Array.isArray(tx.payments) && tx.payments.length > 0 ? (
-                    <TableRow className="bg-blue-50">
-                      <TableCell colSpan={8} className="p-0">
-                        <Table className="w-full text-base rounded-lg overflow-hidden">
-                          <TableHeader>
-                            <TableRow>
-                              <TableHead>입금일</TableHead>
-                              <TableHead className="text-right">금액</TableHead>
-                              <TableHead>입금방법</TableHead>
-                              <TableHead>입금자</TableHead>
-                              <TableHead>비고</TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {tx.payments.map((p, pidx) => (
-                              <TableRow key={p.id || pidx}>
-                                <TableCell>{p.paid_at?.slice(0, 10) || ""}</TableCell>
-                                <TableCell className="text-right">{p.amount?.toLocaleString() || ""}</TableCell>
-                                <TableCell>{p.method || ""}</TableCell>
-                                <TableCell>{p.payer_name || ""}</TableCell>
-                                <TableCell>{[p.bank_name, p.account_number, p.account_holder, p.cash_place, p.cash_receiver, p.detail, p.note].filter(Boolean).join(' / ')}</TableCell>
-                              </TableRow>
-                            ))}
-                          </TableBody>
-                        </Table>
-                      </TableCell>
-                    </TableRow>
+                    <>
+                      <TableRow className="bg-blue-50">
+                        <TableCell className="w-20" />
+                        <TableCell className="w-20" />
+                        <TableCell className="w-24 text-center">입금일</TableCell>
+                        <TableCell className="w-28 text-right pr-4">금액</TableCell>
+                        <TableCell className="w-28 pl-4">입금방법</TableCell>
+                        <TableCell className="w-28">입금자</TableCell>
+                        <TableCell className="w-40 text-center">비고</TableCell>
+                        <TableCell />
+                      </TableRow>
+                      {tx.payments.map((p, pidx) => (
+                        <TableRow key={p.id || pidx}>
+                          <TableCell className="w-20" />
+                          <TableCell className="w-20" />
+                          <TableCell className="w-24 text-center">{p.paid_at?.slice(0, 10) || ""}</TableCell>
+                          <TableCell className="w-28 text-right pr-4">{p.amount?.toLocaleString() || ""}</TableCell>
+                          <TableCell className="w-28 pl-4">{p.method || ""}</TableCell>
+                          <TableCell className="w-28">{p.payer_name || ""}</TableCell>
+                          <TableCell className="w-40 text-center">{[p.bank_name, p.account_number, p.account_holder, p.cash_place, p.cash_receiver, p.detail, p.note].filter(Boolean).join(' / ')}</TableCell>
+                          <TableCell />
+                        </TableRow>
+                      ))}
+                    </>
                   ) : (
                     <TableRow className="bg-blue-50">
-                      <TableCell colSpan={8} className="text-center text-blue-700 font-bold py-4 text-lg">입금없음</TableCell>
+                      <TableCell className="w-20" />
+                      <TableCell className="w-20" />
+                      <TableCell className="w-20" />
+                      <TableCell colSpan={5} className="text-center text-blue-700 font-bold py-4 text-lg">입금없음</TableCell>
+                      <TableCell />
                     </TableRow>
                   )}
                 </React.Fragment>
               ))}
               {summary && (
                 <TableRow className="bg-blue-100 font-bold text-xl">
-                  <TableCell className="border-none"></TableCell>
-                  <TableCell className="border-none">총합계</TableCell>
-                  <TableCell className="text-red-700 border-none">총매출: {summary.total_amount?.toLocaleString()}</TableCell>
-                  <TableCell className="text-blue-700 border-none">총입금: {summary.total_paid?.toLocaleString()}</TableCell>
-                  <TableCell className="text-yellow-700 border-none">총잔금: {summary.total_unpaid?.toLocaleString()}</TableCell>
-                  <TableCell className="border-none" colSpan={4}></TableCell>
+                  <TableCell className="border-none" colSpan={2}></TableCell>
+                  <TableCell className="border-none text-center">총합계</TableCell>
+                  <TableCell className="border-none text-center px-2 text-red-700">총매출: {summary.total_amount?.toLocaleString()}</TableCell>
+                  <TableCell className="border-none text-center px-2 text-blue-700">총입금: {summary.total_paid?.toLocaleString()}</TableCell>
+                  <TableCell className="border-none text-center px-2 text-yellow-700">총잔금: {summary.total_unpaid?.toLocaleString()}</TableCell>
+                  <TableCell className="border-none" colSpan={2}></TableCell>
                 </TableRow>
               )}
             </TableBody>
