@@ -13,7 +13,7 @@ export async function GET(request: Request, context: any) {
   // 1. 고객의 모든 거래
   const { data: transactions, error } = await supabase
     .from('transactions')
-    .select('*, payments(*)')
+    .select('id, customer_id, type, amount, status, description, created_at, updated_at, model, model_type, models_types(model, type), payments(*)')
     .eq('customer_id', customer_id);
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
@@ -23,8 +23,17 @@ export async function GET(request: Request, context: any) {
     const paid = (tx.payments || []).reduce((sum, p) => sum + (p.amount || 0), 0);
     const unpaid = (tx.amount || 0) - paid;
     const ratio = tx.amount ? Math.round((paid / tx.amount) * 100) : 0;
+    // 외상은 note로 이동, description은 비움
+    let description = tx.description;
+    let note = '';
+    if (description === '외상') {
+      note = '외상';
+      description = '';
+    }
     return {
       ...tx,
+      description,
+      note,
       paid_amount: paid,
       unpaid_amount: unpaid,
       paid_ratio: ratio,

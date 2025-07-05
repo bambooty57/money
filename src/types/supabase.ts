@@ -399,7 +399,7 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "models_types"
             referencedColumns: ["id"]
-          },
+          }
         ]
       }
     }
