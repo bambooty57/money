@@ -7,6 +7,7 @@ import { Suspense } from 'react';
 // 성능 최적화: 네비게이션 메뉴 데이터 구조화
 const navigationItems = [
   { href: '/', label: '대시보드', prefetch: true },
+  { href: '/statement', label: '거래명세서', prefetch: true },
   { href: '/customers', label: '고객 관리', prefetch: true },
   { href: '/transactions', label: '거래 관리', prefetch: true },
   { href: '/legal-actions', label: '법적 조치', prefetch: false }, // 덜 중요한 페이지는 prefetch 비활성화
@@ -68,8 +69,11 @@ function NavigationContent() {
           </div>
         </div>
         <div className="flex-1 flex flex-col items-end justify-center">
-          <span className="text-2xl md:text-3xl font-extrabold text-blue-800 text-right mb-2 drop-shadow-lg">
+          <span className="text-2xl md:text-3xl font-extrabold text-blue-800 text-right mb-1 drop-shadow-lg">
             미수금 없는 세상!
+          </span>
+          <span className="text-xl md:text-2xl font-bold text-indigo-700 text-right drop-shadow-sm">
+            살맛나는 세상!
           </span>
         </div>
       </div>

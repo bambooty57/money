@@ -14,7 +14,7 @@ export default function LegalActionsPage() {
   async function fetchCustomers() {
     const response = await fetch('/api/customers');
     const data = await response.json();
-    setCustomers(data as Customer[]);
+    setCustomers(data.data as Customer[]);
   }
 
   return (
