@@ -401,7 +401,7 @@ export type Database = {
             referencedColumns: ["id"]
           }
         ]
-      }
+      },
     }
     Views: {
       [_ in never]: never
@@ -483,13 +483,14 @@ export type TablesUpdate<
   ? Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
       Update: infer U
     }
-    : never
+      ? U
+      : never
   : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
     ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
         Update: infer U
       }
-      ? U
-      : never
+        ? U
+        : never
     : never
 
 export type Enums<
