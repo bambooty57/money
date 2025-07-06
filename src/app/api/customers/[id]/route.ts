@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 
-export async function GET(request: Request, context: { params: { id: string } }) {
+export async function GET(request: any, context: any) {
   const { id } = context.params;
   const { data, error } = await supabase
     .from('customers')
@@ -15,7 +15,7 @@ export async function GET(request: Request, context: { params: { id: string } })
   return NextResponse.json(data);
 }
 
-export async function PUT(request: Request, context: { params: { id: string } }) {
+export async function PUT(request: any, context: any) {
   try {
     const customer_id = context.params.id;
     const body = await request.json();
@@ -42,7 +42,7 @@ export async function PUT(request: Request, context: { params: { id: string } })
   }
 }
 
-export async function DELETE(request: Request, context: { params: { id: string } }) {
+export async function DELETE(request: any, context: any) {
   try {
     const customer_id = context.params.id;
 
