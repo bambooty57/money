@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import * as xlsx from 'xlsx';
 import Papa from 'papaparse';
 import { supabase } from '@/lib/supabase';
-import { Customer } from '@/types/database';
+import type { Tables } from '@/types/database';
+type Customer = Tables<'customers'>;
 
 // Helper function to find a value by multiple possible keys, after trimming whitespace from keys
 function getValueByKeys(rawRow: Record<string, unknown>, keys: string[]): unknown {
@@ -51,20 +52,20 @@ async function findOrCreateCustomer(
     const base = nullToUndefined(existingCustomer);
     return {
       ...base,
-      mobile: base.mobile ?? undefined,
-      business_no: base.business_no ?? undefined,
-      address: base.address ?? undefined,
-      address_jibun: base.address_jibun ?? undefined,
-      address_road: base.address_road ?? undefined,
-      business_name: base.business_name ?? undefined,
-      customer_type: base.customer_type ?? undefined,
+      mobile: base.mobile ?? null,
+      business_no: base.business_no ?? null,
+      address: base.address ?? null,
+      address_jibun: base.address_jibun ?? null,
+      address_road: base.address_road ?? null,
+      business_name: base.business_name ?? null,
+      customer_type: base.customer_type ?? null,
       customer_type_multi: Array.isArray(base.customer_type_multi)
-        ? (base.customer_type_multi.filter((v: any) => typeof v === 'string') as string[])
-        : undefined,
-      fax: base.fax ?? undefined,
-      representative_name: base.representative_name ?? undefined,
-      ssn: base.ssn ?? undefined,
-      zipcode: base.zipcode ?? undefined,
+        ? base.customer_type_multi.filter((v: any) => typeof v === 'string')
+        : null,
+      fax: base.fax ?? null,
+      representative_name: base.representative_name ?? null,
+      ssn: base.ssn ?? null,
+      zipcode: base.zipcode ?? null,
     };
   }
 
@@ -93,20 +94,20 @@ async function findOrCreateCustomer(
   const base = nullToUndefined(newCustomer);
   return {
     ...base,
-    mobile: base.mobile ?? undefined,
-    business_no: base.business_no ?? undefined,
-    address: base.address ?? undefined,
-    address_jibun: base.address_jibun ?? undefined,
-    address_road: base.address_road ?? undefined,
-    business_name: base.business_name ?? undefined,
-    customer_type: base.customer_type ?? undefined,
+    mobile: base.mobile ?? null,
+    business_no: base.business_no ?? null,
+    address: base.address ?? null,
+    address_jibun: base.address_jibun ?? null,
+    address_road: base.address_road ?? null,
+    business_name: base.business_name ?? null,
+    customer_type: base.customer_type ?? null,
     customer_type_multi: Array.isArray(base.customer_type_multi)
-      ? (base.customer_type_multi.filter((v: any) => typeof v === 'string') as string[])
-      : undefined,
-    fax: base.fax ?? undefined,
-    representative_name: base.representative_name ?? undefined,
-    ssn: base.ssn ?? undefined,
-    zipcode: base.zipcode ?? undefined,
+      ? base.customer_type_multi.filter((v: any) => typeof v === 'string')
+      : null,
+    fax: base.fax ?? null,
+    representative_name: base.representative_name ?? null,
+    ssn: base.ssn ?? null,
+    zipcode: base.zipcode ?? null,
   };
 }
 
