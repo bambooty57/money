@@ -14,7 +14,7 @@ import jsPDF from 'jspdf';
 import { StatementPDFTable } from '@/components/statement-pdf';
 import { PDFDownloadLink } from '@react-pdf/renderer';
 import { Dialog } from '@headlessui/react';
-import dynamic from 'next/dynamic';
+import { PDFViewer } from '@react-pdf/renderer';
 
 interface Customer {
   id: string;
@@ -37,12 +37,6 @@ interface Transaction {
   model_type?: string;
   models_types?: { model?: string; type?: string };
 }
-
-// PDFViewer를 클라이언트 사이드에서만 렌더링
-const PDFViewer = dynamic(
-  () => import('@react-pdf/renderer').then((mod) => mod.PDFViewer),
-  { ssr: false, loading: () => <div className="flex items-center justify-center h-full">PDF 로딩 중...</div> }
-);
 
 export default function StatementPage() {
   const [customers, setCustomers] = useState<Customer[]>([]);
