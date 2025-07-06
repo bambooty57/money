@@ -20,7 +20,7 @@ export async function POST(request: Request) {
   const { customer_id, event_type, message } = body;
   const { data, error } = await supabase.from('event_logs').insert([{ customer_id, event_type, message }]);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json(data[0]);
+  return NextResponse.json(data?.[0] ?? null);
 }
 
 export async function DELETE(request: Request) {
