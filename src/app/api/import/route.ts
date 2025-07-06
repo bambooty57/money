@@ -19,6 +19,13 @@ function getValueByKeys(rawRow: Record<string, unknown>, keys: string[]): unknow
   return undefined;
 }
 
+// null을 undefined로 변환하는 헬퍼
+function nullToUndefined<T extends object>(obj: T): T {
+  return Object.fromEntries(
+    Object.entries(obj).map(([k, v]) => [k, v === null ? undefined : v])
+  ) as T;
+}
+
 // 연락처를 기반으로 고객을 찾거나 새로 생성하는 함수 (Upsert)
 async function findOrCreateCustomer(
   customerData: Partial<Customer>
@@ -41,7 +48,24 @@ async function findOrCreateCustomer(
 
   // 2. 기존 고객이 있으면 해당 정보 반환
   if (existingCustomer) {
-    return existingCustomer;
+    const base = nullToUndefined(existingCustomer);
+    return {
+      ...base,
+      mobile: base.mobile ?? undefined,
+      business_no: base.business_no ?? undefined,
+      address: base.address ?? undefined,
+      address_jibun: base.address_jibun ?? undefined,
+      address_road: base.address_road ?? undefined,
+      business_name: base.business_name ?? undefined,
+      customer_type: base.customer_type ?? undefined,
+      customer_type_multi: Array.isArray(base.customer_type_multi)
+        ? (base.customer_type_multi.filter((v: any) => typeof v === 'string') as string[])
+        : undefined,
+      fax: base.fax ?? undefined,
+      representative_name: base.representative_name ?? undefined,
+      ssn: base.ssn ?? undefined,
+      zipcode: base.zipcode ?? undefined,
+    };
   }
 
   // 3. 기존 고객이 없으면 새로 생성
@@ -66,7 +90,24 @@ async function findOrCreateCustomer(
     throw new Error('고객 생성에 실패했습니다.');
   }
 
-  return newCustomer;
+  const base = nullToUndefined(newCustomer);
+  return {
+    ...base,
+    mobile: base.mobile ?? undefined,
+    business_no: base.business_no ?? undefined,
+    address: base.address ?? undefined,
+    address_jibun: base.address_jibun ?? undefined,
+    address_road: base.address_road ?? undefined,
+    business_name: base.business_name ?? undefined,
+    customer_type: base.customer_type ?? undefined,
+    customer_type_multi: Array.isArray(base.customer_type_multi)
+      ? (base.customer_type_multi.filter((v: any) => typeof v === 'string') as string[])
+      : undefined,
+    fax: base.fax ?? undefined,
+    representative_name: base.representative_name ?? undefined,
+    ssn: base.ssn ?? undefined,
+    zipcode: base.zipcode ?? undefined,
+  };
 }
 
 
