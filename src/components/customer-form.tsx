@@ -294,7 +294,7 @@ export function CustomerForm({ onSuccess, open, setOpen, customer }: CustomerFor
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium mb-1">이름 *</label>
-              <input type="text" required value={formData.name} onChange={e => setFormData(prev => ({ ...prev, name: e.target.value }))} className="w-full border rounded px-3 py-2" />
+              <input type="text" required value={formData.name} onChange={e => setFormData(prev => ({ ...prev, name: e.target.value }))} className="w-full border rounded px-3 py-2" title="이름" placeholder="이름을 입력하세요" />
             </div>
             <div>
               <label className="block text-sm font-medium mb-1">고객유형 *</label>
@@ -399,17 +399,18 @@ export function CustomerForm({ onSuccess, open, setOpen, customer }: CustomerFor
                 </button>
               )}
             </div>
-            <label htmlFor="photo-upload" className="sr-only">사진 업로드</label>
+            <label htmlFor="photo-upload" className="block text-sm font-medium mb-1">사진 업로드</label>
             <input
               id="photo-upload"
               type="file"
               multiple
               accept="image/*"
               onChange={handlePhotoChange}
-              className="hidden"
+              className="w-full border rounded px-3 py-2"
               ref={photoInputRef}
               title="사진 업로드"
               placeholder="사진 파일을 선택하세요"
+              aria-label="사진 업로드"
             />
           </div>
           <div className="flex justify-end">

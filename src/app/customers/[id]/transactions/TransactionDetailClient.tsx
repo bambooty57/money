@@ -203,7 +203,7 @@ function PaymentForm({ transactionId, onSuccess, setSuccessMsg, setErrorMsg }: {
       {method === '카드' && (
         <div className="flex flex-wrap gap-2 items-center bg-white p-2 rounded">
           <label>카드회사명</label>
-          <select value={bankName} onChange={e => setBankName(e.target.value)} className="border rounded px-2 py-1" required>
+          <select value={bankName} onChange={e => setBankName(e.target.value)} className="border rounded px-2 py-1" required title="카드회사명 선택">
             <option value="">카드회사 선택</option>
             {KOREA_CARD_COMPANIES.map((c, i) => <option key={i} value={c}>{c}</option>)}
           </select>
@@ -976,6 +976,28 @@ async function handlePdfExportPdfLib(selectedTx: TransactionWithDetails, filtere
   }
 }
 
+// 모든 string | null 필드를 string으로 강제 변환한 타입
+type NormalizedPayment = Omit<PaymentType, 
+  'cash_place' | 'cash_receiver' | 'cash_detail' | 'account_number' | 'account_holder' | 'bank_name' | 'paid_location' | 'paid_by' | 'card_approval_code' | 'note' | 'used_model_type' | 'used_model' | 'used_place' | 'used_by' | 'used_at' | 'detail'
+> & {
+  cash_place: string;
+  cash_receiver: string;
+  cash_detail: string;
+  account_number: string;
+  account_holder: string;
+  bank_name: string;
+  paid_location: string;
+  paid_by: string;
+  card_approval_code: string;
+  note: string;
+  used_model_type: string;
+  used_model: string;
+  used_place: string;
+  used_by: string;
+  used_at: string;
+  detail: string;
+};
+
 export default function TransactionDetailClient({ transactions, initialSelectedId, customerId }: Props) {
   const [selectedId, setSelectedId] = useState(initialSelectedId || transactions[0]?.id);
   const [txList, setTxList] = useState(transactions);
@@ -1170,7 +1192,7 @@ export default function TransactionDetailClient({ transactions, initialSelectedI
     const { data: txs } = await supabase
       .from('transactions')
       .select('*, payments(*), files(*), customers:customer_id(*)')
-      .eq('customer_id', selectedTx.customer_id || customerId)
+      .eq('customer_id', String(selectedTx.customer_id ?? customerId ?? ''))
       .order('created_at', { ascending: false });
     setTxList((txs || []).map(tx => {
       const payments: NormalizedPayment[] = (Array.isArray(tx.payments) ? tx.payments : []).map((p: any) => ({
