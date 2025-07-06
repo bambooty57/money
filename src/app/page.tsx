@@ -263,20 +263,6 @@ export default function DashboardPage() {
             <div className="text-xl text-gray-600 font-semibold flex items-center gap-2">
               📅 오늘: <span className="text-blue-600 font-bold">{data.today}</span>
             </div>
-            <div className="flex gap-4">
-              <button 
-                onClick={handlePdfDownload} 
-                className="px-8 py-4 bg-gray-700 text-white text-xl rounded-lg hover:bg-gray-800 font-bold shadow-lg transition-colors duration-200 flex items-center gap-2"
-              >
-                📄 PDF 리포트
-              </button>
-              <button 
-                onClick={handleExcelDownload} 
-                className="px-8 py-4 bg-green-700 text-white text-xl rounded-lg hover:bg-green-800 font-bold shadow-lg transition-colors duration-200 flex items-center gap-2"
-              >
-                📊 엑셀 리포트
-              </button>
-            </div>
           </div>
         </div>
 

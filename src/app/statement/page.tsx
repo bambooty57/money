@@ -89,22 +89,47 @@ export default function StatementPage() {
   // 3. 엑셀 다운로드
   const handleExcelDownload = () => {
     if (!transactions.length) return;
-    const ws = XLSX.utils.json_to_sheet([
-      ...transactions.map((tx) => ({
+    const excelRows: any[] = [];
+    transactions.forEach((tx) => {
+      // 거래 기본 정보 행
+      excelRows.push({
         일자: tx.created_at?.slice(0, 10) || "",
+        거래명: tx.type || "",
+        "기종/모델": (tx.model || tx.models_types?.model || '') + ((tx.model || tx.models_types?.model) && (tx.model_type || tx.models_types?.type) ? '/' : '') + (tx.model_type || tx.models_types?.type || ''),
         "대변(매출)": tx.amount || 0,
         "차변(입금)": tx.paid_amount || 0,
         잔액: tx.unpaid_amount || 0,
         비고: tx.note || "",
-      })),
-      {
-        일자: "합계",
-        "대변(매출)": summary?.total_amount || 0,
-        "차변(입금)": summary?.total_paid || 0,
-        잔액: summary?.total_unpaid || 0,
-        비고: "",
-      },
-    ]);
+      });
+      // 입금내역 행들
+      if (Array.isArray(tx.payments) && tx.payments.length > 0) {
+        tx.payments.forEach((p) => {
+          excelRows.push({
+            일자: p.paid_at?.slice(0, 10) || "",
+            거래명: "입금내역",
+            "기종/모델": "",
+            "대변(매출)": "",
+            "차변(입금)": p.amount?.toLocaleString() || "",
+            잔액: "",
+            비고: [p.method, p.payer_name, p.bank_name, p.account_number, p.account_holder, p.cash_place, p.cash_receiver, p.detail, p.note].filter(Boolean).join(' / ')
+          });
+        });
+      } else {
+        // 입금내역 없음 표시(선택, 필요시 주석처리)
+        // excelRows.push({ 일자: "", 거래명: "입금없음", "기종/모델": "", "대변(매출)": "", "차변(입금)": "", 잔액: "", 비고: "" });
+      }
+    });
+    // 합계 행
+    excelRows.push({
+      일자: "합계",
+      거래명: "",
+      "기종/모델": "",
+      "대변(매출)": summary?.total_amount || 0,
+      "차변(입금)": summary?.total_paid || 0,
+      잔액: summary?.total_unpaid || 0,
+      비고: "",
+    });
+    const ws = XLSX.utils.json_to_sheet(excelRows);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, customerName || "거래명세서");
     XLSX.writeFile(wb, `${customerName || "거래명세서"}.xlsx`);

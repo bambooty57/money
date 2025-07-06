@@ -62,15 +62,32 @@ export function TransactionList() {
   }, []);
 
   const handleExcelDownload = () => {
-    const ws = XLSX.utils.json_to_sheet(
-      customers.map(c => ({
+    const excelRows = customers.map(c => {
+      const summary = summaries.find(s => s.customer_id === c.id) || {};
+      const transactionCount = Array.isArray(summary.transactions) ? summary.transactions.length : 0;
+      return {
         고객명: c.name,
-        총매출액: summaries.find(s => s.customer_id === c.id)?.total_amount || 0,
-        총입금액: summaries.find(s => s.customer_id === c.id)?.total_paid || 0,
-        총미수금: summaries.find(s => s.customer_id === c.id)?.total_unpaid || 0,
-        입금률: summaries.find(s => s.customer_id === c.id)?.total_ratio || 0,
-      }))
-    );
+        거래건수: transactionCount,
+        총매출액: summary.total_amount || 0,
+        총입금액: summary.total_paid || 0,
+        총미수금: summary.total_unpaid || 0,
+        입금률: summary.total_ratio || 0,
+      };
+    });
+    // 전체 합계 행 추가
+    const totalTransactionCount = summaries.reduce((sum, s) => sum + (Array.isArray(s.transactions) ? s.transactions.length : 0), 0);
+    const totalSales = summaries.reduce((sum, s) => sum + (s.total_amount || 0), 0);
+    const totalPaid = summaries.reduce((sum, s) => sum + (s.total_paid || 0), 0);
+    const totalUnpaid = summaries.reduce((sum, s) => sum + (s.total_unpaid || 0), 0);
+    excelRows.push({
+      고객명: '총합계',
+      거래건수: totalTransactionCount,
+      총매출액: totalSales,
+      총입금액: totalPaid,
+      총미수금: totalUnpaid,
+      입금률: '',
+    });
+    const ws = XLSX.utils.json_to_sheet(excelRows);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, '고객별요약');
     XLSX.writeFile(wb, '고객별요약.xlsx');

@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useRef, useEffect } from "react";
-import type { Transaction, File, Payment as PaymentType } from '@/types/database';
+import type { Transaction, File, Payment as PaymentType, TransactionWithDetails } from '@/types/database';
 import { supabase } from '@/lib/supabase';
 import dynamic from 'next/dynamic';
 import ReactMarkdown from 'react-markdown';
@@ -13,17 +13,8 @@ import path from 'path';
 
 type Payment = PaymentType;
 
-interface TransactionWithDetails extends Transaction {
-  payments?: Payment[];
-  files?: File[];
-  paid_amount?: number;
-  unpaid_amount?: number;
-  paid_ratio?: number;
-  models_types?: { model?: string; type?: string };
-}
-
 interface Props {
-  transactions: TransactionWithDetails[];
+  transactions: import('@/types/database').TransactionWithDetails[];
   initialSelectedId?: string;
   customerId?: string;
 }
@@ -102,7 +93,7 @@ function PaymentForm({ transactionId, onSuccess, setSuccessMsg, setErrorMsg }: {
     if (typeof setErrorMsg === 'function') setErrorMsg('');
     try {
       const payload: any = {
-        transaction_id: transactionId,
+        transaction_id: transactionId || '',
         amount: parseFloat(amount),
         paid_at: paidAt,
         method,
@@ -162,7 +153,7 @@ function PaymentForm({ transactionId, onSuccess, setSuccessMsg, setErrorMsg }: {
         setRecentAccountNumbers(list);
       }
     } catch (err: any) {
-      if (typeof setErrorMsg === 'function') setErrorMsg(err.message || '저장 중 오류 발생');
+      if (typeof setErrorMsg === 'function') setErrorMsg((err as Error).message || '저장 중 오류 발생');
     } finally {
       setLoading(false);
     }
@@ -326,7 +317,7 @@ function sanitizeFileName(name: string) {
 const displayValue = (v: any) => v !== undefined && v !== null && String(v).trim() !== '' ? v : '정보 없음';
 
 // pdf-lib 기반 한글 PDF 내보내기 함수
-async function handlePdfExportPdfLib(selectedTx: TransactionWithDetails, filteredPayments: Payment[]) {
+async function handlePdfExportPdfLib(selectedTx: TransactionWithDetails, filteredPayments: Payment[], setErrorMsg?: (msg: string) => void) {
   try {
     const pdfDoc = await PDFDocument.create();
     pdfDoc.registerFontkit(fontkit);
@@ -1037,7 +1028,7 @@ export default function TransactionDetailClient({ transactions, initialSelectedI
     const handleExportPdf = () => {
       const selectedTx = txList.find(tx => tx.id === selectedId);
       if (selectedTx) {
-        handlePdfExportPdfLib(selectedTx, filteredPayments);
+        handlePdfExportPdfLib(selectedTx, filteredPayments, setErrorMsg);
       }
     };
 
@@ -1134,7 +1125,7 @@ export default function TransactionDetailClient({ transactions, initialSelectedI
   // PDF 출력 핸들러
   const handlePdfExport = async () => {
     if (typeof window === 'undefined') return;
-    await handlePdfExportPdfLib(selectedTx, filteredPayments);
+    await handlePdfExportPdfLib(selectedTx, filteredPayments, setErrorMsg);
   };
 
   // 서명 저장 핸들러
@@ -1181,10 +1172,50 @@ export default function TransactionDetailClient({ transactions, initialSelectedI
       .select('*, payments(*), files(*), customers:customer_id(*)')
       .eq('customer_id', selectedTx.customer_id || customerId)
       .order('created_at', { ascending: false });
-    setTxList((txs || []).map(tx => ({
-      ...tx,
-      customer_id: tx.customer_id || customerId,
-    })));
+    setTxList((txs || []).map(tx => {
+      const payments: NormalizedPayment[] = (Array.isArray(tx.payments) ? tx.payments : []).map((p: any) => ({
+        ...p,
+        transaction_id: String(p.transaction_id || ''),
+        account_holder: String(p.account_holder || ''),
+        account_number: String(p.account_number || ''),
+        bank_name: String(p.bank_name || ''),
+        card_name: String(p.card_name || ''),
+        cash_detail: String(p.cash_detail || ''),
+        cash_place: String(p.cash_place || ''),
+        cash_receiver: String(p.cash_receiver || ''),
+        paid_by: String(p.paid_by || ''),
+        paid_location: String(p.paid_location || ''),
+        payer_name: String(p.payer_name || ''),
+        used_by: String(p.used_by || ''),
+        used_model: String(p.used_model || ''),
+        used_model_type: String(p.used_model_type || ''),
+        used_place: String(p.used_place || ''),
+        note: String(p.note || ''),
+        detail: String(p.detail || ''),
+        status: p.status === 'paid' || p.status === 'unpaid' ? p.status : 'unpaid',
+        id: String(p.id || ''),
+        paid_at: String(p.paid_at || ''),
+        method: String(p.method || ''),
+        amount: Number(p.amount || 0),
+        created_at: String(p.created_at || ''),
+        updated_at: String(p.updated_at || ''),
+        card_approval_code: String(p.card_approval_code || ''),
+        used_at: String(p.used_at || ''),
+      }));
+      return {
+        ...tx,
+        customer_id: String(tx.customer_id ?? customerId ?? ''),
+        payments: payments as any as PaymentType[],
+        files: (Array.isArray(tx.files) ? tx.files : []).map((f: any) => ({
+          ...f,
+          updated_at: String(f.updated_at || ''),
+        })),
+        paid_amount: tx.paid_amount ?? undefined,
+        unpaid_amount: tx.unpaid_amount ?? undefined,
+        paid_ratio: tx.paid_ratio ?? undefined,
+        status: tx.status === 'paid' || tx.status === 'unpaid' ? tx.status : 'unpaid',
+      } as TransactionWithDetails;
+    }) as TransactionWithDetails[]);
   };
 
   const handleDeletePayment = async (paymentId: string) => {
@@ -1222,7 +1253,7 @@ export default function TransactionDetailClient({ transactions, initialSelectedI
   return (
     <div>
       {/* 거래 탐색 UI: 드롭다운+좌우 화살표+탭 UI (시니어 모드) */}
-      <div className="flex items-center gap-4 mb-8">
+      <div className="flex items-center gap-4 mb-8 overflow-x-auto whitespace-nowrap min-w-0 max-w-full scrollbar-thin scrollbar-thumb-blue-200 scrollbar-track-blue-50">
         <button
           className="px-6 py-3 text-2xl rounded-lg bg-blue-100 hover:bg-blue-200 text-blue-700 font-bold shadow-lg transition-colors duration-200"
           onClick={() => {
