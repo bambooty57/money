@@ -45,71 +45,71 @@
 
 :root {
   --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --background: #ffffff;
+  --foreground: #252525;
+  --card: #ffffff;
+  --card-foreground: #252525;
+  --popover: #ffffff;
+  --popover-foreground: #252525;
+  --primary: #3666d6;
+  --primary-foreground: #f5faff;
+  --secondary: #f3f4f6;
+  --secondary-foreground: #3666d6;
+  --muted: #f3f4f6;
+  --muted-foreground: #8a8a8a;
+  --accent: #f3f4f6;
+  --accent-foreground: #3666d6;
+  --destructive: #e53935;
+  --border: #e0e0e0;
+  --input: #f3f4f6;
+  --ring: #bdbdbd;
+  --chart-1: #4f8cff;
+  --chart-2: #00bcd4;
+  --chart-3: #7c4dff;
+  --chart-4: #ffd600;
+  --chart-5: #ff9100;
+  --sidebar: #f5faff;
+  --sidebar-foreground: #252525;
+  --sidebar-primary: #3666d6;
+  --sidebar-primary-foreground: #f5faff;
+  --sidebar-accent: #f3f4f6;
+  --sidebar-accent-foreground: #3666d6;
+  --sidebar-border: #e0e0e0;
+  --sidebar-ring: #bdbdbd;
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --background: #252525;
+  --foreground: #f5faff;
+  --card: #3666d6;
+  --card-foreground: #f5faff;
+  --popover: #3666d6;
+  --popover-foreground: #f5faff;
+  --primary: #e0e0e0;
+  --primary-foreground: #3666d6;
+  --secondary: #444444;
+  --secondary-foreground: #f5faff;
+  --muted: #444444;
+  --muted-foreground: #bdbdbd;
+  --accent: #444444;
+  --accent-foreground: #f5faff;
+  --destructive: #ff7043;
+  --border: #ffffff1a;
+  --input: #ffffff26;
+  --ring: #8a8a8a;
+  --chart-1: #1976d2;
+  --chart-2: #00bcd4;
+  --chart-3: #ff9100;
+  --chart-4: #00e676;
+  --chart-5: #ffd600;
+  --sidebar: #3666d6;
+  --sidebar-foreground: #f5faff;
+  --sidebar-primary: #4f8cff;
+  --sidebar-primary-foreground: #f5faff;
+  --sidebar-accent: #444444;
+  --sidebar-accent-foreground: #f5faff;
+  --sidebar-border: #ffffff1a;
+  --sidebar-ring: #8a8a8a;
 }
 
 @layer base {
@@ -119,4 +119,55 @@
   body {
     @apply bg-background text-foreground;
   }
+}
+
+/* Print styles for PDF modal - 개선 */
+@media print {
+  body * {
+    visibility: hidden !important;
+  }
+  .pdf-print-area, .pdf-print-area * {
+    visibility: visible !important;
+  }
+  .pdf-print-area {
+    position: absolute !important;
+    left: 0; top: 0;
+    width: 297mm !important;   /* A4 landscape */
+    height: 210mm !important;
+    background: white !important;
+    z-index: 9999 !important;
+    box-shadow: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+    display: flex !important;
+    align-items: flex-start !important;
+    justify-content: flex-start !important;
+  }
+  .pdf-print-area canvas,
+  .pdf-print-area iframe,
+  .pdf-print-area > div {
+    background: white !important;
+    box-shadow: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    max-width: 100% !important;
+    max-height: 100% !important;
+  }
+  @page {
+    size: A4 landscape;
+    margin: 0;
+  }
+}
+
+/* PDF 미리보기 검정 배경 제거 (react-pdf PDFViewer용) */
+.pdf-print-area,
+.pdf-print-area > div,
+.pdf-print-area canvas,
+.pdf-print-area iframe,
+.pdf-print-area .react-pdf__Page__canvas,
+.pdf-print-area .react-pdf__Document {
+  background: #fff !important;
 }

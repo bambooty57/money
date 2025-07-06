@@ -26,6 +26,18 @@ export function createClient() {
   });
 }
 
+// 서버에서 access_token으로 인증된 Supabase 클라이언트 생성
+export function createServerClient(accessToken?: string) {
+  return _createClient<Database>(supabaseUrl, supabaseAnonKey, {
+    global: {
+      headers: {
+        ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+        'X-Client-Info': 'money-management-app',
+      },
+    },
+  });
+}
+
 // 타입 안전한 쿼리 헬퍼 함수들
 export const typedQuery = {
   customers: {

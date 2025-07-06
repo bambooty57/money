@@ -1,7 +1,13 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { createServerClient } from '@/lib/supabase';
 
-export async function GET() {
+export async function GET(request: Request) {
+  const authHeader = request.headers.get('authorization') || request.headers.get('Authorization');
+  const accessToken = authHeader?.replace(/^Bearer /i, '');
+  if (!accessToken) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+  const supabase = createServerClient(accessToken);
   try {
     const { data, error } = await supabase
       .from('legal_actions')
@@ -16,6 +22,12 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const authHeader = request.headers.get('authorization') || request.headers.get('Authorization');
+  const accessToken = authHeader?.replace(/^Bearer /i, '');
+  if (!accessToken) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+  const supabase = createServerClient(accessToken);
   try {
     const body = await request.json();
     const { data, error } = await supabase

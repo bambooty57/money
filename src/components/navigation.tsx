@@ -10,7 +10,6 @@ const navigationItems = [
   { href: '/statement', label: '거래명세서', prefetch: true },
   { href: '/customers', label: '고객 관리', prefetch: true },
   { href: '/transactions', label: '거래 관리', prefetch: true },
-  { href: '/legal-actions', label: '법적 조치', prefetch: false }, // 덜 중요한 페이지는 prefetch 비활성화
 ] as const;
 
 // 성능 최적화: 로딩 스켈레톤 컴포넌트
