@@ -66,7 +66,9 @@ export async function GET(request: Request) {
         .eq('status', 'unpaid');
       const unpaidMap: Record<string, number> = {};
       (txs || []).forEach(tx => {
-        unpaidMap[tx.customer_id] = (unpaidMap[tx.customer_id] || 0) + (tx.amount || 0);
+        if (tx.customer_id) {
+          unpaidMap[tx.customer_id] = (unpaidMap[tx.customer_id] || 0) + (tx.amount || 0);
+        }
       });
       const min = minUnpaid ? parseInt(minUnpaid, 10) : 0;
       const max = maxUnpaid ? parseInt(maxUnpaid, 10) : Number.MAX_SAFE_INTEGER;
@@ -101,14 +103,14 @@ export async function GET(request: Request) {
         .select('url')
         .eq('customer_id', customer.id)
         .limit(3);
-      customer.photos = Array.isArray(files) ? files : [];
+      (customer as any).photos = Array.isArray(files) ? files : [];
 
       // 거래건수 추가
       const { count: transaction_count } = await supabase
         .from('transactions')
         .select('*', { count: 'exact' })
         .eq('customer_id', customer.id);
-      customer.transaction_count = transaction_count || 0;
+      (customer as any).transaction_count = transaction_count || 0;
 
       // 총미수금(미납합계) 추가
       const { data: unpaidTxs } = await supabase
@@ -116,7 +118,7 @@ export async function GET(request: Request) {
         .select('amount')
         .eq('customer_id', customer.id)
         .eq('status', 'unpaid');
-      customer.total_unpaid = (unpaidTxs || []).reduce((sum, tx) => sum + (tx.amount || 0), 0);
+      (customer as any).total_unpaid = (unpaidTxs || []).reduce((sum, tx) => sum + (tx.amount || 0), 0);
     }
 
     // 런타임 검증을 임시로 완전히 제거
