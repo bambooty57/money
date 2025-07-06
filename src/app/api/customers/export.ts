@@ -27,7 +27,7 @@ export async function GET() {
     { header: '등급', key: 'grade' },
     { header: '등록일', key: 'created_at' },
   ];
-  customers.forEach((c: any) => {
+  (customers ?? []).forEach((c: any) => {
     sheet.addRow({
       ...c,
       customer_type_multi: Array.isArray(c.customer_type_multi) ? c.customer_type_multi.join(', ') : c.customer_type_multi
