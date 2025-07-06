@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 
-export async function GET(request: Request, context: { params: { id: string } }) {
-  const { id } = context.params;
+export async function GET(request: Request, { params }: { params: { id: string } }) {
+  const { id } = params;
   const { data, error } = await supabase
     .from('customers')
     .select('*')
@@ -15,9 +15,8 @@ export async function GET(request: Request, context: { params: { id: string } })
   return NextResponse.json(data);
 }
 
-export async function PUT(request: Request, context: { params: Promise<{ id: string }> }) {
+export async function PUT(request: Request, { params }: { params: { id: string } }) {
   try {
-    const params = await context.params;
     const customer_id = params.id;
     const body = await request.json();
     // id, customer_type_custom 필드는 DB에 저장하지 않음
@@ -43,9 +42,8 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
   }
 }
 
-export async function DELETE(request: any, context: any) {
+export async function DELETE(request: Request, { params }: { params: { id: string } }) {
   try {
-    const { params } = await context;
     const customer_id = params.id;
 
     // 1. 해당 고객의 모든 파일 조회
