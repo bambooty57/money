@@ -1,7 +1,10 @@
 "use client";
 
 import { useEffect, useState, useRef } from 'react';
-import type { Customer } from '@/types/database';
+import type { Database } from '@/types/database';
+
+type CustomerBase = Database['public']['Tables']['customers']['Row'];
+type Customer = CustomerBase & { grade?: string | null };
 
 interface CustomerListProps {
   customers: Customer[];

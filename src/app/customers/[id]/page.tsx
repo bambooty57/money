@@ -3,11 +3,18 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase';
-import type { Customer, Transaction, LegalAction } from '@/types/database';
+import type { Database } from '@/types/database';
+
+type Customer = Database['public']['Tables']['customers']['Row'];
+type Transaction = Database['public']['Tables']['transactions']['Row'];
+type LegalAction = Database['public']['Tables']['legal_actions']['Row'];
 
 interface CustomerDetails extends Customer {
   transactions: Transaction[];
   legalActions: LegalAction[];
+  photos: { url: string }[];
+  email?: string | null;
+  grade?: string | null;
 }
 
 interface PaymentSummary {
@@ -181,7 +188,7 @@ export default function CustomerDetailPage() {
               <h3 className="font-semibold">연락처</h3>
               <p>휴대전화: {customer.mobile}</p>
               <p>일반전화: {customer.phone}</p>
-              <p>이메일: {customer.email}</p>
+              <p>이메일: {customer.email ?? '-'}</p>
               <p>주소: {(customer.address_road || customer.address_jibun || customer.zipcode) ? (
                 <button 
                   onClick={() => openKakaoMap(customer.address_road || customer.address_jibun || '')}
@@ -193,7 +200,7 @@ export default function CustomerDetailPage() {
             </div>
             <div>
               <h3 className="font-semibold">기타</h3>
-              <p>등급: {customer.grade}</p>
+              <p>등급: {customer.grade ?? '-'}</p>
               <p>등록일: {customer.created_at ? new Date(customer.created_at).toLocaleDateString() : '-'}</p>
               <p>수정일: {customer.updated_at ? new Date(customer.updated_at).toLocaleDateString() : '-'}</p>
             </div>

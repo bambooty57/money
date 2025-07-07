@@ -45,6 +45,7 @@ export type SmsPayload = {
   message: string;
   customerId: string;
   templateKey: SmsTemplateKey;
+  category: SmsTemplateCategory;
   variables: Record<string, string | number>;
   scheduledAt?: string; // 예약 발송 시각(ISO)
 };

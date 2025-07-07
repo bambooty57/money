@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { PaginatedCustomerList } from '@/components/paginated-customer-list';
 import { CustomerForm } from '@/components/customer-form';
 import SmsSender from '@/components/sms-sender';
-import type { Customer } from '@/types/database';
+import type { Database } from '@/types/database';
 import { Button } from '@/components/ui/button';
 import { PlusCircle, Upload } from 'lucide-react';
 import {
@@ -14,6 +14,8 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { ExcelUploadForm } from '@/components/excel-upload-form';
+
+type Customer = Database['public']['Tables']['customers']['Row'];
 
 export default function CustomersPage() {
   const [customers, setCustomers] = useState<Customer[]>([]);

@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase';
-import type { Customer } from '@/types/database';
-import { smsTemplates, SmsTemplateCategory, SmsTemplateKey } from '@/types/sms';
+import type { Database } from '@/types/database';
+import { smsTemplates } from '@/types/sms';
+import type { SmsTemplateCategory, SmsTemplateKey } from '@/types/sms';
 import clsx from 'clsx';
 import { Copy } from 'lucide-react';
 
@@ -11,6 +12,12 @@ interface SmsSenderProps {
   selectedCustomer?: Customer | null;
   onSuccess?: () => void;
 }
+
+type CustomerBase = Database['public']['Tables']['customers']['Row'];
+type Customer = CustomerBase & {
+  total_unpaid?: number;
+  transaction_count?: number;
+};
 
 export default function SmsSender({ selectedCustomer, onSuccess }: SmsSenderProps) {
   const [loading, setLoading] = useState(false);

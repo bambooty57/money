@@ -329,6 +329,41 @@ export type Database = {
           },
         ]
       }
+      sms_messages: {
+        Row: {
+          content: string
+          created_at: string
+          customer_id: string | null
+          id: string
+          sent_at: string
+          status: string | null
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          customer_id?: string | null
+          id?: string
+          sent_at?: string
+          status?: string | null
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          customer_id?: string | null
+          id?: string
+          sent_at?: string
+          status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sms_messages_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       transactions: {
         Row: {
           amount: number

@@ -3,7 +3,7 @@ import React from 'react';
 import { notFound } from 'next/navigation';
 import { createClient } from '@/lib/supabase';
 import TransactionDetailClient from './TransactionDetailClient';
-import type { Transaction, File } from '@/types/database';
+import type { Database } from '@/types/database';
 
 import HeaderButtons from './HeaderButtons';
 
@@ -17,13 +17,17 @@ interface Payment {
   payer_name: string;
 }
 
-interface TransactionWithDetails extends Transaction {
+interface TransactionWithDetails extends Omit<Transaction, 'paid_amount' | 'unpaid_amount' | 'paid_ratio'> {
   payments?: Payment[];
   files?: File[];
-  paid_amount?: number;
-  unpaid_amount?: number;
-  paid_ratio?: number;
+  paid_amount: number | null;
+  unpaid_amount: number | null;
+  paid_ratio: number | null;
+  customers?: any;
 }
+
+type Transaction = Database['public']['Tables']['transactions']['Row'];
+type File = Database['public']['Tables']['files']['Row'];
 
 export default async function CustomerTransactionsPage(props: any) {
   let params = props.params;

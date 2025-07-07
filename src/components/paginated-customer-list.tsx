@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Pagination, usePagination } from '@/components/ui/pagination';
-import type { Customer } from '@/types/database';
+import type { Database } from '@/types/database';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Alert } from './ui/alert';
@@ -16,6 +16,13 @@ import {
   TableCell
 } from './ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
+
+type CustomerBase = Database['public']['Tables']['customers']['Row'];
+type Customer = CustomerBase & {
+  transaction_count?: number;
+  total_unpaid?: number;
+  photos?: { url: string }[];
+};
 
 interface ApiResponse {
   data: Customer[];
@@ -97,7 +104,7 @@ function CustomerDetailModal({ customer, open, onClose }: { customer: any, open:
   );
 }
 
-export function PaginatedCustomerList({ 
+function PaginatedCustomerListInner({ 
   onEdit, 
   onDelete, 
   enableActions = false,
@@ -464,5 +471,13 @@ export function PaginatedCustomerList({
         </div>
       )}
     </div>
+  );
+}
+
+export function PaginatedCustomerList(props: PaginatedCustomerListProps) {
+  return (
+    <Suspense fallback={<div>고객 목록 불러오는 중...</div>}>
+      <PaginatedCustomerListInner {...props} />
+    </Suspense>
   );
 } 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from 'react';
-import type { Transaction, Customer } from '@/types/database';
+import type { Database } from '@/types/database';
 import {
   Dialog,
   DialogTrigger,
@@ -25,6 +25,9 @@ import {
 } from './ui/table';
 import TransactionForm from './transaction-form';
 import ModelTypeManager from './model-type-manager';
+
+type Transaction = Database['public']['Tables']['transactions']['Row'];
+type Customer = Database['public']['Tables']['customers']['Row'];
 
 export function TransactionList() {
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -146,7 +149,7 @@ export function TransactionList() {
               <PlusCircle className="mr-2 h-4 w-4" /> 신규 거래 등록
             </button>
           </DialogTrigger>
-          <DialogContent className="max-w-4xl">
+          <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto p-6">
             <DialogHeader>
               <DialogTitle className="text-2xl">신규 거래 등록</DialogTitle>
             </DialogHeader>

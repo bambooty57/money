@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase';
-import type { Customer } from '@/types/database';
+import type { Database } from '@/types/database';
 import { ProductModelTypeDropdown } from './product-model-type-autocomplete'
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -15,6 +15,8 @@ interface TransactionFormProps {
   onSuccess?: () => void;
   transaction?: any; // 수정 대상 거래(있으면 수정 모드)
 }
+
+type Customer = Database['public']['Tables']['customers']['Row'];
 
 export default function TransactionForm({ customers, onSuccess, transaction }: TransactionFormProps) {
   const [allCustomers, setAllCustomers] = useState<Customer[]>(customers || []);

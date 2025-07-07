@@ -1,7 +1,9 @@
 "use client";
 import { useEffect, useState } from 'react';
 import { TransactionList } from '@/components/transaction-list';
-import type { Customer } from '@/types/database';
+import type { Database } from '@/types/database';
+
+type Customer = Database['public']['Tables']['customers']['Row'];
 
 export default function TransactionsPage() {
   // const [customers, setCustomers] = useState<Customer[]>([]);

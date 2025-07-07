@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useRef, useEffect } from "react";
-import type { Transaction, File, Payment as PaymentType, TransactionWithDetails } from '@/types/database';
+import type { Database } from '@/types/database';
 import { supabase } from '@/lib/supabase';
 import dynamic from 'next/dynamic';
 import ReactMarkdown from 'react-markdown';
@@ -11,10 +11,19 @@ import fontkit from '@pdf-lib/fontkit';
 import fs from 'fs/promises';
 import path from 'path';
 
-type Payment = PaymentType;
+type Transaction = Database['public']['Tables']['transactions']['Row'];
+type File = Database['public']['Tables']['files']['Row'];
+type PaymentType = Database['public']['Tables']['payments']['Row'];
+
+type TransactionWithDetails = Transaction & {
+  customers?: any;
+  files?: any[];
+  models_types?: any;
+  payments?: any[];
+};
 
 interface Props {
-  transactions: import('@/types/database').TransactionWithDetails[];
+  transactions: TransactionWithDetails[];
   initialSelectedId?: string;
   customerId?: string;
 }
@@ -39,11 +48,11 @@ const KOREA_CARD_COMPANIES = [
 const toFile = (f: any): File => ({
   id: String(f.id),
   customer_id: String(f.customer_id),
+  transaction_id: f.transaction_id ? String(f.transaction_id) : null,
   name: String(f.name),
   type: String(f.type),
   url: String(f.url),
   created_at: String(f.created_at),
-  updated_at: String(f.updated_at || ''),
 });
 
 // Payment 등록 폼 컴포넌트
@@ -317,7 +326,7 @@ function sanitizeFileName(name: string) {
 const displayValue = (v: any) => v !== undefined && v !== null && String(v).trim() !== '' ? v : '정보 없음';
 
 // pdf-lib 기반 한글 PDF 내보내기 함수
-async function handlePdfExportPdfLib(selectedTx: TransactionWithDetails, filteredPayments: Payment[], setErrorMsg?: (msg: string) => void) {
+async function handlePdfExportPdfLib(selectedTx: TransactionWithDetails, filteredPayments: PaymentType[], setErrorMsg?: (msg: string) => void) {
   try {
     const pdfDoc = await PDFDocument.create();
     pdfDoc.registerFontkit(fontkit);
@@ -1105,11 +1114,11 @@ export default function TransactionDetailClient({ transactions, initialSelectedI
       const toFile = (f: any): File => ({
         id: String(f.id),
         customer_id: String(f.customer_id),
+        transaction_id: f.transaction_id ? String(f.transaction_id) : null,
         name: String(f.name),
         type: String(f.type),
         url: String(f.url),
         created_at: String(f.created_at),
-        updated_at: String(f.updated_at || ''),
       });
       setTxList(prev => prev.map(tx => tx.id === selectedTx.id ? {
         ...tx,
@@ -1228,10 +1237,7 @@ export default function TransactionDetailClient({ transactions, initialSelectedI
         ...tx,
         customer_id: String(tx.customer_id ?? customerId ?? ''),
         payments: payments as any as PaymentType[],
-        files: (Array.isArray(tx.files) ? tx.files : []).map((f: any) => ({
-          ...f,
-          updated_at: String(f.updated_at || ''),
-        })),
+        files: tx.files?.map(f => ({ ...f } as any)) || [],
         paid_amount: tx.paid_amount ?? undefined,
         unpaid_amount: tx.unpaid_amount ?? undefined,
         paid_ratio: tx.paid_ratio ?? undefined,
