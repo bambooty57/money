@@ -37,6 +37,7 @@ export function TransactionList() {
   const router = useRouter();
   const [formOpen, setFormOpen] = useState(false);
   const [totalCount, setTotalCount] = useState<number>(0);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
     async function fetchData() {
@@ -62,7 +63,7 @@ export function TransactionList() {
       }
     }
     fetchData();
-  }, []);
+  }, [refreshKey]);
 
   const handleExcelDownload = () => {
     const excelRows = customers.map(c => {
@@ -153,7 +154,7 @@ export function TransactionList() {
             <DialogHeader>
               <DialogTitle className="text-2xl">신규 거래 등록</DialogTitle>
             </DialogHeader>
-            <TransactionForm onSuccess={() => { setFormOpen(false); router.refresh(); }} />
+            <TransactionForm onSuccess={() => { setFormOpen(false); setRefreshKey(k => k + 1); }} />
           </DialogContent>
         </Dialog>
         <Dialog>
