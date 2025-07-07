@@ -283,7 +283,7 @@ export function CustomerForm({ onSuccess, open, setOpen, customer }: CustomerFor
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogContent aria-describedby="customer-form-desc">
+      <DialogContent aria-describedby="customer-form-desc" className="max-h-[80vh] overflow-y-auto">
         <div id="customer-form-desc" className="sr-only">
           고객정보를 등록하거나 수정하는 대화상자입니다. 필수 입력 항목을 확인하세요.
         </div>

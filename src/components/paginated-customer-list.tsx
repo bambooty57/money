@@ -47,6 +47,7 @@ interface PaginatedCustomerListProps {
   onDelete?: (id: string) => void;
   enableActions?: boolean;
   onSelectCustomer?: (customer: Customer | null) => void;
+  refreshKey?: number;
 }
 
 const openKakaoMap = (address: string) => {
@@ -108,7 +109,8 @@ function PaginatedCustomerListInner({
   onEdit, 
   onDelete, 
   enableActions = false,
-  onSelectCustomer
+  onSelectCustomer,
+  refreshKey
 }: PaginatedCustomerListProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -153,7 +155,7 @@ function PaginatedCustomerListInner({
   // 초기 로딩 및 의존성 변경 시 데이터 페칭
   useEffect(() => {
     fetchCustomers();
-  }, [fetchCustomers]);
+  }, [fetchCustomers, refreshKey]);
 
   // 검색 입력 디바운싱 (성능 최적화)
   const [searchInputValue, setSearchInputValue] = useState(searchTerm);

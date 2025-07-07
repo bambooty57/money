@@ -22,6 +22,7 @@ export default function CustomersPage() {
   const [formOpen, setFormOpen] = useState(false);
   const [editCustomer, setEditCustomer] = useState<Customer | null>(null);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
     fetchCustomers();
@@ -68,11 +69,11 @@ export default function CustomersPage() {
           setOpen={setFormOpen}
           onSuccess={() => {
             setFormOpen(false);
-            fetchCustomers();
+            setRefreshKey(k => k + 1);
           }}
           customer={editCustomer}
         />
-        <PaginatedCustomerList enableActions={true} onEdit={handleEdit} onSelectCustomer={handleSelectCustomer} />
+        <PaginatedCustomerList enableActions={true} onEdit={handleEdit} onSelectCustomer={handleSelectCustomer} refreshKey={refreshKey} />
 
         <div className="mt-8" />
 
