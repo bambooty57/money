@@ -193,6 +193,7 @@ export function TransactionList() {
               <TableHead className="px-4 py-2 text-left text-sm font-semibold text-gray-700">입금액</TableHead>
               <TableHead className="px-4 py-2 text-left text-sm font-semibold text-gray-700">미수금</TableHead>
               <TableHead className="px-4 py-2 text-left text-sm font-semibold text-gray-700">입금%</TableHead>
+              <TableHead className="px-4 py-2 text-left text-sm font-semibold text-gray-700">삭제</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody className="bg-white divide-y divide-gray-200">
@@ -210,6 +211,25 @@ export function TransactionList() {
                 <TableCell className="px-4 py-2 whitespace-nowrap text-base text-red-700 font-semibold">{(summary.total_unpaid || 0).toLocaleString()}원</TableCell>
                 <TableCell className="px-4 py-2 whitespace-nowrap flex items-center gap-2">
                   <span className="text-base text-gray-900 font-semibold">{summary.total_ratio || 0}%</span>
+                </TableCell>
+                <TableCell>
+                  <button
+                    className="text-red-600 hover:text-red-900 text-lg p-1 hover:bg-red-50 rounded transition-colors"
+                    title="거래 삭제"
+                    onClick={async (e) => {
+                      e.stopPropagation();
+                      if (!window.confirm('정말로 이 거래를 삭제하시겠습니까?')) return;
+                      const res = await fetch(`/api/transactions?id=${summary.transactions[0].id}`, { method: 'DELETE' });
+                      if (res.ok) {
+                        setRefreshKey(k => k + 1);
+                        setTimeout(() => setRefreshKey(k => k + 1), 700);
+                        alert('삭제되었습니다.');
+                      } else {
+                        const { error } = await res.json();
+                        alert('삭제 실패: ' + error);
+                      }
+                    }}
+                  >🗑️</button>
                 </TableCell>
               </TableRow>
             );
