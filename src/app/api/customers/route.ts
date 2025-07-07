@@ -258,6 +258,25 @@ export async function DELETE(request: Request) {
   const { searchParams } = new URL(request.url);
   const id = searchParams.get('id');
   if (!id) return NextResponse.json({ error: '고객 ID가 필요합니다.' }, { status: 400 });
+
+  // 1. 고객의 거래 ID 목록 조회
+  const { data: transactions, error: txError } = await supabase.from('transactions').select('id').eq('customer_id', id);
+  if (txError) return NextResponse.json({ error: txError.message }, { status: 500 });
+  const txIds = (transactions || []).map(tx => tx.id);
+
+  // 2. files에서 해당 거래 ID들에 연결된 파일 먼저 삭제
+  if (txIds.length > 0) {
+    const { error: fileError } = await supabase.from('files').delete().in('transaction_id', txIds);
+    if (fileError) return NextResponse.json({ error: fileError.message }, { status: 500 });
+  }
+
+  // 3. 거래 삭제
+  if (txIds.length > 0) {
+    const { error: txDelError } = await supabase.from('transactions').delete().in('id', txIds);
+    if (txDelError) return NextResponse.json({ error: txDelError.message }, { status: 500 });
+  }
+
+  // 4. 고객 삭제
   const { error } = await supabase.from('customers').delete().eq('id', id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ success: true });
