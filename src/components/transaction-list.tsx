@@ -12,7 +12,7 @@ import {
 } from './ui/dialog';
 import { Download, PlusCircle } from 'lucide-react';
 import * as XLSX from 'xlsx';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from './ui/button';
 import { Alert } from './ui/alert';
 import {
@@ -37,7 +37,13 @@ export function TransactionList() {
   const router = useRouter();
   const [formOpen, setFormOpen] = useState(false);
   const [totalCount, setTotalCount] = useState<number>(0);
+  const searchParams = useSearchParams();
+  const urlRefreshKey = searchParams.get('refresh') || 0;
   const [refreshKey, setRefreshKey] = useState(0);
+
+  useEffect(() => {
+    setRefreshKey(k => k + 1);
+  }, [urlRefreshKey]);
 
   useEffect(() => {
     async function fetchData() {
