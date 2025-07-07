@@ -155,10 +155,8 @@ export async function GET(request: Request) {
         'X-Page': page.toString(),
         'X-Page-Size': pageSize.toString(),
         'X-Total-Pages': Math.ceil((totalCount || 0) / pageSize).toString(),
-        // 성능 최적화: 검색 결과는 짧은 캐시, 기본 목록은 긴 캐시
-        'Cache-Control': search 
-          ? 's-maxage=60, stale-while-revalidate=30' 
-          : 's-maxage=300, stale-while-revalidate=60',
+        // 캐시 완전 비활성화
+        'Cache-Control': 'no-store',
         'Content-Type': 'application/json',
         // CORS 헤더 (필요시)
         'Access-Control-Allow-Origin': '*',

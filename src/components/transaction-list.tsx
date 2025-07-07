@@ -48,7 +48,7 @@ export function TransactionList() {
   useEffect(() => {
     async function fetchData() {
       try {
-        const res = await fetch('/api/customers?hasTransactions=true');
+        const res = await fetch('/api/customers?hasTransactions=true', { cache: 'no-store' });
         const data = await res.json();
         setCustomers(data.data || []);
         // 고객별 summary 병렬 호출
