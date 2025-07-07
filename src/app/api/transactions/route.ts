@@ -11,7 +11,8 @@ export async function GET(request: Request) {
     if (countOnly) {
       const { count, error } = await supabase
         .from('transactions')
-        .select('*', { count: 'exact', head: true });
+        .select('*', { count: 'exact' })
+        .neq('status', 'deleted');
       if (error) throw error;
       const { data: sumData, error: sumError } = await supabase
         .from('transactions')
