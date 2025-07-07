@@ -290,86 +290,96 @@ export function CustomerForm({ onSuccess, open, setOpen, customer }: CustomerFor
         <DialogHeader>
           <DialogTitle>{customer ? '고객 정보 수정' : '신규 고객 등록'}</DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium mb-1">이름 *</label>
-              <input type="text" required value={formData.name} onChange={e => setFormData(prev => ({ ...prev, name: e.target.value }))} className="w-full border rounded px-3 py-2" title="이름" placeholder="이름을 입력하세요" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">고객유형 *</label>
-              <select
-                value={formData.customer_type}
-                onChange={e => setFormData(prev => ({ ...prev, customer_type: e.target.value, customer_type_custom: '' }))}
-                className="w-full border rounded px-3 py-2"
-                required
-                title="고객유형 선택"
-              >
-                <option value="">선택하세요</option>
-                <option value="농민">농민</option>
-                <option value="센터">센터</option>
-                <option value="대리점">대리점</option>
-                <option value="관공서">관공서</option>
-                <option value="직접입력">직접입력</option>
-              </select>
-              {formData.customer_type === '직접입력' && (
-                <input
-                  type="text"
-                  value={formData.customer_type_custom}
-                  onChange={e => setFormData(prev => ({ ...prev, customer_type_custom: e.target.value }))}
-                  className="w-full border rounded px-3 py-2 mt-2"
-                  placeholder="고객유형 직접 입력"
+        <form onSubmit={handleSubmit} className="flex flex-col gap-6 p-8 w-full max-w-6xl mx-auto">
+          {/* 이름/고객유형 */}
+          <div className="bg-blue-50 rounded-lg p-8 border-2 border-blue-200 shadow-lg flex flex-col gap-4 w-full max-w-5xl mx-auto">
+            <div className="flex flex-col md:flex-row gap-4 w-full">
+              <div className="flex-1">
+                <label className="text-xl font-bold mb-2 flex items-center gap-2">👤 이름 *</label>
+                <input type="text" required value={formData.name} onChange={e => setFormData(prev => ({ ...prev, name: e.target.value }))} className="w-full border-2 border-blue-300 rounded-lg px-4 py-3 text-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200" title="이름" placeholder="이름을 입력하세요" />
+              </div>
+              <div className="flex-1">
+                <label className="text-xl font-bold mb-2 flex items-center gap-2">🏷️ 고객유형 *</label>
+                <select
+                  value={formData.customer_type}
+                  onChange={e => setFormData(prev => ({ ...prev, customer_type: e.target.value, customer_type_custom: '' }))}
+                  className="w-full border-2 border-blue-300 rounded-lg px-4 py-3 text-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
                   required
-                />
-              )}
+                  title="고객유형 선택"
+                >
+                  <option value="">선택하세요</option>
+                  <option value="농민">농민</option>
+                  <option value="센터">센터</option>
+                  <option value="대리점">대리점</option>
+                  <option value="관공서">관공서</option>
+                  <option value="직접입력">직접입력</option>
+                </select>
+                {formData.customer_type === '직접입력' && (
+                  <input
+                    type="text"
+                    value={formData.customer_type_custom}
+                    onChange={e => setFormData(prev => ({ ...prev, customer_type_custom: e.target.value }))}
+                    className="w-full border-2 border-blue-300 rounded-lg px-4 py-3 text-lg mt-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                    placeholder="고객유형 직접 입력"
+                    required
+                  />
+                )}
+              </div>
             </div>
           </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">주민등록번호</label>
-            <input type="text" value={formData.ssn} onChange={e => setFormData(prev => ({ ...prev, ssn: autoHyphenSSN(e.target.value) }))} className="w-full border rounded px-3 py-2" placeholder="000101-3XXXXXX" title="주민등록번호" />
+          {/* 주민등록번호 */}
+          <div className="bg-green-50 rounded-lg p-8 border-2 border-green-200 shadow-lg flex flex-col gap-2 w-full max-w-5xl mx-auto">
+            <label className="text-xl font-bold mb-2 flex items-center gap-2">🆔 주민등록번호</label>
+            <input type="text" value={formData.ssn} onChange={e => setFormData(prev => ({ ...prev, ssn: autoHyphenSSN(e.target.value) }))} className="w-full border-2 border-green-300 rounded-lg px-4 py-3 text-lg focus:border-green-500 focus:ring-2 focus:ring-green-200" placeholder="000101-3XXXXXX" title="주민등록번호" />
           </div>
-          <div className="grid grid-cols-3 gap-4">
-            <div>
-              <label className="block text-sm font-medium mb-1">사업자명</label>
-              <input type="text" value={formData.business_name} onChange={e => setFormData(prev => ({ ...prev, business_name: e.target.value }))} className="w-full border rounded px-3 py-2" placeholder="사업자명" title="사업자명" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">사업자번호</label>
-              <input type="text" value={formData.business_no} onChange={e => setFormData(prev => ({ ...prev, business_no: e.target.value }))} className="w-full border rounded px-3 py-2" placeholder="123-45-67890" title="사업자번호" />
-            </div>
-          </div>
-          <div className="grid grid-cols-3 gap-4">
-            <div>
-              <label className="block text-sm font-medium mb-1">휴대전화 *</label>
-              <input type="tel" required value={formData.mobile} onChange={e => setFormData(prev => ({ ...prev, mobile: autoHyphenPhone(e.target.value) }))} className="w-full border rounded px-3 py-2" placeholder="000-0000-0000" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">일반전화</label>
-              <input type="tel" value={formData.phone} onChange={e => setFormData(prev => ({ ...prev, phone: e.target.value }))} className="w-full border rounded px-3 py-2" placeholder="0000000000" title="일반전화" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">팩스</label>
-              <input type="tel" value={formData.fax} onChange={e => setFormData(prev => ({ ...prev, fax: e.target.value }))} className="w-full border rounded px-3 py-2" placeholder="0000000000" title="팩스번호" />
+          {/* 사업자명/번호 */}
+          <div className="bg-orange-50 rounded-lg p-8 border-2 border-orange-200 shadow-lg flex flex-col gap-6 w-full max-w-5xl mx-auto">
+            <div className="flex flex-col gap-6 w-full">
+              <div>
+                <label className="text-xl font-bold mb-2 flex items-center gap-2">🏢 사업자명</label>
+                <input type="text" value={formData.business_name} onChange={e => setFormData(prev => ({ ...prev, business_name: e.target.value }))} className="w-full border-2 border-orange-300 rounded-lg px-4 py-3 text-lg focus:border-orange-500 focus:ring-2 focus:ring-orange-200 mb-2" placeholder="사업자명" title="사업자명" />
+              </div>
+              <div>
+                <label className="text-xl font-bold mb-2 flex items-center gap-2"># 사업자번호</label>
+                <input type="text" value={formData.business_no} onChange={e => setFormData(prev => ({ ...prev, business_no: e.target.value }))} className="w-full border-2 border-orange-300 rounded-lg px-4 py-3 text-lg focus:border-orange-500 focus:ring-2 focus:ring-orange-200" placeholder="123-45-67890" title="사업자번호" />
+              </div>
             </div>
           </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">주소 *</label>
+          {/* 연락처 */}
+          <div className="bg-purple-50 rounded-lg p-8 border-2 border-purple-200 shadow-lg flex flex-col gap-6 w-full max-w-5xl mx-auto">
+            <div className="flex flex-col gap-6 w-full">
+              <div>
+                <label className="text-xl font-bold mb-2 flex items-center gap-2">📱 휴대전화 *</label>
+                <input type="tel" required value={formData.mobile} onChange={e => setFormData(prev => ({ ...prev, mobile: autoHyphenPhone(e.target.value) }))} className="w-full border-2 border-purple-300 rounded-lg px-4 py-3 text-lg focus:border-purple-500 focus:ring-2 focus:ring-purple-200 mb-2" placeholder="000-0000-0000" />
+              </div>
+              <div>
+                <label className="text-xl font-bold mb-2 flex items-center gap-2">☎️ 일반전화</label>
+                <input type="tel" value={formData.phone} onChange={e => setFormData(prev => ({ ...prev, phone: e.target.value }))} className="w-full border-2 border-purple-300 rounded-lg px-4 py-3 text-lg focus:border-purple-500 focus:ring-2 focus:ring-purple-200 mb-2" placeholder="0000000000" title="일반전화" />
+              </div>
+              <div>
+                <label className="text-xl font-bold mb-2 flex items-center gap-2">📠 팩스</label>
+                <input type="tel" value={formData.fax} onChange={e => setFormData(prev => ({ ...prev, fax: e.target.value }))} className="w-full border-2 border-purple-300 rounded-lg px-4 py-3 text-lg focus:border-purple-500 focus:ring-2 focus:ring-purple-200" placeholder="0000000000" title="팩스번호" />
+              </div>
+            </div>
+          </div>
+          {/* 주소 */}
+          <div className="bg-yellow-50 rounded-lg p-8 border-2 border-yellow-200 shadow-lg flex flex-col gap-4 w-full max-w-5xl mx-auto">
+            <label className="text-xl font-bold mb-2 flex items-center gap-2">🏠 주소 *</label>
             <div className="flex gap-2 items-center mb-1">
-              <button type="button" onClick={handleAddressSearch} className="px-2 py-1 bg-blue-600 text-white rounded">주소검색</button>
-              <span className="text-xs text-gray-500">도로명/지번 중 한가지만 선택해도 모두 자동입력</span>
+              <button type="button" onClick={handleAddressSearch} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-lg font-bold hover:bg-blue-700">주소검색</button>
+              <span className="text-base text-gray-500">도로명/지번 중 한가지만 선택해도 모두 자동입력</span>
             </div>
-            <div>
-              <label className="block text-sm font-medium mb-1" htmlFor="address_road">도로명주소</label>
-              <input id="address_road" type="text" value={formData.address_road} onChange={e => setFormData(prev => ({ ...prev, address_road: e.target.value }))} className="w-full border rounded px-3 py-2 mb-1" placeholder="도로명주소" title="도로명주소" />
-              <label className="block text-sm font-medium mb-1" htmlFor="address_jibun">지번주소</label>
-              <input id="address_jibun" type="text" value={formData.address_jibun} onChange={e => setFormData(prev => ({ ...prev, address_jibun: e.target.value }))} className="w-full border rounded px-3 py-2 mb-1" placeholder="지번주소" title="지번주소" />
-              <label className="block text-sm font-medium mb-1" htmlFor="zipcode">우편번호</label>
-              <input id="zipcode" type="text" value={formData.zipcode} onChange={e => setFormData(prev => ({ ...prev, zipcode: e.target.value }))} className="w-full border rounded px-3 py-2 mb-1" placeholder="우편번호" title="우편번호" />
-            </div>
+            <label className="text-lg font-semibold mb-1" htmlFor="address_road">도로명주소</label>
+            <input id="address_road" type="text" value={formData.address_road} onChange={e => setFormData(prev => ({ ...prev, address_road: e.target.value }))} className="w-full border-2 border-yellow-300 rounded-lg px-4 py-3 text-lg mb-1 focus:border-yellow-500 focus:ring-2 focus:ring-yellow-200" placeholder="도로명주소" title="도로명주소" />
+            <label className="text-lg font-semibold mb-1" htmlFor="address_jibun">지번주소</label>
+            <input id="address_jibun" type="text" value={formData.address_jibun} onChange={e => setFormData(prev => ({ ...prev, address_jibun: e.target.value }))} className="w-full border-2 border-yellow-300 rounded-lg px-4 py-3 text-lg mb-1 focus:border-yellow-500 focus:ring-2 focus:ring-yellow-200" placeholder="지번주소" title="지번주소" />
+            <label className="text-lg font-semibold mb-1" htmlFor="zipcode">우편번호</label>
+            <input id="zipcode" type="text" value={formData.zipcode} onChange={e => setFormData(prev => ({ ...prev, zipcode: e.target.value }))} className="w-full border-2 border-yellow-300 rounded-lg px-4 py-3 text-lg mb-1 focus:border-yellow-500 focus:ring-2 focus:ring-yellow-200" placeholder="우편번호" title="우편번호" />
           </div>
-          <div className="flex items-center gap-2 mb-1">
-            <label className="block text-sm font-medium">사진 (최대 3장, 선택)</label>
-            <div className="mt-2 grid grid-cols-3 gap-2">
+          {/* 사진 */}
+          <div className="bg-indigo-50 rounded-lg p-8 border-2 border-indigo-200 shadow-lg flex flex-col gap-4 w-full max-w-5xl mx-auto">
+            <label className="text-xl font-bold mb-2 flex items-center gap-2">🖼️ 사진 (최대 3장, 선택)</label>
+            <div className="mt-2 grid grid-cols-3 gap-4">
               {photos.map((photo, index) => (
                 <div
                   key={index}
@@ -381,40 +391,44 @@ export function CustomerForm({ onSuccess, open, setOpen, customer }: CustomerFor
                   style={{ opacity: draggedPhotoIndex === index ? 0.5 : 1 }}
                 >
                   {'url' in photo ? (
-                    <img src={photo.url} alt={`Preview ${index + 1}`} className="w-24 h-20 object-cover rounded border" />
+                    <img src={photo.url} alt={`Preview ${index + 1}`} className="w-28 h-24 object-cover rounded border-2 border-indigo-300" />
                   ) : (
-                    <img src={URL.createObjectURL(photo as File)} alt={`Preview ${index + 1}`} className="w-24 h-20 object-cover rounded border" />
+                    <img src={URL.createObjectURL(photo as File)} alt={`Preview ${index + 1}`} className="w-28 h-24 object-cover rounded border-2 border-indigo-300" />
                   )}
-                  <button type="button" onClick={() => removePhoto(index)} className="absolute top-1 right-1 bg-white bg-opacity-80 rounded px-1 text-xs text-red-600 border border-red-200">삭제</button>
+                  <button type="button" onClick={() => removePhoto(index)} className="absolute top-1 right-1 bg-white bg-opacity-80 rounded px-2 text-base text-red-600 border border-red-200 font-bold">삭제</button>
                 </div>
               ))}
               {photos.length < 3 && (
                 <button
                   type="button"
                   onClick={handleAddPhotoClick}
-                  className="flex items-center justify-center w-24 h-20 border-2 border-dashed border-gray-300 rounded text-3xl text-gray-400 hover:bg-gray-100 focus:outline-none"
+                  className="flex items-center justify-center w-28 h-24 border-2 border-dashed border-indigo-300 rounded text-3xl text-indigo-400 hover:bg-indigo-100 focus:outline-none"
                   title="사진 추가"
                 >
                   +
                 </button>
               )}
             </div>
-            <label htmlFor="photo-upload" className="block text-sm font-medium mb-1">사진 업로드</label>
             <input
-              id="photo-upload"
-              type="file"
-              multiple
-              accept="image/*"
-              onChange={handlePhotoChange}
-              className="w-full border rounded px-3 py-2"
               ref={photoInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              className="hidden"
+              onChange={handlePhotoChange}
               title="사진 업로드"
-              placeholder="사진 파일을 선택하세요"
-              aria-label="사진 업로드"
             />
           </div>
-          <div className="flex justify-end">
-            <button type="submit" className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600" disabled={loading}>{loading ? (customer ? '수정 중...' : '등록 중...') : (customer ? '수정' : '등록')}</button>
+          {/* 등록 버튼 */}
+          <div className="flex justify-center mt-4 w-full">
+            <Button
+              type="submit"
+              disabled={loading}
+              className={`w-full max-w-xs text-2xl px-8 py-4 flex items-center gap-2 rounded-lg shadow-lg ${loading ? 'bg-gray-400' : 'bg-blue-500 hover:bg-blue-600'} text-white font-bold transition-colors duration-200`}
+              title={loading ? '고객 등록 중...' : (customer ? '수정하기' : '등록하기')}
+            >
+              {loading ? '처리중...' : (customer ? (<><span>📝</span> 수정하기</>) : (<><span>➕</span> 등록하기</>))}
+            </Button>
           </div>
         </form>
       </DialogContent>

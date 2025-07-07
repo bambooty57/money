@@ -216,36 +216,37 @@ export default function TransactionForm({ customers, onSuccess, transaction }: T
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      {successMsg && <Alert variant="default">{successMsg}</Alert>}
-      {errorMsg && <Alert variant="destructive">{errorMsg}</Alert>}
-      <div>
-        <label htmlFor="customer_id">고객명<span className="text-red-500">*</span></label>
+    <form onSubmit={handleSubmit} className="flex flex-col gap-6 p-8 w-full max-w-3xl mx-auto">
+      {successMsg && <Alert variant="default" className="text-xl font-bold flex items-center gap-2 bg-green-50 border-green-300 text-green-700 p-4 rounded-lg shadow-lg mb-4"><span>✅</span>{successMsg}</Alert>}
+      {errorMsg && <Alert variant="destructive" className="text-xl font-bold flex items-center gap-2 bg-red-50 border-red-300 text-red-700 p-4 rounded-lg shadow-lg mb-4"><span>❌</span>{errorMsg}</Alert>}
+      {/* 고객명 */}
+      <div className="bg-blue-50 rounded-lg p-8 border-2 border-blue-200 shadow-lg flex flex-col gap-2 w-full max-w-2xl mx-auto">
+        <label htmlFor="customer_id" className="text-xl font-bold flex items-center gap-2">👤 고객명<span className="text-red-500">*</span></label>
         <select
           id="customer_id"
           name="customer_id"
           value={formData.customer_id}
           onChange={e => setFormData(prev => ({ ...prev, customer_id: e.target.value }))}
           required
-          className="w-full border rounded p-2"
+          className="text-lg px-4 py-3 rounded-lg border-2 border-blue-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
         >
           <option value="">고객명을 선택하세요</option>
-                          {allCustomers.filter((c, i, arr) => arr.findIndex(x => x.name === c.name) === i).map((c) => (
+          {allCustomers.filter((c, i, arr) => arr.findIndex(x => x.name === c.name) === i).map((c) => (
             <option key={c.id} value={c.id}>{c.name}</option>
           ))}
         </select>
-        <small className="text-gray-500">고객관리에서 등록된 고객만 거래 등록이 가능합니다. (신규 고객은 고객관리에서 먼저 등록)</small>
+        <small className="text-blue-600 text-base mt-1">고객관리에서 등록된 고객만 거래 등록이 가능합니다. (신규 고객은 고객관리에서 먼저 등록)</small>
       </div>
-
-      <div>
-        <label htmlFor="type">거래 유형<span className="text-red-500">*</span></label>
+      {/* 거래유형 */}
+      <div className="bg-purple-50 rounded-lg p-8 border-2 border-purple-200 shadow-lg flex flex-col gap-2 w-full max-w-2xl mx-auto">
+        <label htmlFor="type" className="text-xl font-bold flex items-center gap-2">📝 거래 유형<span className="text-red-500">*</span></label>
         <select
           id="type"
           name="type"
           value={formData.type}
           onChange={handleChange}
           required
-          className="w-full border rounded p-2"
+          className="text-lg px-4 py-3 rounded-lg border-2 border-purple-300 focus:border-purple-500 focus:ring-2 focus:ring-purple-200"
         >
           <option value="">선택하세요</option>
           <option value="새제품 판매">새제품 판매</option>
@@ -258,87 +259,84 @@ export default function TransactionForm({ customers, onSuccess, transaction }: T
           <option value="기타">기타</option>
         </select>
       </div>
-
-      <ProductModelTypeDropdown
-        selectedId={formData.models_types_id}
-        onSelect={(id: string) => setFormData(prev => ({ ...prev, models_types_id: id }))}
-      />
-
-      <div>
-        <label className="block text-sm font-medium text-gray-700">
-          금액
-        </label>
-        <div className="mt-1 relative rounded-md shadow-sm">
+      {/* 기종/형식명 */}
+      <div className="bg-orange-50 rounded-lg p-8 border-2 border-orange-200 shadow-lg flex flex-col gap-2 w-full max-w-2xl mx-auto">
+        <label className="text-xl font-bold flex items-center gap-2">🚜 기종/형식명</label>
+        <ProductModelTypeDropdown
+          selectedId={formData.models_types_id}
+          onSelect={(id: string) => setFormData(prev => ({ ...prev, models_types_id: id }))}
+        />
+      </div>
+      {/* 금액 */}
+      <div className="bg-green-50 rounded-lg p-8 border-2 border-green-200 shadow-lg flex flex-col gap-2 w-full max-w-2xl mx-auto">
+        <label className="text-xl font-bold flex items-center gap-2">💰 금액</label>
+        <div className="relative rounded-md shadow-sm">
           <input
             type="number"
             value={formData.amount}
             onChange={e => setFormData(prev => ({ ...prev, amount: e.target.value }))}
-            className="block w-full rounded-md border-gray-300 pl-3 pr-12 focus:border-blue-500 focus:ring-blue-500"
+            className="block w-full rounded-lg border-2 border-green-300 px-4 py-3 text-lg focus:border-green-500 focus:ring-2 focus:ring-green-200"
             required
             title="거래 금액을 입력하세요"
             aria-label="거래 금액"
           />
           <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-            <span className="text-gray-500 sm:text-sm">원</span>
+            <span className="text-green-700 text-xl font-bold">원</span>
           </div>
         </div>
       </div>
-
-      <div>
-        <label className="block text-sm font-medium text-gray-700">
-          거래일자
-        </label>
+      {/* 거래일자 */}
+      <div className="bg-green-50 rounded-lg p-8 border-2 border-green-200 shadow-lg flex flex-col gap-2 w-full max-w-2xl mx-auto">
+        <label className="text-xl font-bold flex items-center gap-2">📅 거래일자</label>
         <input
           type="date"
           value={formData.date}
           onChange={e => setFormData(prev => ({ ...prev, date: e.target.value }))}
-          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+          className="rounded-lg border-2 border-green-300 px-4 py-3 text-lg focus:border-green-500 focus:ring-2 focus:ring-green-200"
           required
           title="거래일자를 입력하세요"
           aria-label="거래일자"
         />
       </div>
-
-      <div>
-        <label htmlFor="due_date">지급예정일</label>
+      {/* 지급예정일 */}
+      <div className="bg-yellow-50 rounded-lg p-8 border-2 border-yellow-200 shadow-lg flex flex-col gap-2 w-full max-w-2xl mx-auto">
+        <label htmlFor="due_date" className="text-xl font-bold flex items-center gap-2">📆 지급예정일</label>
         <input
           type="date"
           id="due_date"
           name="due_date"
           value={formData.due_date}
           onChange={e => setFormData(prev => ({ ...prev, due_date: e.target.value }))}
-          className="w-full border rounded p-2"
+          className="rounded-lg border-2 border-yellow-300 px-4 py-3 text-lg focus:border-yellow-500 focus:ring-2 focus:ring-yellow-200"
           required
         />
       </div>
-
-      <div>
-        <label htmlFor="description">비고(마크다운 지원)</label>
+      {/* 비고 */}
+      <div className="bg-orange-50 rounded-lg p-8 border-2 border-orange-200 shadow-lg flex flex-col gap-2 w-full max-w-2xl mx-auto">
+        <label htmlFor="description" className="text-xl font-bold flex items-center gap-2">📝 비고(마크다운 지원)</label>
         <textarea
           id="description"
           name="description"
           value={formData.description}
           onChange={e => setFormData(prev => ({ ...prev, description: e.target.value }))}
           rows={4}
-          className="w-full border rounded p-2"
+          className="w-full rounded-lg border-2 border-orange-300 px-4 py-3 text-lg focus:border-orange-500 focus:ring-2 focus:ring-orange-200"
           placeholder="예: *굵게*, [링크](url), - 리스트, 줄바꿈 등 지원"
         />
-        <small className="text-gray-500">*굵게*, [링크](url), - 리스트, 줄바꿈 등 마크다운 서식 지원</small>
+        <small className="text-orange-600 text-base mt-1">*굵게*, [링크](url), - 리스트, 줄바꿈 등 마크다운 서식 지원</small>
       </div>
-
-      <div>
-        <label htmlFor="proofs">첨부파일(여러 개 선택 가능)</label>
+      {/* 첨부파일 */}
+      <div className="bg-orange-50 rounded-lg p-8 border-2 border-orange-200 shadow-lg flex flex-col gap-2 w-full max-w-2xl mx-auto">
+        <label htmlFor="proofs" className="text-xl font-bold flex items-center gap-2">📤 첨부파일(여러 개 선택 가능)</label>
         <FileDropzone files={formData.proofs} onFilesChange={files => setFormData(prev => ({ ...prev, proofs: files }))} />
       </div>
-
-      <div>
-        <label className="block text-sm font-medium text-gray-700">
-          상태
-        </label>
+      {/* 상태 */}
+      <div className="bg-purple-50 rounded-lg p-8 border-2 border-purple-200 shadow-lg flex flex-col gap-2 w-full max-w-2xl mx-auto">
+        <label className="text-xl font-bold flex items-center gap-2">📊 상태</label>
         <select
           value={formData.status}
           onChange={e => setFormData(prev => ({ ...prev, status: e.target.value as 'paid' | 'unpaid' }))}
-          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+          className="rounded-lg border-2 border-purple-300 px-4 py-3 text-lg focus:border-purple-500 focus:ring-2 focus:ring-purple-200"
           required
           title="거래 상태를 선택하세요"
           aria-label="거래 상태"
@@ -347,17 +345,15 @@ export default function TransactionForm({ customers, onSuccess, transaction }: T
           <option value="paid">완료</option>
         </select>
       </div>
-
-      <div className="flex justify-end">
+      {/* 등록 버튼 */}
+      <div className="flex justify-center mt-4 w-full">
         <Button
           type="submit"
           disabled={loading}
-          className={`px-4 py-2 text-white rounded-md ${
-            loading ? 'bg-gray-400' : 'bg-blue-600 hover:bg-blue-700'
-          }`}
+          className={`w-full max-w-xs text-2xl px-8 py-4 flex items-center gap-2 rounded-lg shadow-lg ${loading ? 'bg-gray-400' : 'bg-blue-500 hover:bg-blue-600'} text-white font-bold transition-colors duration-200`}
           title={loading ? '거래 등록 중...' : (transaction ? '수정하기' : '등록하기')}
         >
-          {loading ? '처리중...' : (transaction ? '수정하기' : '등록하기')}
+          {loading ? '처리중...' : (transaction ? (<><span>📝</span> 수정하기</>) : (<><span>➕</span> 등록하기</>))}
         </Button>
       </div>
     </form>
