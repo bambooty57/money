@@ -1364,7 +1364,7 @@ export default function TransactionDetailClient({ transactions, initialSelectedI
                 const res = await fetch(`/api/transactions?id=${selectedTx.id}`, { method: 'DELETE' });
                 if (!res.ok) throw new Error('삭제 실패');
                 alert('삭제되었습니다.');
-                router.push(`/customers/${selectedTx.customer_id}/transactions?refresh=${Date.now()}`);
+                router.refresh(); // 삭제 후 즉시 새로고침
               } catch (err) {
                 alert('삭제 중 오류 발생: ' + (err as any).message);
               }
