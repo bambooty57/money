@@ -4,12 +4,15 @@ import type { Database } from '@/types/database';
 import { supabase } from '@/lib/supabase';
 import dynamic from 'next/dynamic';
 import ReactMarkdown from 'react-markdown';
-import { Trash2, FileText } from 'lucide-react';
+import { Trash2, FileText, Edit2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { PDFDocument, rgb } from 'pdf-lib';
 import fontkit from '@pdf-lib/fontkit';
 import fs from 'fs/promises';
 import path from 'path';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import TransactionForm from '@/components/transaction-form';
+import { useRouter } from 'next/navigation';
 
 type Transaction = Database['public']['Tables']['transactions']['Row'];
 type File = Database['public']['Tables']['files']['Row'];
@@ -1018,6 +1021,8 @@ export default function TransactionDetailClient({ transactions, initialSelectedI
   const [errorMsg, setErrorMsg] = useState('');
   const [selectedAttachmentType, setSelectedAttachmentType] = useState(ATTACHMENT_TYPES[0]);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [editOpen, setEditOpen] = useState(false);
+  const router = useRouter();
 
   // 입금내역 필터/검색/정렬 상태
   const [paymentFilter, setPaymentFilter] = useState({
@@ -1335,7 +1340,39 @@ export default function TransactionDetailClient({ transactions, initialSelectedI
         </div>
       </div>
       {/* 거래 상세정보 */}
-      <div className="bg-white rounded-lg shadow-lg p-8 mb-8 border-2 border-gray-200">
+      <div className="bg-white rounded-lg shadow-lg p-8 mb-8 border-2 border-gray-200 relative">
+        {/* 수정/삭제 버튼 */}
+        <div className="absolute top-6 right-8 flex gap-3 z-10">
+          <Dialog open={editOpen} onOpenChange={setEditOpen}>
+            <DialogTrigger asChild>
+              <button className="px-6 py-3 bg-purple-500 text-white rounded-lg text-lg font-bold flex items-center gap-2 shadow-lg hover:bg-purple-600">
+                <Edit2 className="w-6 h-6" /> 수정
+              </button>
+            </DialogTrigger>
+            <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto p-6">
+              <DialogHeader>
+                <DialogTitle className="text-2xl">거래 정보 수정</DialogTitle>
+              </DialogHeader>
+              <TransactionForm transaction={selectedTx} onSuccess={() => { setEditOpen(false); router.refresh(); }} />
+            </DialogContent>
+          </Dialog>
+          <button
+            className="px-6 py-3 bg-red-500 text-white rounded-lg text-lg font-bold flex items-center gap-2 shadow-lg hover:bg-red-600"
+            onClick={async () => {
+              if (!window.confirm('정말로 이 거래를 삭제하시겠습니까?')) return;
+              try {
+                const res = await fetch(`/api/transactions?id=${selectedTx.id}`, { method: 'DELETE' });
+                if (!res.ok) throw new Error('삭제 실패');
+                alert('삭제되었습니다.');
+                router.push(`/customers/${selectedTx.customer_id}/transactions`);
+              } catch (err) {
+                alert('삭제 중 오류 발생: ' + (err as any).message);
+              }
+            }}
+          >
+            <Trash2 className="w-6 h-6" /> 삭제
+          </button>
+        </div>
         <h2 className="text-2xl font-bold mb-6 text-gray-800 flex items-center gap-2">
           📋 거래정보
         </h2>
