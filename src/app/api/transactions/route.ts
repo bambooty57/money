@@ -61,6 +61,12 @@ export async function DELETE(request: Request) {
   const { searchParams } = new URL(request.url);
   const id = searchParams.get('id');
   if (!id) return NextResponse.json({ error: '거래 ID가 필요합니다.' }, { status: 400 });
+
+  // 1. files에서 해당 거래 참조 파일 먼저 삭제
+  const { error: fileError } = await supabase.from('files').delete().eq('transaction_id', id);
+  if (fileError) return NextResponse.json({ error: fileError.message }, { status: 500 });
+
+  // 2. 거래 삭제
   const { error } = await supabase.from('transactions').delete().eq('id', id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ success: true });
