@@ -31,8 +31,8 @@ interface TransactionWithDetails extends Omit<Transaction, 'paid_amount' | 'unpa
 type Transaction = Database['public']['Tables']['transactions']['Row'];
 type File = Database['public']['Tables']['files']['Row'];
 
-export default async function CustomerTransactionsPage({ params }: { params: { id: string } }) {
-  const customerId = params.id;
+export default async function Page({ params }: { params: Promise<{ id: string }> }) {
+  const { id: customerId } = await params;
   const supabase = createClient();
   const { data, error } = await supabase
     .from('transactions')
