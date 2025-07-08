@@ -12,7 +12,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   const body = await request.json();
-  const { transaction_id, amount, paid_at, method, payer_name, cash_place, cash_receiver, cash_detail, account_number, account_holder, note, paid_location, paid_by, bank_name, otherReason } = body;
+  const { transaction_id, amount, paid_at, method, payer_name, cash_place, cash_receiver, cash_detail, account_number, account_holder, note, paid_location, paid_by, bank_name, otherReason, cheques } = body;
   // 변제내역 저장
   const paymentData: any = { transaction_id, amount, paid_at, method, payer_name };
   if (method === '현금') {
@@ -50,6 +50,13 @@ export async function POST(request: Request) {
     paymentData.detail = body.detail;
     paymentData.note = body.note;
   }
+  // ✅ 수표일 때 cheques, note 반드시 포함
+  if (method === '수표') {
+    paymentData.cheques = cheques;
+    paymentData.note = note;
+  }
+  // ✅ note는 항상 포함(중복 방지 위해 마지막에 덮어씀)
+  if (note !== undefined) paymentData.note = note;
   const { data, error } = await supabase.from('payments').insert([paymentData]).select();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   // 거래의 paid_amount, unpaid_amount, paid_ratio 갱신

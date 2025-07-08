@@ -92,6 +92,16 @@ function PaymentForm({ transactionId, onSuccess, setSuccessMsg, setErrorMsg }: {
   const [loanDetail, setLoanDetail] = useState('');
   const [otherDetail, setOtherDetail] = useState('');
   const [otherNote, setOtherNote] = useState('');
+  // 수표 다중입력용 (발행은행/금액/수표번호)
+  const [cheques, setCheques] = useState<{bank: string, amount: string, number: string}[]>([{bank: '', amount: '', number: ''}]);
+
+  // 수표 합계 계산
+  const chequeTotal = cheques.reduce((sum, c) => sum + (parseFloat(c.amount) || 0), 0);
+
+  // 수표 추가/삭제/수정 핸들러
+  const addCheque = () => setCheques([...cheques, {bank: '', amount: '', number: ''}]);
+  const removeCheque = (idx: number) => setCheques(cheques.length === 1 ? cheques : cheques.filter((_, i) => i !== idx));
+  const updateCheque = (idx: number, key: 'bank'|'amount'|'number', value: string) => setCheques(cheques.map((c, i) => i === idx ? {...c, [key]: value} : c));
 
   useEffect(() => {
     if (method === '계좌이체') {
@@ -150,13 +160,18 @@ function PaymentForm({ transactionId, onSuccess, setSuccessMsg, setErrorMsg }: {
         payload.detail = otherDetail;
         payload.note = otherNote;
       }
+      if (method === '수표') {
+        payload.cheques = JSON.stringify(cheques);
+        payload.amount = chequeTotal;
+        payload.note = note;
+      }
       const res = await fetch('/api/payments', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
       if (!res.ok) throw new Error('저장 실패');
-      setAmount(''); setPaidAt(''); setPayerName(''); setCardName(''); setPaidLocation(''); setPaidBy(''); setCashPlace(''); setCashReceiver(''); setCashDetail(''); setAccountNumber(''); setAccountHolder(''); setNote(''); setUsedModelType(''); setUsedModel(''); setUsedPlace(''); setUsedBy(''); setUsedAt(''); setOtherReason(''); setLoanDetail(''); setOtherDetail(''); setOtherNote('');
+      setAmount(''); setPaidAt(''); setPayerName(''); setCardName(''); setPaidLocation(''); setPaidBy(''); setCashPlace(''); setCashReceiver(''); setCashDetail(''); setAccountNumber(''); setAccountHolder(''); setNote(''); setUsedModelType(''); setUsedModel(''); setUsedPlace(''); setUsedBy(''); setUsedAt(''); setOtherReason(''); setLoanDetail(''); setOtherDetail(''); setOtherNote(''); setCheques([{bank: '', amount: '', number: ''}]);
       if (typeof setSuccessMsg === 'function') setSuccessMsg('입금 등록이 완료되었습니다.');
       onSuccess();
       if (res.ok && method === '계좌이체') {
@@ -191,13 +206,13 @@ function PaymentForm({ transactionId, onSuccess, setSuccessMsg, setErrorMsg }: {
         <div className="flex flex-col gap-2">
           <label className="text-lg font-bold text-gray-800">입금방법</label>
           <select value={method} onChange={e => setMethod(e.target.value)} className="border-2 border-gray-300 rounded-lg px-4 py-3 text-lg bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-200" title="입금방법 선택">
-            <option value="현금">현금</option>
-            <option value="계좌이체">계좌이체</option>
-            <option value="카드">카드</option>
-            <option value="수표">수표</option>
-            <option value="중고인수">중고인수</option>
-            <option value="융자">융자</option>
-            <option value="기타">기타</option>
+            <option value="현금">💰 현금</option>
+            <option value="계좌이체">🏦 계좌이체</option>
+            <option value="카드">💳 카드</option>
+            <option value="수표">💵 수표</option>
+            <option value="중고인수">🚜 중고인수</option>
+            <option value="융자">📋 융자</option>
+            <option value="기타">📝 기타</option>
           </select>
         </div>
         <div className="flex flex-col gap-2">
@@ -205,14 +220,24 @@ function PaymentForm({ transactionId, onSuccess, setSuccessMsg, setErrorMsg }: {
           <input type="date" value={paidAt} onChange={e => setPaidAt(e.target.value)} className="border-2 border-gray-300 rounded-lg px-4 py-3 text-lg bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-200" required title="입금일자" placeholder="입금일자" />
         </div>
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <div className="flex flex-col gap-2">
           <label className="text-lg font-bold text-gray-800">입금자</label>
           <input type="text" value={payerName} onChange={e => setPayerName(e.target.value)} className="border-2 border-gray-300 rounded-lg px-4 py-3 text-lg bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-200" required title="입금자" placeholder="입금자를 입력하세요" />
         </div>
         <div className="flex flex-col gap-2">
           <label className="text-lg font-bold text-gray-800">금액</label>
-          <input type="number" value={amount} onChange={e => setAmount(e.target.value)} className="border-2 border-gray-300 rounded-lg px-4 py-3 text-lg bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-200" required title="금액" placeholder="금액을 입력하세요" />
+          <input type="number" value={method === '수표' ? chequeTotal : amount} onChange={e => setAmount(e.target.value)} className="border-2 border-gray-300 rounded-lg px-4 py-3 text-lg bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-200" required title="금액" placeholder="금액을 입력하세요" disabled={method==='수표'} />
+        </div>
+        <div className="flex flex-col gap-2">
+          <label className="text-lg font-bold text-gray-800">비고</label>
+          <input
+            type="text"
+            value={note}
+            onChange={e => setNote(e.target.value)}
+            className="border-2 border-gray-300 rounded-lg px-4 py-3 text-lg bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+            placeholder="비고를 입력하세요"
+          />
         </div>
       </div>
       {method === '카드' && (
@@ -230,7 +255,7 @@ function PaymentForm({ transactionId, onSuccess, setSuccessMsg, setErrorMsg }: {
           <label>담당자</label>
           <input type="text" value={paidBy} onChange={e => setPaidBy(e.target.value)} className="border rounded px-2 py-1" title="담당자" placeholder="담당자" />
           <label>비고</label>
-          <input type="text" value={note} onChange={e => setNote(e.target.value)} className="border rounded px-2 py-1" title="비고" placeholder="비고" />
+          <input type="text" value={note} onChange={e => setNote(e.target.value)} className="border-2 border-gray-300 rounded-lg px-4 py-3 text-lg bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-200" title="비고" placeholder="비고" />
         </div>
       )}
       {method === '현금' && (
@@ -242,7 +267,7 @@ function PaymentForm({ transactionId, onSuccess, setSuccessMsg, setErrorMsg }: {
           <label>상세</label>
           <input type="text" value={cashDetail} onChange={e => setCashDetail(e.target.value)} className="border rounded px-2 py-1" title="상세" placeholder="상세" />
           <label>비고</label>
-          <input type="text" value={note} onChange={e => setNote(e.target.value)} className="border rounded px-2 py-1" title="비고" placeholder="비고" />
+          <input type="text" value={note} onChange={e => setNote(e.target.value)} className="border-2 border-gray-300 rounded-lg px-4 py-3 text-lg bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-200" title="비고" placeholder="비고" />
         </div>
       )}
       {method === '계좌이체' && (
@@ -273,7 +298,7 @@ function PaymentForm({ transactionId, onSuccess, setSuccessMsg, setErrorMsg }: {
           <label>예금주</label>
           <input type="text" value={accountHolder} onChange={e => { setAccountHolder(e.target.value); setAccountSelect(''); }} className="border rounded px-2 py-1" title="예금주" placeholder="예금주" />
           <label>비고</label>
-          <input type="text" value={note} onChange={e => setNote(e.target.value)} className="border rounded px-2 py-1" title="비고" placeholder="비고" />
+          <input type="text" value={note} onChange={e => setNote(e.target.value)} className="border-2 border-gray-300 rounded-lg px-4 py-3 text-lg bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-200" title="비고" placeholder="비고" />
         </div>
       )}
       {method === '중고인수' && (
@@ -287,7 +312,7 @@ function PaymentForm({ transactionId, onSuccess, setSuccessMsg, setErrorMsg }: {
           <label>모델</label>
           <input type="text" value={usedModel} onChange={e => setUsedModel(e.target.value)} className="border rounded px-2 py-1" title="모델" placeholder="모델" required={method==='중고인수'} />
           <label>비고</label>
-          <input type="text" value={note} onChange={e => setNote(e.target.value)} className="border rounded px-2 py-1" title="비고" placeholder="비고" />
+          <input type="text" value={note} onChange={e => setNote(e.target.value)} className="border-2 border-gray-300 rounded-lg px-4 py-3 text-lg bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-200" title="비고" placeholder="비고" />
         </div>
       )}
       {method === '융자' && (
@@ -295,7 +320,7 @@ function PaymentForm({ transactionId, onSuccess, setSuccessMsg, setErrorMsg }: {
           <label>상세</label>
           <input type="text" value={loanDetail} onChange={e => setLoanDetail(e.target.value)} className="border rounded px-2 py-1" title="상세" placeholder="상세" />
           <label>비고</label>
-          <input type="text" value={note} onChange={e => setNote(e.target.value)} className="border rounded px-2 py-1" title="비고" placeholder="비고" />
+          <input type="text" value={note} onChange={e => setNote(e.target.value)} className="border-2 border-gray-300 rounded-lg px-4 py-3 text-lg bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-200" title="비고" placeholder="비고" />
         </div>
       )}
       {method === '기타' && (
@@ -303,7 +328,29 @@ function PaymentForm({ transactionId, onSuccess, setSuccessMsg, setErrorMsg }: {
           <label>상세</label>
           <input type="text" value={otherDetail} onChange={e => setOtherDetail(e.target.value)} className="border rounded px-2 py-1" title="상세" placeholder="상세" required={method==='기타'} />
           <label>비고</label>
-          <input type="text" value={otherNote} onChange={e => setOtherNote(e.target.value)} className="border rounded px-2 py-1" title="비고" placeholder="비고" />
+          <input type="text" value={otherNote} onChange={e => setOtherNote(e.target.value)} className="border-2 border-gray-300 rounded-lg px-4 py-3 text-lg bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-200" title="비고" placeholder="비고" />
+        </div>
+      )}
+      {method === '수표' && (
+        <div className="bg-white border rounded-lg p-3 mt-2">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="font-semibold text-blue-700">💵 수표내역 (여러장 입력 가능)</span>
+            <button type="button" className="ml-auto bg-green-100 text-green-700 px-3 py-1 rounded hover:bg-green-200 text-lg font-bold" onClick={addCheque}>+ 추가</button>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-1 gap-2">
+            {cheques.map((c, idx) => (
+              <div key={idx} className="flex gap-2 items-center mb-2 flex-wrap">
+                <select className="border rounded px-2 py-1 w-32" value={c.bank} onChange={e => updateCheque(idx, 'bank', e.target.value)} required title="발행은행 선택">
+                  <option value="">발행은행</option>
+                  {KOREA_BANKS.map((b, i) => <option key={i} value={b}>{b}</option>)}
+                </select>
+                <input type="number" min="0" step="1000" className="border rounded px-2 py-1 w-28" placeholder="금액" value={c.amount} onChange={e => updateCheque(idx, 'amount', e.target.value)} required />
+                <input type="text" className="border rounded px-2 py-1 w-40" placeholder="수표번호" value={c.number} onChange={e => updateCheque(idx, 'number', e.target.value)} required />
+                <button type="button" className="bg-red-100 text-red-700 px-2 py-1 rounded hover:bg-red-200 text-base font-bold" onClick={() => removeCheque(idx)} disabled={cheques.length===1}>삭제</button>
+              </div>
+            ))}
+          </div>
+          <div className="text-right font-bold text-blue-600 mt-2">합계: {chequeTotal.toLocaleString()}원</div>
         </div>
       )}
       <div className="flex justify-center mt-8">
@@ -1046,6 +1093,7 @@ export default function TransactionDetailClient({ transactions, initialSelectedI
 
   // 필터링된 입금내역
   const filteredPayments = (selectedTx.payments || [])
+    .filter(p => !paymentFilter.method || p.method === paymentFilter.method)
     .filter(p => !paymentFilter.minAmount || (p.amount || 0) >= Number(paymentFilter.minAmount))
     .filter(p => !paymentFilter.maxAmount || (p.amount || 0) <= Number(paymentFilter.maxAmount))
     .filter(p => !paymentFilter.startDate || (p.paid_at || '') >= paymentFilter.startDate)
@@ -1419,7 +1467,7 @@ export default function TransactionDetailClient({ transactions, initialSelectedI
               <option value="현금">💰 현금</option>
               <option value="계좌이체">🏦 계좌이체</option>
               <option value="카드">💳 카드</option>
-              <option value="수표">수표</option>
+              <option value="수표">💵 수표</option>
               <option value="중고인수">🚜 중고인수</option>
               <option value="융자">📋 융자</option>
               <option value="기타">📝 기타</option>
@@ -1563,6 +1611,21 @@ export default function TransactionDetailClient({ transactions, initialSelectedI
                           <span className="font-semibold text-red-600">📋 융자상세:</span> <span className="text-gray-800">{p.detail || '상세 정보 없음'}</span>
                         </div>
                       )}
+                      {p.method === '수표' && p.cheques && (() => {
+                        let cheques = [];
+                        try { cheques = JSON.parse(p.cheques); } catch {}
+                        return (
+                          <div className="space-y-1">
+                            {cheques.map((c: any, i: number) => (
+                              <div key={i}>
+                                <span className="font-semibold text-blue-700">🏦{c.bank}</span> /
+                                <span className="font-semibold text-blue-700">💵{Number(c.amount).toLocaleString()}원</span> /
+                                <span className="font-semibold text-blue-700"># {c.number}</span>
+                              </div>
+                            ))}
+                          </div>
+                        );
+                      })()}
                     </td>
                     <td className="border border-gray-300 px-4 py-4">{p.note}</td>
                     <td className="border border-gray-300 px-4 py-4 text-center">

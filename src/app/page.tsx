@@ -154,8 +154,8 @@ export default function DashboardPage() {
   );
   const agingData = data.agingAnalysis.map(item => item.amount);
 
-  // 상위 고객 차트 데이터 (x축: 고객명+총미수금, 그래프 내부: 건별 미수금)
-  const customerLabels = data.topCustomers.map(customer => `${customer.name} ₩${(customer.unpaidAmount || 0).toLocaleString('ko-KR')}`);
+  // 상위 고객 차트 데이터 (x축: 고객명, 그래프 내부: 건별 미수금)
+  const customerLabels = data.topCustomers.map(customer => customer.name);
   // 각 고객별 미수 거래만 추출
   const maxTxCount = Math.max(...data.topCustomers.map(c => c.transactions.filter(tx => tx.status === 'unpaid').length));
   const stackDatasets = Array.from({ length: maxTxCount }).map((_, stackIdx) => ({
