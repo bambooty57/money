@@ -14,10 +14,12 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { ExcelUploadForm } from '@/components/excel-upload-form';
+import { usePaymentsRealtime } from '@/lib/usePaymentsRealtime';
 
 type Customer = Database['public']['Tables']['customers']['Row'];
 
 export default function CustomersPage() {
+  usePaymentsRealtime();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [formOpen, setFormOpen] = useState(false);
   const [editCustomer, setEditCustomer] = useState<Customer | null>(null);

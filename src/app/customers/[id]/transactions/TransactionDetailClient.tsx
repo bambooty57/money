@@ -14,6 +14,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import TransactionForm from '@/components/transaction-form';
 import { useRouter } from 'next/navigation';
 import { useRefreshContext } from '@/lib/refresh-context';
+import { usePaymentsRealtime } from '@/lib/usePaymentsRealtime';
 
 type Transaction = Database['public']['Tables']['transactions']['Row'];
 type File = Database['public']['Tables']['files']['Row'];
@@ -1063,6 +1064,7 @@ type NormalizedPayment = Omit<PaymentType,
 };
 
 export default function TransactionDetailClient({ transactions, initialSelectedId, customerId, onPaymentSuccess }: Props) {
+  usePaymentsRealtime();
   const [selectedId, setSelectedId] = useState(initialSelectedId || transactions[0]?.id);
   const [txList, setTxList] = useState(transactions);
   const selectedTx = txList.find(tx => tx.id === selectedId) || txList[0];
@@ -1264,7 +1266,7 @@ export default function TransactionDetailClient({ transactions, initialSelectedI
       const res = await fetch(`/api/customers/${selectedTx.customer_id}/transactions/${selectedId}`);
       if (res.ok) {
         const updatedTx = await res.json();
-        setTxList(prev => prev.map(tx => tx.id === selectedId ? { ...tx, ...updatedTx } : tx));
+        setTxList(prev => prev.map(tx => tx.id === selectedId ? updatedTx : tx));
       } else {
         triggerRefresh(); // fallback
       }

@@ -4,8 +4,10 @@ import { notFound } from 'next/navigation';
 import { createClient } from '@/lib/supabase';
 import TransactionDetailClient from './TransactionDetailClient';
 import type { Database } from '@/types/database';
+// import type { GetServerSidePropsContext } from 'next';
 
 import HeaderButtons from './HeaderButtons';
+// import { usePaymentsRealtime } from '@/lib/usePaymentsRealtime';
 
 // 거래, 입금, 파일 타입
 interface Payment {
@@ -29,11 +31,7 @@ interface TransactionWithDetails extends Omit<Transaction, 'paid_amount' | 'unpa
 type Transaction = Database['public']['Tables']['transactions']['Row'];
 type File = Database['public']['Tables']['files']['Row'];
 
-export default async function CustomerTransactionsPage(props: any) {
-  let params = props.params;
-  if (typeof params?.then === 'function') {
-    params = await params;
-  }
+export default async function CustomerTransactionsPage({ params }: { params: { id: string } }) {
   const customerId = params.id;
   const supabase = createClient();
   const { data, error } = await supabase
@@ -82,6 +80,7 @@ export default async function CustomerTransactionsPage(props: any) {
             <h1 className="text-4xl font-bold text-gray-800">거래상세 - {customerName}</h1>
             <HeaderButtons />
           </div>
+          {/* usePaymentsRealtime은 클라이언트 컴포넌트에서 사용 */}
           <TransactionDetailClient transactions={txs.map(tx => ({ ...tx, customer_id: tx.customer_id || customerId }))} customerId={customerId} />
         </div>
       </div>

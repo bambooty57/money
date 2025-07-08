@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase';
 import type { Database } from '@/types/database';
+import { usePaymentsRealtime } from '@/lib/usePaymentsRealtime';
 
 type Customer = Database['public']['Tables']['customers']['Row'];
 type Transaction = Database['public']['Tables']['transactions']['Row'];
@@ -32,6 +33,7 @@ const openKakaoMap = (address: string) => {
 };
 
 export default function CustomerDetailPage() {
+  usePaymentsRealtime();
   const router = useRouter();
   const params = useParams();
   const id = params.id as string;
