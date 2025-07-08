@@ -194,6 +194,7 @@ function PaymentForm({ transactionId, onSuccess, setSuccessMsg, setErrorMsg }: {
             <option value="현금">현금</option>
             <option value="계좌이체">계좌이체</option>
             <option value="카드">카드</option>
+            <option value="수표">수표</option>
             <option value="중고인수">중고인수</option>
             <option value="융자">융자</option>
             <option value="기타">기타</option>
@@ -806,8 +807,10 @@ async function handlePdfExportPdfLib(selectedTx: TransactionWithDetails, filtere
     const paymentBoxInnerX = paymentBoxX + 6;
     const paymentBoxY = y;
     const paymentBoxWidth = 480;
+    // Place '비고' immediately after '상세'
     const paymentTableHeaders = ['입금일', '입금자', '방식', '금액', '입금은행', '상세', '비고'];
-    const paymentColWidths = [60, 60, 55, 80, 65, 108, 40]; // 입금은행 80→65, 상세 93→108
+    // Adjust column widths for new order (상세와 비고가 인접)
+    const paymentColWidths = [60, 60, 55, 80, 65, 100, 60];
     const rowHeight = 18;
     const maxRows = 15;
     // 거래내역 박스 높이를 데이터 개수에 따라 동적으로 계산
@@ -823,8 +826,6 @@ async function handlePdfExportPdfLib(selectedTx: TransactionWithDetails, filtere
       borderColor: rgb(0.5,0.5,0.7),
       borderWidth: 0.4
     });
-    // 거래내역 표 상단 밑줄(drawLine)은 drawRectangle과 겹치므로 제거
-    // 내부 행 밑줄 drawLine(연녹색)은 모두 제거
     // 헤더와 밑줄 간 간격 맞춤 (헤더 y좌표 조정)
     const paymentHeaderY = paymentBoxY - 18;
     paymentTableHeaders.forEach((header, i) => {
@@ -856,17 +857,19 @@ async function handlePdfExportPdfLib(selectedTx: TransactionWithDetails, filtere
     }
     let paymentRowY = paymentHeaderY - rowHeight;
     filteredPayments.slice(0, maxRows).forEach((p, rowIdx) => {
+      // Place '비고' immediately after '상세'
+      const detail = p.method === '현금'
+        ? `장소:${p.cash_place||''} 수령:${p.cash_receiver||''}`
+        : p.method === '계좌이체'
+          ? `계좌:${p.account_number||''} (${p.account_holder||''})`
+          : p.detail || '';
       const cells = [
         p.paid_at?.slice(0,10) || '',
         p.payer_name || '',
         p.method || '',
         (p.amount || 0).toLocaleString() + '원',
         p.bank_name || '',
-        p.method === '현금'
-          ? `장소:${p.cash_place||''} 수령:${p.cash_receiver||''}`
-          : p.method === '계좌이체'
-            ? `계좌:${p.account_number||''} (${p.account_holder||''})`
-            : p.detail || '',
+        detail,
         p.note || ''
       ];
       const maxDetailWidth = paymentColWidths[5] - 4;
@@ -876,7 +879,7 @@ async function handlePdfExportPdfLib(selectedTx: TransactionWithDetails, filtere
         cells.forEach((cell, i) => {
           let text = cell;
           if (i === 5) text = detailLines[lineIdx] || '';
-          if (i === 6 && lineIdx > 0) text = '';
+          if (i !== 5 && lineIdx > 0) text = '';
           page.drawText(text, {
             x: paymentBoxInnerX + paymentColWidths.slice(0, i).reduce((a, b) => a + b, 0),
             y: paymentRowY - lineIdx * rowHeight,
@@ -1416,6 +1419,7 @@ export default function TransactionDetailClient({ transactions, initialSelectedI
               <option value="현금">💰 현금</option>
               <option value="계좌이체">🏦 계좌이체</option>
               <option value="카드">💳 카드</option>
+              <option value="수표">수표</option>
               <option value="중고인수">🚜 중고인수</option>
               <option value="융자">📋 융자</option>
               <option value="기타">📝 기타</option>

@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Input } from './ui/input'
+import { Dialog, DialogContent } from './ui/dialog';
+import ModelTypeManager from './model-type-manager';
 
 type Option = { id: string; model: string; type: string }
 
@@ -12,13 +14,16 @@ type Props = {
 export function ProductModelTypeDropdown({ selectedId, onSelect, refresh }: Props) {
   const [options, setOptions] = useState<Option[]>([])
   const [selected, setSelected] = useState<string>(selectedId)
+  const [open, setOpen] = useState(false)
+
+  // Fetch options utility for reuse
+  const fetchOptions = async () => {
+    const res = await fetch(`/api/models-types`)
+    const data: Option[] = await res.json()
+    setOptions(data)
+  }
 
   useEffect(() => {
-    async function fetchOptions() {
-      const res = await fetch(`/api/models-types`)
-      const data: Option[] = await res.json()
-      setOptions(data)
-    }
     fetchOptions()
   }, [refresh])
 
@@ -26,12 +31,29 @@ export function ProductModelTypeDropdown({ selectedId, onSelect, refresh }: Prop
     setSelected(selectedId)
   }, [selectedId])
 
+  // Refresh options after modal closes
+  const handleDialogOpenChange = (isOpen: boolean) => {
+    setOpen(isOpen)
+    if (!isOpen) {
+      fetchOptions()
+    }
+  }
+
+  // Immediate refresh on ModelTypeManager change
+  const handleManagerChange = () => {
+    fetchOptions()
+  }
+
   return (
     <div className="space-y-2">
       <label>기종/형식명</label>
       <select
         value={selected}
         onChange={e => {
+          if (e.target.value === '__custom__') {
+            setOpen(true)
+            return
+          }
           setSelected(e.target.value)
           onSelect(e.target.value)
         }}
@@ -42,7 +64,13 @@ export function ProductModelTypeDropdown({ selectedId, onSelect, refresh }: Prop
         {options.map(opt => (
           <option key={opt.id} value={opt.id}>{opt.model} / {opt.type}</option>
         ))}
+        <option value="__custom__">직접입력 (기종/형식명 관리)</option>
       </select>
+      <Dialog open={open} onOpenChange={handleDialogOpenChange}>
+        <DialogContent showCloseButton>
+          <ModelTypeManager onChange={handleManagerChange} />
+        </DialogContent>
+      </Dialog>
     </div>
   )
 } 

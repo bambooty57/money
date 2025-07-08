@@ -10,7 +10,11 @@ interface ModelTypeRow {
   editType?: string
 }
 
-export default function ModelTypeManager() {
+interface ModelTypeManagerProps {
+  onChange?: () => void;
+}
+
+export default function ModelTypeManager({ onChange }: ModelTypeManagerProps = {}) {
   const [rows, setRows] = useState<ModelTypeRow[]>([])
   const [newModel, setNewModel] = useState('')
   const [newType, setNewType] = useState('')
@@ -32,7 +36,8 @@ export default function ModelTypeManager() {
       body: JSON.stringify({ model: newModel, type: newType })
     })
     if (res.ok) {
-      setNewModel(''); setNewType(''); setMsg('추가 완료'); fetchRows()
+      setNewModel(''); setNewType(''); setMsg('추가 완료'); fetchRows();
+      if (onChange) onChange();
     } else {
       setMsg('추가 실패')
     }
@@ -45,7 +50,7 @@ export default function ModelTypeManager() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id })
     })
-    if (res.ok) { setMsg('삭제 완료'); fetchRows() } else { setMsg('삭제 실패') }
+    if (res.ok) { setMsg('삭제 완료'); fetchRows(); if (onChange) onChange(); } else { setMsg('삭제 실패') }
   }
 
   function handleEditClick(idx: number) {
@@ -75,7 +80,8 @@ export default function ModelTypeManager() {
     if (res.ok) {
       setMsg('수정 완료')
       setRows(rows => rows.map((r, i) => i === idx ? { ...r, isEditing: false } : r))
-      fetchRows()
+      fetchRows();
+      if (onChange) onChange();
     } else {
       const err = await res.json().catch(() => ({}))
       setMsg('수정 실패: ' + (err?.error || res.status))

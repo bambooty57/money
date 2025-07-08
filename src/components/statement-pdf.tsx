@@ -236,24 +236,28 @@ export function StatementPDFTable({ transactions = [], customer, supplier, title
               {/* 입금내역 */}
               {Array.isArray(tx.payments) && tx.payments.length > 0 ? (
                 <View>
-                  {/* 입금 헤더 */}
+                  {/* 입금 헤더 - Place '비고' immediately after '상세' */}
                   <View style={{ flexDirection: 'row', backgroundColor: '#e3f2fd', padding: 3 }}>
-                    <Text style={{ width: 110, fontSize: 8 }}></Text>
                     <Text style={{ width: 60, fontSize: 8 }}>입금일</Text>
                     <Text style={{ width: 80, fontSize: 8 }}>금액</Text>
                     <Text style={{ width: 80, fontSize: 8 }}>방법</Text>
                     <Text style={{ width: 80, fontSize: 8 }}>입금자</Text>
-                    <Text style={{ width: 170, fontSize: 8 }}>비고</Text>
+                    {/* Reduce width for 상세 and 비고, and remove marginRight for 상세 */}
+                    <Text style={{ width: 90, fontSize: 8, marginRight: 0, paddingRight: 0 }}>상세</Text>
+                    <Text style={{ width: 60, fontSize: 8, marginLeft: 0, paddingLeft: 0 }}>비고</Text>
                   </View>
-                  {/* 입금 상세 */}
                   {tx.payments.map((payment: any, payIdx: number) => (
                     <View key={`pay-${idx}-${payIdx}`} style={{ flexDirection: 'row', padding: 3, backgroundColor: '#f8f9fa' }}>
-                      <Text style={{ width: 110, fontSize: 8 }}></Text>
                       <Text style={{ width: 60, fontSize: 8 }}>{payment.paid_at?.slice(0, 10) || ''}</Text>
                       <Text style={{ width: 80, fontSize: 8 }}>{(payment.amount || 0).toLocaleString()}</Text>
                       <Text style={{ width: 80, fontSize: 8 }}>{payment.method || ''}</Text>
                       <Text style={{ width: 80, fontSize: 8 }}>{payment.payer_name || ''}</Text>
-                      <Text style={{ width: 170, fontSize: 8 }}>{[
+                      <Text style={{ width: 90, fontSize: 8, marginRight: 0, paddingRight: 0 }}>{payment.method === '현금'
+                        ? `장소:${payment.cash_place||''} 수령:${payment.cash_receiver||''}`
+                        : payment.method === '계좌이체'
+                          ? `계좌:${payment.account_number||''} (${payment.account_holder||''})`
+                          : payment.detail || ''}</Text>
+                      <Text style={{ width: 60, fontSize: 8, marginLeft: 0, paddingLeft: 0 }}>{[
                         payment.bank_name, 
                         payment.account_number, 
                         payment.account_holder, 

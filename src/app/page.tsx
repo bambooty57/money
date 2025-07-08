@@ -100,18 +100,12 @@ export default function DashboardPage() {
   const { refreshKey } = useRefreshContext();
 
   useEffect(() => {
-    async function checkAuthAndFetch() {
-      const supabase = createClient();
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        router.replace('/login');
-        return;
-      }
+    async function fetchDashboard() {
       const response = await fetch('/api/dashboard');
       const dashboardData = await response.json();
       setData(dashboardData);
     }
-    checkAuthAndFetch();
+    fetchDashboard();
   }, [refreshKey]);
 
   // 갤러리 모달 닫기 핸들러
@@ -134,43 +128,7 @@ export default function DashboardPage() {
 
   if (!data) return <div>로딩 중...</div>;
 
-  // 미수금 연령 분석 차트 데이터
-  const agingLabels = data.agingAnalysis.map(item => 
-    new Date(item.created_at).toLocaleDateString('ko-KR')
-  );
-  const agingData = data.agingAnalysis.map(item => item.amount);
-
-  // 상위 고객 차트 데이터
-  const customerLabels = data.topCustomers.map(customer => [
-    customer.name,
-    `₩${(customer.unpaidAmount || 0).toLocaleString('ko-KR')}`
-  ]);
-  const customerData = data.topCustomers.map(customer => 
-    customer.transactions.reduce((sum, tx) => 
-      tx.status === 'unpaid' ? sum + tx.amount : sum, 0
-    )
-  );
-  // 각 고객별 미수 거래 건수
-  const customerCounts = data.topCustomers.map(c => c.transactions.filter(tx => tx.status === 'unpaid').length);
-
-  const handlePdfDownload = () => {
-    const doc = new jsPDF();
-    doc.text('대시보드 리포트', 10, 10);
-    doc.save('dashboard-report.pdf');
-  };
-  const handleExcelDownload = async () => {
-    // 예시: /api/customers/export 재활용
-    const res = await fetch('/api/customers/export');
-    const blob = await res.blob();
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'dashboard-report.xlsx';
-    a.click();
-    setTimeout(() => window.URL.revokeObjectURL(url), 1000);
-  };
-
-  // 스택형 Bar 차트용 색상 배열
+  // 아래 변수들은 data가 null이 아닐 때만 정의
   const stackColors = [
     'rgba(53, 162, 235, 0.7)', // 파랑
     'rgba(75, 192, 192, 0.7)', // 초록
@@ -187,12 +145,19 @@ export default function DashboardPage() {
     'rgba(255, 99, 132, 1)',
     'rgba(255, 159, 64, 1)',
   ];
-  // 고객별 거래 건수 중 최대값
-  const maxTxCount = Math.max(...data.topCustomers.map(c => c.transactions.filter(tx => tx.status === 'unpaid').length));
-  // Bar 차트 y축 최대값 계산
   const maxUnpaid = Math.max(...data.topCustomers.map(c => c.unpaidAmount || 0));
   const yAxisMax = Math.ceil(maxUnpaid / 10000000) * 10000000 + 10000000; // 1천만 단위 올림
-  // 각 dataset(스택)은 거래 n번째 건의 금액 배열
+
+  // 미수금 연령 분석 차트 데이터
+  const agingLabels = data.agingAnalysis.map(item => 
+    new Date(item.created_at).toLocaleDateString('ko-KR')
+  );
+  const agingData = data.agingAnalysis.map(item => item.amount);
+
+  // 상위 고객 차트 데이터 (x축: 고객명+총미수금, 그래프 내부: 건별 미수금)
+  const customerLabels = data.topCustomers.map(customer => `${customer.name} ₩${(customer.unpaidAmount || 0).toLocaleString('ko-KR')}`);
+  // 각 고객별 미수 거래만 추출
+  const maxTxCount = Math.max(...data.topCustomers.map(c => c.transactions.filter(tx => tx.status === 'unpaid').length));
   const stackDatasets = Array.from({ length: maxTxCount }).map((_, stackIdx) => ({
     label: `${stackIdx + 1}번째 건`,
     data: data.topCustomers.map(c => {
@@ -203,22 +168,13 @@ export default function DashboardPage() {
     borderColor: stackBorderColors[stackIdx % stackBorderColors.length],
     borderWidth: 2,
     datalabels: {
-      formatter: (value: any, context: any) => {
-        if (!value || value === 0) return '';
-        const customerIdx = context.dataIndex;
-        const customer = data.topCustomers[customerIdx];
-        const unpaidTxs = (customer.transactions as any[]).filter((tx: any) => tx.status === 'unpaid');
-        const tx = unpaidTxs[stackIdx];
-        if (!tx) return `₩${Number(value).toLocaleString('ko-KR')}`;
-        const txInfo = [tx.type, tx.model, tx.model_type].filter(Boolean).join('/');
-        return `₩${Number(value).toLocaleString('ko-KR')}` + (txInfo ? `\n${txInfo}` : '');
-      },
-      anchor: (ctx: any) => ctx.dataset.data[ctx.dataIndex] < maxUnpaid * 0.1 ? 'end' : 'center',
-      align: (ctx: any) => ctx.dataset.data[ctx.dataIndex] < maxUnpaid * 0.1 ? 'end' : 'center',
-      clip: false,
+      formatter: (value: any) => value > 0 ? `₩${Number(value).toLocaleString('ko-KR')}` : '',
       color: '#fff',
       font: { weight: 700, size: 14 },
       display: true,
+      anchor: 'center' as const,
+      align: 'center' as const,
+      clip: false,
     }
   }));
 
@@ -436,7 +392,6 @@ export default function DashboardPage() {
             <h3 className="text-2xl font-bold mb-6 text-gray-800 flex items-center gap-2">
               👑 상위 미수금 고객
             </h3>
-            {/* 상단 합계액, 범례 모두 삭제 */}
             <Bar
               data={{
                 labels: customerLabels,
@@ -451,7 +406,7 @@ export default function DashboardPage() {
                 scales: {
                   x: {
                     stacked: true,
-                    ticks: { font: { size: 14 } }
+                    ticks: { font: { size: 16 }, callback: (v: any) => v },
                   },
                   y: {
                     stacked: true,
