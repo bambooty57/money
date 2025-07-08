@@ -14,11 +14,12 @@ interface TransactionFormProps {
   customers?: Customer[];
   onSuccess?: () => void;
   transaction?: any; // 수정 대상 거래(있으면 수정 모드)
+  refresh?: number;
 }
 
 type Customer = Database['public']['Tables']['customers']['Row'];
 
-export default function TransactionForm({ customers, onSuccess, transaction }: TransactionFormProps) {
+export default function TransactionForm({ customers, onSuccess, transaction, refresh }: TransactionFormProps) {
   const [allCustomers, setAllCustomers] = useState<Customer[]>(customers || []);
   const [loading, setLoading] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
@@ -265,6 +266,7 @@ export default function TransactionForm({ customers, onSuccess, transaction }: T
         <ProductModelTypeDropdown
           selectedId={formData.models_types_id}
           onSelect={(id: string) => setFormData(prev => ({ ...prev, models_types_id: id }))}
+          refresh={refresh}
         />
       </div>
       {/* 금액 */}

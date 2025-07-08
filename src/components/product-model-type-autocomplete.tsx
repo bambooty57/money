@@ -6,9 +6,10 @@ type Option = { id: string; model: string; type: string }
 type Props = {
   selectedId: string;
   onSelect: (id: string) => void;
+  refresh?: number;
 }
 
-export function ProductModelTypeDropdown({ selectedId, onSelect }: Props) {
+export function ProductModelTypeDropdown({ selectedId, onSelect, refresh }: Props) {
   const [options, setOptions] = useState<Option[]>([])
   const [selected, setSelected] = useState<string>(selectedId)
 
@@ -19,7 +20,7 @@ export function ProductModelTypeDropdown({ selectedId, onSelect }: Props) {
       setOptions(data)
     }
     fetchOptions()
-  }, [])
+  }, [refresh])
 
   useEffect(() => {
     setSelected(selectedId)

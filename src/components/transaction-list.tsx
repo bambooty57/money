@@ -40,6 +40,7 @@ export function TransactionList() {
   const searchParams = useSearchParams();
   const urlRefreshKey = searchParams.get('refresh') || 0;
   const [refreshKey, setRefreshKey] = useState(0);
+  const [modelTypeRefresh, setModelTypeRefresh] = useState(0);
 
   useEffect(() => {
     setRefreshKey(k => k + 1);
@@ -164,10 +165,10 @@ export function TransactionList() {
               setFormOpen(false); 
               setRefreshKey(k => k + 1); 
               setTimeout(() => setRefreshKey(k => k + 1), 700); 
-            }} />
+            }} refresh={modelTypeRefresh} />
           </DialogContent>
         </Dialog>
-        <Dialog>
+        <Dialog onOpenChange={open => { if (!open) setModelTypeRefresh(r => r + 1) }}>
           <DialogTrigger asChild>
             <button
               className="inline-flex items-center px-4 py-2 bg-gray-600 text-white text-base rounded-lg hover:bg-gray-700 font-medium shadow-md"
