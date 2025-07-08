@@ -14,6 +14,8 @@ import {
 } from 'chart.js';
 import jsPDF from 'jspdf';
 import ChartDataLabels from 'chartjs-plugin-datalabels';
+import { useRouter } from 'next/navigation';
+import { createClient } from '@/lib/supabase';
 
 ChartJS.register(
   CategoryScale,
@@ -93,14 +95,21 @@ export default function DashboardPage() {
   // 연도 선택 상태 추가
   const currentYear = new Date().getFullYear();
   const [selectedYear, setSelectedYear] = useState(currentYear);
+  const router = useRouter();
 
   useEffect(() => {
-    async function fetchDashboard() {
+    async function checkAuthAndFetch() {
+      const supabase = createClient();
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        router.replace('/login');
+        return;
+      }
       const response = await fetch('/api/dashboard');
       const dashboardData = await response.json();
       setData(dashboardData);
     }
-    fetchDashboard();
+    checkAuthAndFetch();
   }, []);
 
   // 갤러리 모달 닫기 핸들러
