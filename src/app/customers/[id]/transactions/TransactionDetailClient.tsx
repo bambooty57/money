@@ -1255,9 +1255,22 @@ export default function TransactionDetailClient({ transactions, initialSelectedI
   };
 
   // 결제 등록 후 목록 갱신
-  const handlePaymentSuccess = () => {
+  const handlePaymentSuccess = async () => {
     if (onPaymentSuccess) onPaymentSuccess();
-    triggerRefresh();
+    // 기존: triggerRefresh();
+    // 개선: 해당 거래 최신 정보 fetch 후 txList 갱신
+    try {
+      if (!selectedId) return;
+      const res = await fetch(`/api/customers/${selectedTx.customer_id}/transactions/${selectedId}`);
+      if (res.ok) {
+        const updatedTx = await res.json();
+        setTxList(prev => prev.map(tx => tx.id === selectedId ? { ...tx, ...updatedTx } : tx));
+      } else {
+        triggerRefresh(); // fallback
+      }
+    } catch {
+      triggerRefresh(); // fallback
+    }
   };
 
   const handleDeletePayment = async (paymentId: string) => {

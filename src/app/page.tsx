@@ -392,21 +392,43 @@ export default function DashboardPage() {
             <h3 className="text-2xl font-bold mb-6 text-gray-800 flex items-center gap-2">
               👑 상위 미수금 고객
             </h3>
+            {/* 총 미수금액 표시 */}
+            <div className="mb-4 text-2xl font-extrabold text-blue-700 flex items-center gap-2">
+              💰 총 미수금액: <span className="text-3xl text-red-600">₩{data.topCustomers.reduce((sum, c) => sum + (c.unpaidAmount || 0), 0).toLocaleString()}</span>
+            </div>
             <Bar
               data={{
-                labels: customerLabels,
+                labels: customerLabels, // 고객명 배열이 x축에 정확히 들어감
                 datasets: stackDatasets
               }}
               options={{
                 responsive: true,
                 plugins: {
                   legend: { display: false },
-                  datalabels: {},
+                  datalabels: {
+                    display: true,
+                    color: '#fff',
+                    font: { weight: 'bold', size: 16 },
+                    anchor: 'center',
+                    align: 'center',
+                    // 각 스택별 미수금은 이미 표시됨, 아래는 각 고객별 합계(막대 중앙) 추가 표시
+                    formatter: function(value, context) {
+                      // 마지막 스택(맨 위)만 합계 표시
+                      const datasetIndex = context.datasetIndex;
+                      const dataIndex = context.dataIndex;
+                      if (datasetIndex === stackDatasets.length - 1) {
+                        // 해당 고객의 전체 미수금 합계
+                        const total = data.topCustomers[dataIndex]?.unpaidAmount || 0;
+                        return total > 0 ? `₩${total.toLocaleString('ko-KR')}` : '';
+                      }
+                      return '';
+                    },
+                  },
                 },
                 scales: {
                   x: {
                     stacked: true,
-                    ticks: { font: { size: 16 }, callback: (v: any) => v },
+                    ticks: { font: { size: 16 }, callback: (v) => v },
                   },
                   y: {
                     stacked: true,
