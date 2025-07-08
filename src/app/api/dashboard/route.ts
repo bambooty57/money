@@ -3,13 +3,17 @@ import { supabase } from '@/lib/supabase';
 
 export async function GET() {
   try {
-    // 1. 총 미수금 계산
-    const { data: unpaidTransactions, error: unpaidError } = await supabase
+    // 1. 총 미수금 계산 (부분입금/여러번 입금까지 정확히 반영)
+    const { data: allTransactions, error: txError } = await supabase
       .from('transactions')
-      .select('amount')
-      .eq('status', 'unpaid');
-    if (unpaidError) throw unpaidError;
-    const totalUnpaid = unpaidTransactions?.reduce((sum, tx) => sum + (tx.amount || 0), 0) || 0;
+      .select('id, amount, payments(amount)');
+    if (txError) throw txError;
+    let totalUnpaid = 0;
+    (allTransactions || []).forEach(tx => {
+      const paid = (tx.payments || []).reduce((sum, p) => sum + (p.amount || 0), 0);
+      const unpaid = (tx.amount || 0) - paid;
+      totalUnpaid += unpaid > 0 ? unpaid : 0;
+    });
 
     // 2. 채권 연령 분석(기존: 미수금 연령 분석)
     const { data: agingAnalysis, error: agingError } = await supabase
@@ -19,10 +23,10 @@ export async function GET() {
       .order('created_at', { ascending: true });
     if (agingError) throw agingError;
 
-    // 3. 상위 미수금 고객
+    // 3. 상위 미수금 고객 (부분입금/여러번 입금까지 정확히 반영)
     const { data: customers, error: customerError } = await supabase
       .from('customers')
-      .select('*,transactions!inner(id,amount,status,type,model,model_type),address_road,address_jibun,zipcode,customer_type_multi')
+      .select('*,transactions!inner(id,amount,status,payments(amount),type,model,model_type),address_road,address_jibun,zipcode,customer_type_multi')
       .order('created_at', { ascending: false });
     if (customerError) throw customerError;
     // 사진(files) 동기화
@@ -34,10 +38,17 @@ export async function GET() {
         .select('url')
         .eq('customer_id', customer.id)
         .limit(3);
+      // 미수금 집계: 거래별 (amount - 누적입금액) 합산
+      let unpaidAmount = 0;
+      (customer.transactions || []).forEach((tx: any) => {
+        const paid = (tx.payments || []).reduce((sum: number, p: any) => sum + (p.amount || 0), 0);
+        const unpaid = (tx.amount || 0) - paid;
+        unpaidAmount += unpaid > 0 ? unpaid : 0;
+      });
       topCustomers.push({
         ...customer,
         photos: Array.isArray(files) ? files : [],
-        unpaidAmount: (customer.transactions || []).filter((tx: any) => tx.status === 'unpaid').reduce((sum: number, tx: any) => sum + (tx.amount || 0), 0),
+        unpaidAmount,
       });
     }
     topCustomers.sort((a, b) => b.unpaidAmount - a.unpaidAmount);

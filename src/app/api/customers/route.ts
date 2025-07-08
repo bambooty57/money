@@ -112,13 +112,18 @@ export async function GET(request: Request) {
         .eq('customer_id', customer.id);
       (customer as any).transaction_count = transaction_count || 0;
 
-      // 총미수금(미납합계) 추가
-      const { data: unpaidTxs } = await supabase
+      // 총미수금(미납합계) 추가 (부분입금/여러번 입금까지 정확히 반영)
+      const { data: transactions } = await supabase
         .from('transactions')
-        .select('amount')
-        .eq('customer_id', customer.id)
-        .eq('status', 'unpaid');
-      (customer as any).total_unpaid = (unpaidTxs || []).reduce((sum, tx) => sum + (tx.amount || 0), 0);
+        .select('id, amount, payments(amount), status')
+        .eq('customer_id', customer.id);
+      let totalUnpaid = 0;
+      (transactions || []).forEach(tx => {
+        const paid = (tx.payments || []).reduce((sum, p) => sum + (p.amount || 0), 0);
+        const unpaid = (tx.amount || 0) - paid;
+        totalUnpaid += unpaid > 0 ? unpaid : 0;
+      });
+      (customer as any).total_unpaid = totalUnpaid;
     }
 
     // 런타임 검증을 임시로 완전히 제거
