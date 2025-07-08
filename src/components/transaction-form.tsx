@@ -9,17 +9,19 @@ import { Input } from './ui/input';
 import { Alert } from './ui/alert';
 import { Upload, FileIcon, ImageIcon, Trash2, Download } from 'lucide-react';
 import { sanitizeFileName } from '@/lib/utils';
+import { useRefreshContext } from '@/lib/refresh-context';
 
 interface TransactionFormProps {
   customers?: Customer[];
   onSuccess?: () => void;
   transaction?: any; // 수정 대상 거래(있으면 수정 모드)
   refresh?: number;
+  onPaymentSuccess?: () => void;
 }
 
 type Customer = Database['public']['Tables']['customers']['Row'];
 
-export default function TransactionForm({ customers, onSuccess, transaction, refresh }: TransactionFormProps) {
+export default function TransactionForm({ customers, onSuccess, transaction, refresh, onPaymentSuccess }: TransactionFormProps) {
   const [allCustomers, setAllCustomers] = useState<Customer[]>(customers || []);
   const [loading, setLoading] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
@@ -35,6 +37,8 @@ export default function TransactionForm({ customers, onSuccess, transaction, ref
     proofs: [] as File[],
     models_types_id: transaction?.models_types_id || '',
   });
+
+  const { triggerRefresh } = useRefreshContext();
 
   // 모든 고객 목록 가져오기 (신규 거래 등록용)
   useEffect(() => {
@@ -148,6 +152,7 @@ export default function TransactionForm({ customers, onSuccess, transaction, ref
         });
       }
       if (onSuccess) onSuccess();
+      triggerRefresh(); // 거래 등록/수정 성공 시 새로고침
     } catch (error: any) {
       setErrorMsg(error.message || '거래 저장 중 오류가 발생했습니다.');
     } finally {

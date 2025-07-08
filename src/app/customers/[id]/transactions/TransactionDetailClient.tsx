@@ -13,6 +13,7 @@ import path from 'path';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import TransactionForm from '@/components/transaction-form';
 import { useRouter } from 'next/navigation';
+import { useRefreshContext } from '@/lib/refresh-context';
 
 type Transaction = Database['public']['Tables']['transactions']['Row'];
 type File = Database['public']['Tables']['files']['Row'];
@@ -29,6 +30,7 @@ interface Props {
   transactions: TransactionWithDetails[];
   initialSelectedId?: string;
   customerId?: string;
+  onPaymentSuccess?: () => void;
 }
 
 const SignaturePad = dynamic(() => import('./SignaturePad'), { ssr: false });
@@ -1010,7 +1012,7 @@ type NormalizedPayment = Omit<PaymentType,
   detail: string;
 };
 
-export default function TransactionDetailClient({ transactions, initialSelectedId, customerId }: Props) {
+export default function TransactionDetailClient({ transactions, initialSelectedId, customerId, onPaymentSuccess }: Props) {
   const [selectedId, setSelectedId] = useState(initialSelectedId || transactions[0]?.id);
   const [txList, setTxList] = useState(transactions);
   const selectedTx = txList.find(tx => tx.id === selectedId) || txList[0];
@@ -1023,6 +1025,7 @@ export default function TransactionDetailClient({ transactions, initialSelectedI
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [editOpen, setEditOpen] = useState(false);
   const router = useRouter();
+  const { triggerRefresh } = useRefreshContext();
 
   // 입금내역 필터/검색/정렬 상태
   const [paymentFilter, setPaymentFilter] = useState({
@@ -1201,54 +1204,9 @@ export default function TransactionDetailClient({ transactions, initialSelectedI
   };
 
   // 결제 등록 후 목록 갱신
-  const handlePaymentSuccess = async () => {
-    // 거래/입금/파일 동시 재조회
-    const { data: txs } = await supabase
-      .from('transactions')
-      .select('*, payments(*), files(*), customers:customer_id(*)')
-      .eq('customer_id', String(selectedTx.customer_id ?? customerId ?? ''))
-      .order('created_at', { ascending: false });
-    setTxList((txs || []).map(tx => {
-      const payments: NormalizedPayment[] = (Array.isArray(tx.payments) ? tx.payments : []).map((p: any) => ({
-        ...p,
-        transaction_id: String(p.transaction_id || ''),
-        account_holder: String(p.account_holder || ''),
-        account_number: String(p.account_number || ''),
-        bank_name: String(p.bank_name || ''),
-        card_name: String(p.card_name || ''),
-        cash_detail: String(p.cash_detail || ''),
-        cash_place: String(p.cash_place || ''),
-        cash_receiver: String(p.cash_receiver || ''),
-        paid_by: String(p.paid_by || ''),
-        paid_location: String(p.paid_location || ''),
-        payer_name: String(p.payer_name || ''),
-        used_by: String(p.used_by || ''),
-        used_model: String(p.used_model || ''),
-        used_model_type: String(p.used_model_type || ''),
-        used_place: String(p.used_place || ''),
-        note: String(p.note || ''),
-        detail: String(p.detail || ''),
-        status: p.status === 'paid' || p.status === 'unpaid' ? p.status : 'unpaid',
-        id: String(p.id || ''),
-        paid_at: String(p.paid_at || ''),
-        method: String(p.method || ''),
-        amount: Number(p.amount || 0),
-        created_at: String(p.created_at || ''),
-        updated_at: String(p.updated_at || ''),
-        card_approval_code: String(p.card_approval_code || ''),
-        used_at: String(p.used_at || ''),
-      }));
-      return {
-        ...tx,
-        customer_id: String(tx.customer_id ?? customerId ?? ''),
-        payments: payments as any as PaymentType[],
-        files: tx.files?.map(f => ({ ...f } as any)) || [],
-        paid_amount: tx.paid_amount ?? undefined,
-        unpaid_amount: tx.unpaid_amount ?? undefined,
-        paid_ratio: tx.paid_ratio ?? undefined,
-        status: tx.status === 'paid' || tx.status === 'unpaid' ? tx.status : 'unpaid',
-      } as TransactionWithDetails;
-    }) as TransactionWithDetails[]);
+  const handlePaymentSuccess = () => {
+    if (onPaymentSuccess) onPaymentSuccess();
+    triggerRefresh();
   };
 
   const handleDeletePayment = async (paymentId: string) => {

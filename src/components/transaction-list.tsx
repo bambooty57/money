@@ -25,6 +25,8 @@ import {
 } from './ui/table';
 import TransactionForm from './transaction-form';
 import ModelTypeManager from './model-type-manager';
+import TransactionDetailClient from './transaction-detail-client';
+import { useRefreshContext } from '@/lib/refresh-context';
 
 type Transaction = Database['public']['Tables']['transactions']['Row'];
 type Customer = Database['public']['Tables']['customers']['Row'];
@@ -39,11 +41,11 @@ export function TransactionList() {
   const [totalCount, setTotalCount] = useState<number>(0);
   const searchParams = useSearchParams();
   const urlRefreshKey = searchParams.get('refresh') || 0;
-  const [refreshKey, setRefreshKey] = useState(0);
+  const { refreshKey, triggerRefresh } = useRefreshContext();
   const [modelTypeRefresh, setModelTypeRefresh] = useState(0);
 
   useEffect(() => {
-    setRefreshKey(k => k + 1);
+    triggerRefresh();
   }, [urlRefreshKey]);
 
   useEffect(() => {
@@ -161,11 +163,15 @@ export function TransactionList() {
             <DialogHeader>
               <DialogTitle className="text-2xl">신규 거래 등록</DialogTitle>
             </DialogHeader>
-            <TransactionForm onSuccess={() => { 
-              setFormOpen(false); 
-              setRefreshKey(k => k + 1); 
-              setTimeout(() => setRefreshKey(k => k + 1), 700); 
-            }} refresh={modelTypeRefresh} />
+            <TransactionForm 
+              onSuccess={() => { 
+                setFormOpen(false); 
+                triggerRefresh();
+                setTimeout(() => triggerRefresh(), 700); 
+              }} 
+              refresh={modelTypeRefresh}
+              onPaymentSuccess={triggerRefresh}
+            />
           </DialogContent>
         </Dialog>
         <Dialog onOpenChange={open => { if (!open) setModelTypeRefresh(r => r + 1) }}>
@@ -222,8 +228,8 @@ export function TransactionList() {
                       if (!window.confirm('정말로 이 거래를 삭제하시겠습니까?')) return;
                       const res = await fetch(`/api/transactions?id=${summary.transactions[0].id}`, { method: 'DELETE' });
                       if (res.ok) {
-                        setRefreshKey(k => k + 1);
-                        setTimeout(() => setRefreshKey(k => k + 1), 700);
+                        triggerRefresh();
+                        setTimeout(() => triggerRefresh(), 700);
                         alert('삭제되었습니다.');
                       } else {
                         const { error } = await res.json();

@@ -65,8 +65,8 @@ export async function GET() {
       .neq('status' as any, 'paid' as any);
     if (dueMonthError) throw dueMonthError;
     const dueThisMonth = (dueThisMonthRaw || []).map((tx: any) => {
-      const paid = (tx.payments || []).reduce((sum: any, p: any) => sum + (p.amount || 0), 0);
-      const unpaid = (tx.amount || 0) - paid;
+      const paid = Math.round((tx.payments || []).reduce((sum: any, p: any) => sum + (p.amount || 0), 0));
+      const unpaid = Math.round((tx.amount || 0) - paid);
       const ratio = tx.amount ? Math.round((paid / tx.amount) * 100) : 0;
       const due = tx.due_date ? new Date(tx.due_date) : null;
       const days_left = due ? Math.ceil((due.getTime() - now.getTime()) / (1000*60*60*24)) : null;
@@ -76,7 +76,7 @@ export async function GET() {
         customer_name: tx.customers?.name || '',
         model: tx.models_types?.model || '',
         model_type: tx.models_types?.type || '',
-        amount: tx.amount || 0,
+        amount: Math.round(tx.amount || 0),
         paid_amount: paid,
         unpaid_amount: unpaid,
         paid_ratio: ratio,
@@ -94,8 +94,8 @@ export async function GET() {
       .neq('status' as any, 'paid' as any);
     if (overdueError) throw overdueError;
     const overdueTxs = (overdueTxsRaw || []).map((tx: any) => {
-      const paid = (tx.payments || []).reduce((sum: any, p: any) => sum + (p.amount || 0), 0);
-      const unpaid = (tx.amount || 0) - paid;
+      const paid = Math.round((tx.payments || []).reduce((sum: any, p: any) => sum + (p.amount || 0), 0));
+      const unpaid = Math.round((tx.amount || 0) - paid);
       const ratio = tx.amount ? Math.round((paid / tx.amount) * 100) : 0;
       const due = tx.due_date ? new Date(tx.due_date) : null;
       const days = due ? Math.floor((now.getTime() - due.getTime()) / (1000*60*60*24)) : null;
@@ -105,7 +105,7 @@ export async function GET() {
         customer_name: tx.customers?.name || '',
         model: tx.models_types?.model || '',
         model_type: tx.models_types?.type || '',
-        amount: tx.amount || 0,
+        amount: Math.round(tx.amount || 0),
         paid_amount: paid,
         unpaid_amount: unpaid,
         paid_ratio: ratio,

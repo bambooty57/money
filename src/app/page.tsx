@@ -16,6 +16,7 @@ import jsPDF from 'jspdf';
 import ChartDataLabels from 'chartjs-plugin-datalabels';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase';
+import { useRefreshContext } from '@/lib/refresh-context';
 
 ChartJS.register(
   CategoryScale,
@@ -96,6 +97,7 @@ export default function DashboardPage() {
   const currentYear = new Date().getFullYear();
   const [selectedYear, setSelectedYear] = useState(currentYear);
   const router = useRouter();
+  const { refreshKey } = useRefreshContext();
 
   useEffect(() => {
     async function checkAuthAndFetch() {
@@ -110,7 +112,7 @@ export default function DashboardPage() {
       setData(dashboardData);
     }
     checkAuthAndFetch();
-  }, []);
+  }, [refreshKey]);
 
   // 갤러리 모달 닫기 핸들러
   const closeGallery = () => setGalleryOpen(false);

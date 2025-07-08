@@ -15,6 +15,7 @@ import { StatementPDFTable } from '@/components/statement-pdf';
 import { PDFDownloadLink } from '@react-pdf/renderer';
 import { Dialog } from '@headlessui/react';
 import { PDFViewer } from '@react-pdf/renderer';
+import { useRefreshContext } from '@/lib/refresh-context';
 
 interface Customer {
   id: string;
@@ -49,6 +50,7 @@ export default function StatementPage() {
   const [pdfModalOpen, setPdfModalOpen] = useState(false);
   const [pdfViewMode, setPdfViewMode] = useState<'pdf' | 'table'>('pdf');
   const [pdfError, setPdfError] = useState<string | null>(null);
+  const { refreshKey } = useRefreshContext();
 
   // 1. 고객 목록 불러오기
   useEffect(() => {
@@ -78,7 +80,7 @@ export default function StatementPage() {
       setCustomerName(customerObj?.name || "");
     })
     .finally(() => setLoading(false));
-  }, [selectedCustomer, customers]);
+  }, [selectedCustomer, customers, refreshKey]);
 
   // 3. 엑셀 다운로드
   const handleExcelDownload = () => {
