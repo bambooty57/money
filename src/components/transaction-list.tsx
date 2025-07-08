@@ -25,7 +25,7 @@ import {
 } from './ui/table';
 import TransactionForm from './transaction-form';
 import ModelTypeManager from './model-type-manager';
-import TransactionDetailClient from './transaction-detail-client';
+import TransactionDetailClient from "@/app/customers/[id]/transactions/TransactionDetailClient";
 import { useRefreshContext } from '@/lib/refresh-context';
 
 type Transaction = Database['public']['Tables']['transactions']['Row'];
