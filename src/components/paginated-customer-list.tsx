@@ -277,28 +277,28 @@ function PaginatedCustomerListInner({
       {/* 테이블 */}
       <div className="bg-white rounded-lg shadow-lg overflow-hidden border border-gray-200">
         <div className="overflow-x-auto">
-          <Table>
+          <Table className="table-fixed w-full text-lg border-collapse bg-white rounded-lg shadow-lg">
             <TableHeader className="bg-gray-100">
               <TableRow>
-                <TableHead className="px-4 py-2 text-base font-semibold text-gray-700"></TableHead>
-                <TableHead className="px-4 py-2 text-base font-semibold text-gray-700">거래처명</TableHead>
-                <TableHead className="px-4 py-2 text-base font-semibold text-gray-700">거래건수</TableHead>
-                <TableHead className="px-4 py-2 text-base font-semibold text-gray-700">총미수금</TableHead>
-                <TableHead className="px-4 py-2 text-base font-semibold text-gray-700">고객유형</TableHead>
-                <TableHead className="px-4 py-2 text-base font-semibold text-gray-700">주소</TableHead>
-                <TableHead className="px-4 py-2 text-base font-semibold text-gray-700">연락처</TableHead>
-                <TableHead className="px-4 py-2 text-base font-semibold text-gray-700">주민등록번호</TableHead>
-                <TableHead className="px-4 py-2 text-base font-semibold text-gray-700">사업자번호</TableHead>
-                <TableHead className="px-4 py-2 text-base font-semibold text-gray-700">사진</TableHead>
+                <TableHead className="px-4 py-4 w-12 min-w-[48px] max-w-[48px] text-center whitespace-nowrap overflow-hidden text-ellipsis"></TableHead>
+                <TableHead className="px-4 py-4 w-32 min-w-[120px] max-w-[160px] text-center whitespace-nowrap overflow-hidden text-ellipsis">거래처명</TableHead>
+                <TableHead className="px-4 py-4 w-20 min-w-[80px] max-w-[100px] text-center whitespace-nowrap overflow-hidden text-ellipsis">거래건수</TableHead>
+                <TableHead className="px-4 py-4 w-32 min-w-[120px] max-w-[160px] text-right whitespace-nowrap overflow-hidden text-ellipsis">미수금</TableHead>
+                <TableHead className="px-4 py-4 w-24 min-w-[100px] max-w-[120px] text-center whitespace-nowrap overflow-hidden text-ellipsis">고객유형</TableHead>
+                <TableHead className="px-4 py-4 w-40 min-w-[140px] max-w-[180px] text-left whitespace-nowrap overflow-hidden text-ellipsis">주소</TableHead>
+                <TableHead className="px-4 py-4 w-32 min-w-[120px] max-w-[160px] text-left whitespace-nowrap overflow-hidden text-ellipsis">연락처</TableHead>
+                <TableHead className="px-4 py-4 w-32 min-w-[120px] max-w-[160px] text-center whitespace-nowrap overflow-hidden text-ellipsis">주민등록번호</TableHead>
+                <TableHead className="px-4 py-4 w-32 min-w-[120px] max-w-[160px] text-center whitespace-nowrap overflow-hidden text-ellipsis">사업자번호</TableHead>
+                <TableHead className="px-4 py-4 w-24 min-w-[100px] max-w-[120px] text-center whitespace-nowrap overflow-hidden text-ellipsis">사진</TableHead>
                 {enableActions && (
-                  <TableHead className="px-4 py-2 text-base font-semibold text-gray-700">작업</TableHead>
+                  <TableHead className="px-4 py-4 w-16 min-w-[60px] max-w-[60px] text-center whitespace-nowrap overflow-hidden text-ellipsis">작업</TableHead>
                 )}
               </TableRow>
             </TableHeader>
             <TableBody>
               {data.data.map(customer => (
                 <TableRow key={customer.id} className="hover:bg-gray-50 transition-colors border-b border-gray-200">
-                  <TableCell className="px-4 py-2 whitespace-nowrap">
+                  <TableCell className="px-4 py-4 w-12 min-w-[48px] max-w-[48px] text-center whitespace-nowrap overflow-hidden text-ellipsis">
                     <input
                       type="checkbox"
                       checked={selectedIds.has(customer.id)}
@@ -307,52 +307,51 @@ function PaginatedCustomerListInner({
                       title="고객 선택"
                     />
                   </TableCell>
-                  <TableCell className="px-4 py-2 whitespace-nowrap">
+                  <TableCell className="px-4 py-4 w-32 min-w-[120px] max-w-[160px] text-center whitespace-nowrap overflow-hidden text-ellipsis">
                     <div className="font-semibold text-lg text-gray-900">{customer.name}</div>
                     <div className="text-base text-gray-600">{customer.business_name || ''}</div>
                   </TableCell>
-                  <TableCell className="px-4 py-2 whitespace-nowrap text-center text-lg text-gray-900">{customer.transaction_count ?? 0}건</TableCell>
-                  <TableCell className="px-4 py-2 whitespace-nowrap text-right">
+                  <TableCell className="px-4 py-4 w-20 min-w-[80px] max-w-[100px] text-center whitespace-nowrap overflow-hidden text-ellipsis">{customer.transaction_count ?? 0}건</TableCell>
+                  <TableCell className="px-4 py-4 w-32 min-w-[120px] max-w-[160px] text-right whitespace-nowrap overflow-hidden text-ellipsis">
                     {customer.total_unpaid && customer.total_unpaid > 0 ? (
                       <span className="text-lg font-semibold text-red-700">{customer.total_unpaid.toLocaleString()}원</span>
                     ) : (
                       <span className="text-lg text-gray-400">0원</span>
                     )}
                   </TableCell>
-                  <TableCell className="px-4 py-2 whitespace-nowrap text-base text-gray-900">
-                    {Array.isArray(customer.customer_type_multi) && customer.customer_type_multi.length > 0 ? customer.customer_type_multi.join(', ') : customer.customer_type || '-'}
+                  <TableCell className="px-4 py-4 w-24 min-w-[100px] max-w-[120px] text-center whitespace-nowrap overflow-hidden text-ellipsis">
+                    {Array.isArray(customer.customer_type_multi) && customer.customer_type_multi.length > 0 ? customer.customer_type_multi.join(', ') : customer.customer_type || '-'}</TableCell>
+                  <TableCell className="px-4 py-4 w-40 min-w-[140px] max-w-[180px] text-left whitespace-nowrap overflow-hidden text-ellipsis">
+                    <div>
+                      {customer.address_road ? (
+                        <button
+                          onClick={() => openKakaoMap(customer.address_road!)}
+                          className="text-base text-blue-600 underline hover:text-blue-800 font-medium"
+                          style={{ cursor: 'pointer', background: 'none', border: 'none', padding: 0 }}
+                          title="카카오맵에서 보기"
+                        >
+                          {customer.address_road}
+                        </button>
+                      ) : (
+                        <span className="text-base text-gray-400">-</span>
+                      )}
+                    </div>
+                    <div>
+                      {customer.address_jibun ? (
+                        <button
+                          onClick={() => openKakaoMap(customer.address_jibun!)}
+                          className="text-base text-blue-600 underline hover:text-blue-800 font-medium"
+                          style={{ cursor: 'pointer', background: 'none', border: 'none', padding: 0 }}
+                          title="카카오맵에서 보기"
+                        >
+                          {customer.address_jibun}
+                        </button>
+                      ) : (
+                        <span className="text-base text-gray-400">-</span>
+                      )}
+                    </div>
                   </TableCell>
-                  <TableCell className="px-4 py-2 whitespace-nowrap">
-                                          <div>
-                        {customer.address_road ? (
-                          <button
-                            onClick={() => openKakaoMap(customer.address_road!)}
-                            className="text-base text-blue-600 underline hover:text-blue-800 font-medium"
-                            style={{ cursor: 'pointer', background: 'none', border: 'none', padding: 0 }}
-                            title="카카오맵에서 보기"
-                          >
-                            {customer.address_road}
-                          </button>
-                        ) : (
-                          <span className="text-base text-gray-400">-</span>
-                        )}
-                      </div>
-                      <div>
-                        {customer.address_jibun ? (
-                          <button
-                            onClick={() => openKakaoMap(customer.address_jibun!)}
-                            className="text-base text-blue-600 underline hover:text-blue-800 font-medium"
-                            style={{ cursor: 'pointer', background: 'none', border: 'none', padding: 0 }}
-                            title="카카오맵에서 보기"
-                          >
-                            {customer.address_jibun}
-                          </button>
-                        ) : (
-                          <span className="text-base text-gray-400">-</span>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell className="px-4 py-2 whitespace-nowrap">
+                  <TableCell className="px-4 py-4 w-32 min-w-[120px] max-w-[160px] text-left whitespace-nowrap overflow-hidden text-ellipsis">
                     <div>
                       {customer.mobile ? (
                         <a
@@ -381,9 +380,9 @@ function PaginatedCustomerListInner({
                     </div>
                     <div>{customer.fax || ''}</div>
                   </TableCell>
-                  <TableCell className="px-6 py-4 whitespace-nowrap">{customer.ssn}</TableCell>
-                  <TableCell className="px-6 py-4 whitespace-nowrap">{customer.business_no}</TableCell>
-                  <TableCell className="px-6 py-4 whitespace-nowrap">
+                  <TableCell className="px-4 py-4 w-32 min-w-[120px] max-w-[160px] text-center whitespace-nowrap overflow-hidden text-ellipsis">{customer.ssn}</TableCell>
+                  <TableCell className="px-4 py-4 w-32 min-w-[120px] max-w-[160px] text-center whitespace-nowrap overflow-hidden text-ellipsis">{customer.business_no}</TableCell>
+                  <TableCell className="px-4 py-4 w-24 min-w-[100px] max-w-[120px] text-center whitespace-nowrap overflow-hidden text-ellipsis">
                     {customer.photos && customer.photos.length > 0 ? (
                       <div className="flex space-x-1">
                         {customer.photos.slice(0, 3).map((photo, idx) => (
@@ -399,7 +398,7 @@ function PaginatedCustomerListInner({
                     ) : '-'}
                   </TableCell>
                   {enableActions && (
-                    <TableCell className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                    <TableCell className="px-4 py-4 w-16 min-w-[60px] max-w-[60px] text-center whitespace-nowrap overflow-hidden text-ellipsis">
                       <div className="flex space-x-2">
                         <button
                           onClick={() => onEdit && onEdit(customer)}

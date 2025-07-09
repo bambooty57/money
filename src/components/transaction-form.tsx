@@ -281,7 +281,13 @@ export default function TransactionForm({ customers, onSuccess, transaction, ref
           <input
             type="number"
             value={formData.amount}
-            onChange={e => setFormData(prev => ({ ...prev, amount: e.target.value }))}
+            onChange={e => {
+              const value = e.target.value;
+              setFormData(prev => ({
+                ...prev,
+                amount: value === '' ? '' : Math.round(Number(value)).toString()
+              }));
+            }}
             className="block w-full rounded-lg border-2 border-green-300 px-4 py-3 text-lg focus:border-green-500 focus:ring-2 focus:ring-green-200"
             required
             title="거래 금액을 입력하세요"

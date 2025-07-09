@@ -194,54 +194,54 @@ export function TransactionList() {
         <Table className="table-fixed w-full text-lg border-collapse bg-white rounded-lg shadow-lg">
           <TableHeader className="bg-gray-100">
             <TableRow className="h-16">
-              <TableHead className="border-2 border-gray-300 px-4 py-4 font-bold text-gray-800 w-32 text-center">고객명</TableHead>
-              <TableHead className="border-2 border-gray-300 px-4 py-4 font-bold text-gray-800 w-24 text-center">거래건수</TableHead>
-              <TableHead className="border-2 border-gray-300 px-4 py-4 font-bold text-gray-800 w-32 text-right">총 매출액</TableHead>
-              <TableHead className="border-2 border-gray-300 px-4 py-4 font-bold text-gray-800 w-32 text-right">입금액</TableHead>
-              <TableHead className="border-2 border-gray-300 px-4 py-4 font-bold text-gray-800 w-32 text-right">미수금</TableHead>
-              <TableHead className="border-2 border-gray-300 px-4 py-4 font-bold text-gray-800 w-24 text-center">입금%</TableHead>
-              <TableHead className="border-2 border-gray-300 px-4 py-4 font-bold text-gray-800 w-16 text-center">삭제</TableHead>
+              <TableHead className="border-2 border-gray-300 px-4 py-4 font-bold text-gray-800 w-32 min-w-[120px] max-w-[160px] text-center whitespace-nowrap overflow-hidden text-ellipsis">고객명</TableHead>
+              <TableHead className="border-2 border-gray-300 px-4 py-4 font-bold text-gray-800 w-24 min-w-[80px] max-w-[100px] text-center whitespace-nowrap overflow-hidden text-ellipsis">거래건수</TableHead>
+              <TableHead className="border-2 border-gray-300 px-4 py-4 font-bold text-gray-800 w-32 min-w-[120px] max-w-[160px] text-right whitespace-nowrap overflow-hidden text-ellipsis">총 매출액</TableHead>
+              <TableHead className="border-2 border-gray-300 px-4 py-4 font-bold text-gray-800 w-32 min-w-[120px] max-w-[160px] text-right whitespace-nowrap overflow-hidden text-ellipsis">입금액</TableHead>
+              <TableHead className="border-2 border-gray-300 px-4 py-4 font-bold text-gray-800 w-32 min-w-[120px] max-w-[160px] text-right whitespace-nowrap overflow-hidden text-ellipsis">미수금</TableHead>
+              <TableHead className="border-2 border-gray-300 px-4 py-4 font-bold text-gray-800 w-24 min-w-[80px] max-w-[100px] text-center whitespace-nowrap overflow-hidden text-ellipsis">입금%</TableHead>
+              <TableHead className="border-2 border-gray-300 px-4 py-4 font-bold text-gray-800 w-16 min-w-[60px] max-w-[60px] text-center whitespace-nowrap overflow-hidden text-ellipsis">삭제</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody className="bg-white divide-y divide-gray-200">
-          {uniqueCustomers.map((c, i) => {
-            const summary = summaries[customers.findIndex(x => x.id === c.id)] || {};
-            const transactionCount = Array.isArray(summary.transactions)
-              ? summary.transactions.length
-              : 0;
-            return (
-              <TableRow key={c.id} className="hover:bg-blue-50 cursor-pointer border-b border-gray-200 h-16">
-                <TableCell className="border-2 border-gray-300 px-4 py-4 whitespace-nowrap text-base text-blue-700 underline font-medium w-32 text-center" onClick={() => router.push(`/customers/${c.id}/transactions`)}>{c.name}</TableCell>
-                <TableCell className="border-2 border-gray-300 px-4 py-4 whitespace-nowrap text-base text-gray-900 w-24 text-center">{transactionCount}건</TableCell>
-                <TableCell className="border-2 border-gray-300 px-4 py-4 whitespace-nowrap text-base text-gray-900 font-semibold w-32 text-right">{(summary.total_amount || 0).toLocaleString()}원</TableCell>
-                <TableCell className="border-2 border-gray-300 px-4 py-4 whitespace-nowrap text-base text-green-700 font-semibold w-32 text-right">{(summary.total_paid || 0).toLocaleString()}원</TableCell>
-                <TableCell className="border-2 border-gray-300 px-4 py-4 whitespace-nowrap text-base text-red-700 font-semibold w-32 text-right">{(summary.total_unpaid || 0).toLocaleString()}원</TableCell>
-                <TableCell className="border-2 border-gray-300 px-4 py-4 whitespace-nowrap flex items-center gap-2 w-24 text-center">
-                  <span className="text-base text-gray-900 font-semibold">{summary.total_ratio || 0}%</span>
-                </TableCell>
-                <TableCell className="border-2 border-gray-300 px-4 py-4 w-16 text-center">
-                  <button
-                    className="text-red-600 hover:text-red-900 text-lg p-1 hover:bg-red-50 rounded transition-colors"
-                    title="거래 삭제"
-                    onClick={async (e) => {
-                      e.stopPropagation();
-                      if (!window.confirm('정말로 이 거래를 삭제하시겠습니까?')) return;
-                      const res = await fetch(`/api/transactions?id=${summary.transactions[0].id}`, { method: 'DELETE' });
-                      if (res.ok) {
-                        triggerRefresh();
-                        setTimeout(() => triggerRefresh(), 700);
-                        alert('삭제되었습니다.');
-                      } else {
-                        const { error } = await res.json();
-                        alert('삭제 실패: ' + error);
-                      }
-                    }}
-                  >🗑️</button>
-                </TableCell>
-              </TableRow>
-            );
-          })}
-        </TableBody>
+            {uniqueCustomers.map((c, i) => {
+              const summary = summaries[customers.findIndex(x => x.id === c.id)] || {};
+              const transactionCount = Array.isArray(summary.transactions)
+                ? summary.transactions.length
+                : 0;
+              return (
+                <TableRow key={c.id} className="hover:bg-blue-50 cursor-pointer border-b border-gray-200 h-16">
+                  <TableCell className="border-2 border-gray-300 px-4 py-4 whitespace-nowrap text-base text-blue-700 underline font-medium w-32 min-w-[120px] max-w-[160px] text-center overflow-hidden text-ellipsis" onClick={() => router.push(`/customers/${c.id}/transactions`)}>{c.name}</TableCell>
+                  <TableCell className="border-2 border-gray-300 px-4 py-4 whitespace-nowrap text-base text-gray-900 w-24 min-w-[80px] max-w-[100px] text-center overflow-hidden text-ellipsis">{transactionCount}건</TableCell>
+                  <TableCell className="border-2 border-gray-300 px-4 py-4 whitespace-nowrap text-base text-gray-900 font-semibold w-32 min-w-[120px] max-w-[160px] text-right overflow-hidden text-ellipsis">{(summary.total_amount || 0).toLocaleString()}원</TableCell>
+                  <TableCell className="border-2 border-gray-300 px-4 py-4 whitespace-nowrap text-base text-green-700 font-semibold w-32 min-w-[120px] max-w-[160px] text-right overflow-hidden text-ellipsis">{(summary.total_paid || 0).toLocaleString()}원</TableCell>
+                  <TableCell className="border-2 border-gray-300 px-4 py-4 whitespace-nowrap text-base text-red-700 font-semibold w-32 min-w-[120px] max-w-[160px] text-right overflow-hidden text-ellipsis">{(summary.total_unpaid || 0).toLocaleString()}원</TableCell>
+                  <TableCell className="border-2 border-gray-300 px-4 py-4 whitespace-nowrap text-base text-gray-900 font-semibold w-24 min-w-[80px] max-w-[100px] text-center overflow-hidden text-ellipsis">
+                    {summary.total_ratio || 0}%
+                  </TableCell>
+                  <TableCell className="border-2 border-gray-300 px-4 py-4 w-16 min-w-[60px] max-w-[60px] text-center overflow-hidden text-ellipsis">
+                    <button
+                      className="text-red-600 hover:text-red-900 text-lg p-1 hover:bg-red-50 rounded transition-colors"
+                      title="거래 삭제"
+                      onClick={async (e) => {
+                        e.stopPropagation();
+                        if (!window.confirm('정말로 이 거래를 삭제하시겠습니까?')) return;
+                        const res = await fetch(`/api/transactions?id=${summary.transactions[0].id}`, { method: 'DELETE' });
+                        if (res.ok) {
+                          triggerRefresh();
+                          setTimeout(() => triggerRefresh(), 700);
+                          alert('삭제되었습니다.');
+                        } else {
+                          const { error } = await res.json();
+                          alert('삭제 실패: ' + error);
+                        }
+                      }}
+                    >🗑️</button>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
         </Table>
       </div>
     </div>
