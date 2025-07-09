@@ -39,6 +39,7 @@ export function ProductModelTypeDropdown({ selectedId, onSelect, refresh }: Prop
   const handleManagerChange = async (newId?: string) => {
     const data = await fetchOptions();
     if (newId) {
+      setOpen(false); // 직접입력(추가) 시 모달 자동 닫힘
       onSelect(newId);
     } else if (data.length > 0) {
       onSelect(data[data.length - 1].id);
