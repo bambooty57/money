@@ -160,6 +160,11 @@ function PaymentForm({ transactionId, onSuccess, setSuccessMsg, setErrorMsg }: {
         payload.detail = loanDetail;
         payload.note = note;
       }
+      if (method === '캐피탈') {
+        payload.bank_name = bankName === '기타(직접입력)' ? customBankName : bankName;
+        payload.detail = loanDetail;
+        payload.note = note;
+      }
       if (method === '기타') {
         payload.detail = otherDetail;
         payload.note = otherNote;
@@ -216,6 +221,7 @@ function PaymentForm({ transactionId, onSuccess, setSuccessMsg, setErrorMsg }: {
             <option value="수표">💵 수표</option>
             <option value="중고인수">🚜 중고인수</option>
             <option value="융자">📋 융자</option>
+            <option value="캐피탈">🏢 캐피탈</option>
             <option value="기타">📝 기타</option>
           </select>
         </div>
@@ -319,7 +325,7 @@ function PaymentForm({ transactionId, onSuccess, setSuccessMsg, setErrorMsg }: {
           <input type="text" value={note} onChange={e => setNote(e.target.value)} className="border-2 border-gray-300 rounded-lg px-4 py-3 text-lg bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-200" title="비고" placeholder="비고" />
         </div>
       )}
-      {method === '융자' && (
+      {(method === '융자' || method === '캐피탈') && (
         <div className="flex flex-wrap gap-2 items-center bg-white p-2 rounded">
           <label>상세</label>
           <input type="text" value={loanDetail} onChange={e => setLoanDetail(e.target.value)} className="border rounded px-2 py-1" title="상세" placeholder="상세" />
@@ -1518,6 +1524,7 @@ export default function TransactionDetailClient({ transactions, initialSelectedI
               <option value="수표">💵 수표</option>
               <option value="중고인수">🚜 중고인수</option>
               <option value="융자">📋 융자</option>
+              <option value="캐피탈">🏢 캐피탈</option>
               <option value="기타">📝 기타</option>
             </select>
           </div>
