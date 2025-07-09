@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { Suspense, useCallback } from 'react';
-import { createClient } from '@/lib/supabase';
+import { supabase } from '@/lib/supabase';
 
 // 성능 최적화: 네비게이션 메뉴 데이터 구조화
 const navigationItems = [
@@ -46,7 +46,6 @@ function NavigationContent() {
 
   // 로그아웃 핸들러
   const handleLogout = useCallback(async () => {
-    const supabase = createClient();
     await supabase.auth.signOut();
     router.push('/login');
   }, [router]);

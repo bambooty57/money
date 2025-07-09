@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { createClient } from '@/lib/supabase';
+import { supabase } from '@/lib/supabase';
 import type { Database } from '@/types/database';
 import { ProductModelTypeDropdown } from './product-model-type-autocomplete'
 import { Button } from './ui/button';
@@ -67,7 +67,6 @@ export default function TransactionForm({ customers, onSuccess, transaction, ref
   }, [transaction]);
 
   const handleFileUpload = async (files: File[], transactionId: string) => {
-    const supabase = createClient();
     for (const file of files) {
       const safeName = sanitizeFileName(file.name);
       const path = `proofs/${transactionId}/${safeName}`;
@@ -91,7 +90,6 @@ export default function TransactionForm({ customers, onSuccess, transaction, ref
     setSuccessMsg('');
     setErrorMsg('');
     try {
-      const supabase = createClient();
       let error;
       let txId = transaction?.id;
       if (transaction) {

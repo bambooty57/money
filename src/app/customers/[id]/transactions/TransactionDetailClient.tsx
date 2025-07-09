@@ -15,7 +15,6 @@ import TransactionForm from '@/components/transaction-form';
 import { useRouter } from 'next/navigation';
 import { useRefreshContext } from '@/lib/refresh-context';
 import { usePaymentsRealtime } from '@/lib/usePaymentsRealtime';
-import { createClient } from '@/lib/supabase';
 import { useToast } from '@/components/ui/alert';
 import { VirtualList } from '@/components/ui/virtual-list';
 
@@ -1082,7 +1081,6 @@ export default function TransactionDetailClient({ transactions, initialSelectedI
   // 거래/입금 데이터 fetch 함수
   const fetchTransactions = useCallback(async () => {
     if (!customerId) return;
-    const supabase = createClient();
     const { data, error } = await supabase
       .from('transactions')
       .select('*, payments(*), files(*), customers:customer_id(*), models_types:models_types_id(model, type)')
