@@ -1,12 +1,11 @@
 import { useEffect } from 'react';
-import { createClient } from './supabase';
+import { supabase } from './supabase';
 import { useRefreshContext } from './refresh-context';
 
 export function useModelTypesRealtime({ onChange }: { onChange?: () => void } = {}) {
   const { triggerRefresh } = useRefreshContext();
 
   useEffect(() => {
-    const supabase = createClient();
     const channel = supabase
       .channel('models-types-changes')
       .on(
