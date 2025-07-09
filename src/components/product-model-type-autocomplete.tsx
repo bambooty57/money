@@ -40,9 +40,18 @@ export function ProductModelTypeDropdown({ selectedId, onSelect, refresh }: Prop
   }
 
   // Immediate refresh on ModelTypeManager change
-  const handleManagerChange = () => {
-    fetchOptions()
-  }
+  const handleManagerChange = async () => {
+    await fetchOptions();
+    // fetchOptions 후 options 최신화 보장 위해 setTimeout 0으로 비동기 처리
+    setTimeout(() => {
+      if (options.length > 0) {
+        // 가장 마지막 항목(최신 추가)을 자동 선택
+        const last = options[options.length - 1];
+        setSelected(last.id);
+        onSelect(last.id);
+      }
+    }, 0);
+  };
 
   return (
     <div className="space-y-2">
