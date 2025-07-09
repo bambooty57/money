@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Input } from './ui/input'
+import { useModelTypesRealtime } from '@/lib/useModelTypesRealtime';
 
 interface ModelTypeRow {
   id: string
@@ -27,6 +28,7 @@ export default function ModelTypeManager({ onChange }: ModelTypeManagerProps = {
   }
 
   useEffect(() => { fetchRows() }, [])
+  useModelTypesRealtime({ onChange: fetchRows });
 
   async function handleAdd() {
     if (!newModel || !newType) return setMsg('기종명/형식명을 모두 입력하세요')

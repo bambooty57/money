@@ -27,11 +27,13 @@ import TransactionForm from './transaction-form';
 import ModelTypeManager from './model-type-manager';
 import TransactionDetailClient from "@/app/customers/[id]/transactions/TransactionDetailClient";
 import { useRefreshContext } from '@/lib/refresh-context';
+import { usePaymentsRealtime } from '@/lib/usePaymentsRealtime';
 
 type Transaction = Database['public']['Tables']['transactions']['Row'];
 type Customer = Database['public']['Tables']['customers']['Row'];
 
 export function TransactionList() {
+  usePaymentsRealtime(); // 실시간 반영 추가
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [summaries, setSummaries] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -78,7 +80,8 @@ export function TransactionList() {
   const handleExcelDownload = () => {
     const excelRows = customers.map(c => {
       const summary = summaries.find(s => s.customer_id === c.id) || {};
-      const transactionCount = Array.isArray(summary.transactions) ? summary.transactions.length : 0;
+      // 고객관리 페이지와 동일한 COUNT 방식만 사용
+      const transactionCount = summary.transaction_count || 0;
       return {
         고객명: c.name,
         거래건수: transactionCount,
@@ -88,8 +91,8 @@ export function TransactionList() {
         입금률: summary.total_ratio || 0,
       };
     });
-    // 전체 합계 행 추가
-    const totalTransactionCount = summaries.reduce((sum, s) => sum + (Array.isArray(s.transactions) ? s.transactions.length : 0), 0);
+    // 전체 합계 행 추가 - COUNT 방식만 사용
+    const totalTransactionCount = summaries.reduce((sum, s) => sum + (s.transaction_count || 0), 0);
     const totalSales = summaries.reduce((sum, s) => sum + (s.total_amount || 0), 0);
     const totalPaid = summaries.reduce((sum, s) => sum + (s.total_paid || 0), 0);
     const totalUnpaid = summaries.reduce((sum, s) => sum + (s.total_unpaid || 0), 0);
@@ -187,7 +190,7 @@ export function TransactionList() {
             <DialogHeader>
               <DialogTitle className="text-2xl">기종/형식명 관리</DialogTitle>
             </DialogHeader>
-            <ModelTypeManager />
+            <ModelTypeManager onChange={() => setModelTypeRefresh(r => r + 1)} />
           </DialogContent>
         </Dialog>
       </div>
@@ -207,9 +210,8 @@ export function TransactionList() {
           <TableBody className="bg-white divide-y divide-gray-200">
             {uniqueCustomers.map((c, i) => {
               const summary = summaries[customers.findIndex(x => x.id === c.id)] || {};
-              const transactionCount = Array.isArray(summary.transactions)
-                ? summary.transactions.length
-                : 0;
+              // transaction_count를 우선 사용, 없으면 기존 방식
+              const transactionCount = summary.transaction_count || 0;
               return (
                 <TableRow key={c.id} className="hover:bg-blue-50 cursor-pointer border-b border-gray-200 h-16">
                   <TableCell className="border-2 border-gray-300 px-4 py-4 whitespace-nowrap text-base text-blue-700 underline font-medium w-32 min-w-[120px] max-w-[160px] text-center overflow-hidden text-ellipsis" onClick={() => router.push(`/customers/${c.id}/transactions`)}>{c.name}</TableCell>
@@ -231,6 +233,9 @@ export function TransactionList() {
                         if (res.ok) {
                           triggerRefresh();
                           setTimeout(() => triggerRefresh(), 700);
+                          // 강제 새로고침 추가 (고객상세와 동일하게)
+                          router.push('/transactions?refresh=' + Date.now());
+                          router.refresh();
                           alert('삭제되었습니다.');
                         } else {
                           const { error } = await res.json();

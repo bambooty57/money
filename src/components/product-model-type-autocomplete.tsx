@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Input } from './ui/input'
 import { Dialog, DialogContent } from './ui/dialog';
 import ModelTypeManager from './model-type-manager';
+import { useModelTypesRealtime } from '@/lib/useModelTypesRealtime';
 
 type Option = { id: string; model: string; type: string }
 
@@ -26,6 +27,8 @@ export function ProductModelTypeDropdown({ selectedId, onSelect, refresh }: Prop
   useEffect(() => {
     fetchOptions()
   }, [refresh])
+
+  useModelTypesRealtime({ onChange: fetchOptions });
 
   // Refresh options after modal closes
   const handleDialogOpenChange = (isOpen: boolean) => {
