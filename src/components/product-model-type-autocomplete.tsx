@@ -3,6 +3,7 @@ import { Input } from './ui/input'
 import { Dialog, DialogContent } from './ui/dialog';
 import ModelTypeManager from './model-type-manager';
 import { useModelTypesRealtime } from '@/lib/useModelTypesRealtime';
+import { DialogHeader, DialogTitle } from './ui/dialog';
 
 type Option = { id: string; model: string; type: string }
 
@@ -72,6 +73,9 @@ export function ProductModelTypeDropdown({ selectedId, onSelect, refresh }: Prop
       </select>
       <Dialog open={open} onOpenChange={handleDialogOpenChange}>
         <DialogContent showCloseButton>
+          <DialogHeader>
+            <DialogTitle>기종/형식명 관리</DialogTitle>
+          </DialogHeader>
           <ModelTypeManager onChange={handleManagerChange} />
         </DialogContent>
       </Dialog>
