@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { Navigation } from "@/components/navigation";
 import { RefreshProvider } from "@/lib/refresh-context";
+import { ToastProvider } from '@/components/ui/alert';
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -19,12 +20,14 @@ export default function RootLayout({
   return (
     <html lang="ko">
       <body className={inter.className}>
-        <RefreshProvider>
-          <Navigation />
-          <main className="min-h-screen bg-gray-50">
-            {children}
-          </main>
-        </RefreshProvider>
+        <ToastProvider>
+          <RefreshProvider>
+            <Navigation />
+            <main className="min-h-screen bg-gray-50">
+              {children}
+            </main>
+          </RefreshProvider>
+        </ToastProvider>
       </body>
     </html>
   );
