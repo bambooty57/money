@@ -46,6 +46,7 @@ export function TransactionList() {
 
   useEffect(() => {
     triggerRefresh();
+    router.refresh();
   }, [urlRefreshKey]);
 
   useEffect(() => {
