@@ -1428,6 +1428,7 @@ export default function TransactionDetailClient({ transactions, initialSelectedI
                 alert('삭제되었습니다.');
                 triggerRefresh(); // 대시보드 등 전체 갱신
                 router.push('/transactions?refresh=' + Date.now()); // 삭제 후 거래목록으로 이동하며 강제 refetch
+                router.refresh(); // 삭제 후 목록 즉시 최신화
               } catch (err) {
                 alert('삭제 중 오류 발생: ' + (err as any).message);
               }
