@@ -22,13 +22,15 @@ export default function ModelTypeManager({ onChange }: ModelTypeManagerProps = {
   const [msg, setMsg] = useState('')
 
   async function fetchRows() {
-    const res = await fetch('/api/models-types')
-    const data = await res.json()
+    console.log('[ModelTypeManager] fetchRows() called');
+    const res = await fetch('/api/models-types', { cache: 'no-store' });
+    const data = await res.json();
+    console.log('[ModelTypeManager] fetchRows() data:', data);
     setRows(data.map((row: ModelTypeRow) => ({ ...row, isEditing: false, editModel: row.model, editType: row.type })))
   }
 
   useEffect(() => { fetchRows() }, [])
-  useModelTypesRealtime({ onChange: fetchRows });
+  useModelTypesRealtime({ onChange: () => { console.log('[ModelTypeManager] useModelTypesRealtime onChange'); fetchRows(); } });
 
   async function handleAdd() {
     if (!newModel || !newType) return setMsg('기종명/형식명을 모두 입력하세요')
