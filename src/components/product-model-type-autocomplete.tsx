@@ -13,7 +13,6 @@ type Props = {
 
 export function ProductModelTypeDropdown({ selectedId, onSelect, refresh }: Props) {
   const [options, setOptions] = useState<Option[]>([])
-  const [selected, setSelected] = useState<string>(selectedId)
   const [open, setOpen] = useState(false)
 
   // Fetch options utility for reuse
@@ -28,10 +27,6 @@ export function ProductModelTypeDropdown({ selectedId, onSelect, refresh }: Prop
     fetchOptions()
   }, [refresh])
 
-  useEffect(() => {
-    setSelected(selectedId)
-  }, [selectedId])
-
   // Refresh options after modal closes
   const handleDialogOpenChange = (isOpen: boolean) => {
     setOpen(isOpen)
@@ -44,10 +39,8 @@ export function ProductModelTypeDropdown({ selectedId, onSelect, refresh }: Prop
   const handleManagerChange = async (newId?: string) => {
     const data = await fetchOptions();
     if (newId) {
-      setSelected(newId);
       onSelect(newId);
     } else if (data.length > 0) {
-      setSelected(data[data.length - 1].id);
       onSelect(data[data.length - 1].id);
     }
   };
@@ -56,13 +49,12 @@ export function ProductModelTypeDropdown({ selectedId, onSelect, refresh }: Prop
     <div className="space-y-2">
       <label>기종/형식명</label>
       <select
-        value={selected}
+        value={selectedId}
         onChange={e => {
           if (e.target.value === '__custom__') {
             setOpen(true)
             return
           }
-          setSelected(e.target.value)
           onSelect(e.target.value)
         }}
         className="w-full border rounded p-2 mb-2"
