@@ -11,7 +11,7 @@ interface ModelTypeRow {
 }
 
 interface ModelTypeManagerProps {
-  onChange?: () => void;
+  onChange?: (id?: string) => void;
 }
 
 export default function ModelTypeManager({ onChange }: ModelTypeManagerProps = {}) {
@@ -36,8 +36,9 @@ export default function ModelTypeManager({ onChange }: ModelTypeManagerProps = {
       body: JSON.stringify({ model: newModel, type: newType })
     })
     if (res.ok) {
+      const data = await res.json();
       setNewModel(''); setNewType(''); setMsg('추가 완료'); fetchRows();
-      if (onChange) onChange();
+      if (onChange) onChange(data.id);
     } else {
       setMsg('추가 실패')
     }

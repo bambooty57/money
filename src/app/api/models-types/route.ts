@@ -34,11 +34,13 @@ export async function POST(req: NextRequest) {
   if (!model || !type) {
     return NextResponse.json({ error: 'model and type are required' }, { status: 400 })
   }
-  const { error } = await supabase
+  const { data: inserted, error } = await supabase
     .from('models_types')
     .insert([{ model, type }])
+    .select('id')
+    .single()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ success: true })
+  return NextResponse.json({ id: inserted.id })
 }
 
 export async function PATCH(req: NextRequest) {
