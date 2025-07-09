@@ -16,6 +16,7 @@ import {
   TableCell
 } from './ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
+import { useCustomersRealtime } from '@/lib/useCustomersRealtime';
 
 type CustomerBase = Database['public']['Tables']['customers']['Row'];
 type Customer = CustomerBase & {
@@ -156,6 +157,8 @@ function PaginatedCustomerListInner({
   useEffect(() => {
     fetchCustomers();
   }, [fetchCustomers, refreshKey]);
+
+  useCustomersRealtime({ onChange: fetchCustomers });
 
   // 검색 입력 디바운싱 (성능 최적화)
   const [searchInputValue, setSearchInputValue] = useState(searchTerm);

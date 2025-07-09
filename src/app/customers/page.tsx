@@ -15,11 +15,13 @@ import {
 } from "@/components/ui/dialog";
 import { ExcelUploadForm } from '@/components/excel-upload-form';
 import { usePaymentsRealtime } from '@/lib/usePaymentsRealtime';
+import { useCustomersRealtime } from '@/lib/useCustomersRealtime';
 
 type Customer = Database['public']['Tables']['customers']['Row'];
 
 export default function CustomersPage() {
   usePaymentsRealtime();
+  useCustomersRealtime();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [formOpen, setFormOpen] = useState(false);
   const [editCustomer, setEditCustomer] = useState<Customer | null>(null);
