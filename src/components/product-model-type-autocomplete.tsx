@@ -21,6 +21,7 @@ export function ProductModelTypeDropdown({ selectedId, onSelect, refresh }: Prop
     const res = await fetch(`/api/models-types`)
     const data: Option[] = await res.json()
     setOptions(data)
+    return data;
   }
 
   useEffect(() => {
@@ -41,10 +42,13 @@ export function ProductModelTypeDropdown({ selectedId, onSelect, refresh }: Prop
 
   // Immediate refresh on ModelTypeManager change
   const handleManagerChange = async (newId?: string) => {
-    await fetchOptions();
+    const data = await fetchOptions();
     if (newId) {
       setSelected(newId);
       onSelect(newId);
+    } else if (data.length > 0) {
+      setSelected(data[data.length - 1].id);
+      onSelect(data[data.length - 1].id);
     }
   };
 
