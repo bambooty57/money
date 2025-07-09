@@ -191,16 +191,16 @@ export function TransactionList() {
         </Dialog>
       </div>
       <div className="bg-white rounded-lg shadow-lg overflow-hidden">
-        <Table>
+        <Table className="table-fixed w-full text-lg border-collapse bg-white rounded-lg shadow-lg">
           <TableHeader className="bg-gray-100">
-            <TableRow>
-              <TableHead className="px-4 py-2 text-left text-sm font-semibold text-gray-700">고객명</TableHead>
-              <TableHead className="px-4 py-2 text-left text-sm font-semibold text-gray-700">거래건수</TableHead>
-              <TableHead className="px-4 py-2 text-left text-sm font-semibold text-gray-700">총 매출액</TableHead>
-              <TableHead className="px-4 py-2 text-left text-sm font-semibold text-gray-700">입금액</TableHead>
-              <TableHead className="px-4 py-2 text-left text-sm font-semibold text-gray-700">미수금</TableHead>
-              <TableHead className="px-4 py-2 text-left text-sm font-semibold text-gray-700">입금%</TableHead>
-              <TableHead className="px-4 py-2 text-left text-sm font-semibold text-gray-700">삭제</TableHead>
+            <TableRow className="h-16">
+              <TableHead className="border-2 border-gray-300 px-4 py-4 font-bold text-gray-800 w-32 text-center">고객명</TableHead>
+              <TableHead className="border-2 border-gray-300 px-4 py-4 font-bold text-gray-800 w-24 text-center">거래건수</TableHead>
+              <TableHead className="border-2 border-gray-300 px-4 py-4 font-bold text-gray-800 w-32 text-right">총 매출액</TableHead>
+              <TableHead className="border-2 border-gray-300 px-4 py-4 font-bold text-gray-800 w-32 text-right">입금액</TableHead>
+              <TableHead className="border-2 border-gray-300 px-4 py-4 font-bold text-gray-800 w-32 text-right">미수금</TableHead>
+              <TableHead className="border-2 border-gray-300 px-4 py-4 font-bold text-gray-800 w-24 text-center">입금%</TableHead>
+              <TableHead className="border-2 border-gray-300 px-4 py-4 font-bold text-gray-800 w-16 text-center">삭제</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody className="bg-white divide-y divide-gray-200">
@@ -210,16 +210,16 @@ export function TransactionList() {
               ? summary.transactions.length
               : 0;
             return (
-              <TableRow key={c.id} className="hover:bg-gray-50 cursor-pointer border-b border-gray-200">
-                <TableCell className="px-4 py-2 whitespace-nowrap text-base text-blue-700 underline font-medium" onClick={() => router.push(`/customers/${c.id}/transactions`)}>{c.name}</TableCell>
-                <TableCell className="px-4 py-2 whitespace-nowrap text-base text-gray-900">{transactionCount}건</TableCell>
-                <TableCell className="px-4 py-2 whitespace-nowrap text-base text-gray-900 font-semibold">{(summary.total_amount || 0).toLocaleString()}원</TableCell>
-                <TableCell className="px-4 py-2 whitespace-nowrap text-base text-green-700 font-semibold">{(summary.total_paid || 0).toLocaleString()}원</TableCell>
-                <TableCell className="px-4 py-2 whitespace-nowrap text-base text-red-700 font-semibold">{(summary.total_unpaid || 0).toLocaleString()}원</TableCell>
-                <TableCell className="px-4 py-2 whitespace-nowrap flex items-center gap-2">
+              <TableRow key={c.id} className="hover:bg-blue-50 cursor-pointer border-b border-gray-200 h-16">
+                <TableCell className="border-2 border-gray-300 px-4 py-4 whitespace-nowrap text-base text-blue-700 underline font-medium w-32 text-center" onClick={() => router.push(`/customers/${c.id}/transactions`)}>{c.name}</TableCell>
+                <TableCell className="border-2 border-gray-300 px-4 py-4 whitespace-nowrap text-base text-gray-900 w-24 text-center">{transactionCount}건</TableCell>
+                <TableCell className="border-2 border-gray-300 px-4 py-4 whitespace-nowrap text-base text-gray-900 font-semibold w-32 text-right">{(summary.total_amount || 0).toLocaleString()}원</TableCell>
+                <TableCell className="border-2 border-gray-300 px-4 py-4 whitespace-nowrap text-base text-green-700 font-semibold w-32 text-right">{(summary.total_paid || 0).toLocaleString()}원</TableCell>
+                <TableCell className="border-2 border-gray-300 px-4 py-4 whitespace-nowrap text-base text-red-700 font-semibold w-32 text-right">{(summary.total_unpaid || 0).toLocaleString()}원</TableCell>
+                <TableCell className="border-2 border-gray-300 px-4 py-4 whitespace-nowrap flex items-center gap-2 w-24 text-center">
                   <span className="text-base text-gray-900 font-semibold">{summary.total_ratio || 0}%</span>
                 </TableCell>
-                <TableCell>
+                <TableCell className="border-2 border-gray-300 px-4 py-4 w-16 text-center">
                   <button
                     className="text-red-600 hover:text-red-900 text-lg p-1 hover:bg-red-50 rounded transition-colors"
                     title="거래 삭제"

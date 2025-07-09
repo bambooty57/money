@@ -14,7 +14,7 @@ export async function POST(request: Request) {
   const body = await request.json();
   const { transaction_id, amount, paid_at, method, payer_name, cash_place, cash_receiver, cash_detail, account_number, account_holder, note, paid_location, paid_by, bank_name, otherReason, cheques } = body;
   // 변제내역 저장
-  const paymentData: any = { transaction_id, amount, paid_at, method, payer_name };
+  const paymentData: any = { transaction_id, amount: Math.round(Number(amount)), paid_at, method, payer_name };
   if (method === '현금') {
     paymentData.cash_place = cash_place;
     paymentData.cash_receiver = cash_receiver;

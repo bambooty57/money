@@ -122,7 +122,7 @@ function PaymentForm({ transactionId, onSuccess, setSuccessMsg, setErrorMsg }: {
     try {
       const payload: any = {
         transaction_id: transactionId || '',
-        amount: parseFloat(amount),
+        amount: Math.round(parseFloat(amount)),
         paid_at: paidAt,
         method,
         payer_name: payerName,
@@ -152,7 +152,7 @@ function PaymentForm({ transactionId, onSuccess, setSuccessMsg, setErrorMsg }: {
         payload.used_place = usedPlace;
         payload.used_by = usedBy;
         payload.used_at = usedAt ? usedAt : null;
-        payload.amount = parseFloat(amount); // 인수금액
+        payload.amount = Math.round(parseFloat(amount)); // 인수금액
         payload.note = note;
       }
       if (method === '융자') {
@@ -166,7 +166,7 @@ function PaymentForm({ transactionId, onSuccess, setSuccessMsg, setErrorMsg }: {
       }
       if (method === '수표') {
         payload.cheques = JSON.stringify(cheques);
-        payload.amount = chequeTotal;
+        payload.amount = Math.round(chequeTotal);
         payload.note = note;
       }
       const res = await fetch('/api/payments', {
@@ -1310,12 +1310,8 @@ export default function TransactionDetailClient({ transactions, initialSelectedI
       const res = await fetch(`/api/payments?id=${paymentId}`, { method: 'DELETE' });
       const result = await res.json();
       if (!res.ok || !result.success) throw new Error(result.error || '삭제 실패');
-      setTxList(prev => prev.map(tx => {
-        if (tx.id === selectedId) {
-          return { ...tx, payments: (tx.payments || []).filter(p => p.id !== paymentId) };
-        }
-        return tx;
-      }));
+      await fetchTransactions(); // 서버 데이터 즉시 fetch
+      router.refresh(); // 서버 컴포넌트도 최신화
       setSuccessMsg('삭제되었습니다.');
       toast({ type: 'success', message: '입금내역이 삭제되었습니다.' });
     } catch (err: any) {
@@ -1583,17 +1579,17 @@ export default function TransactionDetailClient({ transactions, initialSelectedI
           📋 입금내역
         </h2>
         <div className="overflow-x-auto bg-white rounded-lg shadow-lg border-2 border-gray-200">
-          <table className="w-full text-lg border-collapse">
+          <table className="table-fixed w-full text-lg border-collapse bg-white rounded-lg shadow-lg">
             <thead>
-              <tr className="bg-blue-100 border-b-2 border-blue-200">
-                <th className="border border-gray-300 px-4 py-4 font-bold text-gray-800">일자</th>
-                <th className="border border-gray-300 px-4 py-4 font-bold text-gray-800">입금자</th>
-                <th className="border border-gray-300 px-4 py-4 font-bold text-gray-800">방식</th>
-                <th className="border border-gray-300 px-4 py-4 font-bold text-gray-800">금액</th>
-                <th className="border border-gray-300 px-4 py-4 font-bold text-gray-800">입금은행</th>
-                <th className="border border-gray-300 px-4 py-4 font-bold text-gray-800">상세정보</th>
-                <th className="border border-gray-300 px-4 py-4 font-bold text-gray-800">비고</th>
-                <th className="border border-gray-300 px-4 py-4 font-bold text-gray-800">삭제</th>
+              <tr className="bg-blue-100 border-b-2 border-blue-200 h-16">
+                <th className="border-2 border-gray-300 px-4 py-4 font-bold text-gray-800 w-32 text-center">일자</th>
+                <th className="border-2 border-gray-300 px-4 py-4 font-bold text-gray-800 w-24 text-center">입금자</th>
+                <th className="border-2 border-gray-300 px-4 py-4 font-bold text-gray-800 w-24 text-center">방식</th>
+                <th className="border-2 border-gray-300 px-4 py-4 font-bold text-gray-800 w-32 text-right">금액</th>
+                <th className="border-2 border-gray-300 px-4 py-4 font-bold text-gray-800 w-32 text-center">입금은행</th>
+                <th className="border-2 border-gray-300 px-4 py-4 font-bold text-gray-800 w-40 text-center">상세정보</th>
+                <th className="border-2 border-gray-300 px-4 py-4 font-bold text-gray-800 w-24 text-center">비고</th>
+                <th className="border-2 border-gray-300 px-4 py-4 font-bold text-gray-800 w-16 text-center">삭제</th>
               </tr>
             </thead>
             <tbody>
@@ -1603,84 +1599,15 @@ export default function TransactionDetailClient({ transactions, initialSelectedI
                   itemHeight={64}
                   containerHeight={400}
                   renderItem={(item: any, index: number) => (
-                    <tr key={item.id} className={`hover:bg-blue-50 border-b border-gray-200 ${index % 2 === 0 ? 'bg-gray-50' : ''}`}>
-                      <td className="border border-gray-300 px-4 py-4 text-center">{item.paid_at?.slice(0, 10)}</td>
-                      <td className="border border-gray-300 px-4 py-4 font-semibold">{item.payer_name}</td>
-                      <td className="border border-gray-300 px-4 py-4 text-center">
-                        <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">
-                          {item.method}
-                        </span>
-                      </td>
-                      <td className="border border-gray-300 px-4 py-4 text-right font-bold text-blue-600">{item.amount?.toLocaleString()}원</td>
-                      <td className="border border-gray-300 px-4 py-4 text-center">
-                        {item.bank_name ? (
-                          <span className="bg-green-100 text-green-800 px-3 py-2 rounded-full text-base font-semibold">
-                            🏦 {item.bank_name}
-                          </span>
-                        ) : null}
-                      </td>
-                      <td className="border border-gray-300 px-4 py-4 text-base leading-relaxed">
-                        {item.method === '카드' && (
-                          <div className="space-y-1">
-                            <div><span className="font-semibold text-blue-600">📍 장소:</span> <span className="text-gray-800">{item.paid_location || '미기입'}</span></div>
-                            <div><span className="font-semibold text-blue-600">👤 담당:</span> <span className="text-gray-800">{item.paid_by || '미기입'}</span></div>
-                          </div>
-                        )}
-                        {item.method === '중고인수' && (
-                          <div className="space-y-1">
-                            <div><span className="font-semibold text-purple-600">🚜 기종:</span> <span className="text-gray-800">{item.used_model_type || '미기입'}</span></div>
-                            <div><span className="font-semibold text-purple-600">📱 모델:</span> <span className="text-gray-800">{item.used_model || '미기입'}</span></div>
-                            <div><span className="font-semibold text-purple-600">📍 장소:</span> <span className="text-gray-800">{item.used_place || '미기입'}</span></div>
-                            <div><span className="font-semibold text-purple-600">👤 담당:</span> <span className="text-gray-800">{item.used_by || '미기입'}</span></div>
-                          </div>
-                        )}
-                        {item.method === '기타' && (
-                          <div>
-                            <span className="font-semibold text-orange-600">📝 상세:</span> <span className="text-gray-800">{item.detail || '상세 정보 없음'}</span>
-                          </div>
-                        )}
-                        {item.method === '현금' && (
-                          <div className="space-y-1">
-                            <div><span className="font-semibold text-green-600">📍 장소:</span> <span className="text-gray-800">{item.cash_place || '미기입'}</span></div>
-                            <div><span className="font-semibold text-green-600">👤 수령:</span> <span className="text-gray-800">{item.cash_receiver || '미기입'}</span></div>
-                            {item.cash_detail && (
-                              <div><span className="font-semibold text-green-600">📝 상세:</span> <span className="text-gray-800">{item.cash_detail}</span></div>
-                            )}
-                          </div>
-                        )}
-                        {item.method === '계좌이체' && (
-                          <div className="space-y-1">
-                            <div><span className="font-semibold text-indigo-600">💳 계좌:</span> <span className="text-gray-800 font-mono">{item.account_number || '미기입'}</span></div>
-                            <div><span className="font-semibold text-indigo-600">👤 예금주:</span> <span className="text-gray-800">{item.account_holder || '미기입'}</span></div>
-                          </div>
-                        )}
-                        {item.method === '융자' && (
-                          <div>
-                            <span className="font-semibold text-red-600">📋 융자상세:</span> <span className="text-gray-800">{item.detail || '상세 정보 없음'}</span>
-                          </div>
-                        )}
-                        {item.method === '수표' && item.cheques && (() => {
-                          let cheques = [];
-                          try { cheques = JSON.parse(item.cheques); } catch {}
-                          return (
-                            <div className="space-y-1">
-                              {cheques.map((c: any, i: number) => (
-                                <div key={i}>
-                                  <span className="font-semibold text-blue-700">🏦{c.bank}</span> /
-                                  <span className="font-semibold text-blue-700">💵{Number(c.amount).toLocaleString()}원</span> /
-                                  <span className="font-semibold text-blue-700"># {c.number}</span>
-                                </div>
-                              ))}
-                            </div>
-                          );
-                        })()}
-                      </td>
-                      <td className="border border-gray-300 px-4 py-4">{item.note}</td>
-                      <td className="border border-gray-300 px-4 py-4 text-center">
-                        <button onClick={() => handleDeletePayment(item.id)} title="삭제" className="text-red-500 hover:text-red-700 bg-red-100 hover:bg-red-200 px-3 py-2 rounded-lg transition-colors duration-200">
-                          <Trash2 size={20} />
-                        </button>
-                      </td>
+                    <tr key={item.id} className={`hover:bg-blue-50 border-b border-gray-200 h-16 ${index % 2 === 0 ? 'bg-gray-50' : ''}`}>
+                      <td className="border-2 border-gray-300 px-4 py-4 text-center w-32 text-lg">{item.paid_at?.slice(0, 10)}</td>
+                      <td className="border-2 border-gray-300 px-4 py-4 font-semibold w-24 text-center text-lg">{item.payer_name}</td>
+                      <td className="border-2 border-gray-300 px-4 py-4 text-center w-24 text-lg">{/* 방식 */}</td>
+                      <td className="border-2 border-gray-300 px-4 py-4 text-right font-bold text-blue-600 w-32 text-2xl">{item.amount?.toLocaleString()}원</td>
+                      <td className="border-2 border-gray-300 px-4 py-4 text-center w-32 text-lg">{/* 입금은행 */}</td>
+                      <td className="border-2 border-gray-300 px-4 py-4 text-center w-40 text-lg">{/* 상세정보 */}</td>
+                      <td className="border-2 border-gray-300 px-4 py-4 w-24 text-center text-lg">{item.note}</td>
+                      <td className="border-2 border-gray-300 px-4 py-4 w-16 text-center">{/* 삭제버튼 */}</td>
                     </tr>
                   )}
                 />
