@@ -1316,6 +1316,7 @@ export default function TransactionDetailClient({ transactions, initialSelectedI
       if (!res.ok || !result.success) throw new Error(result.error || '삭제 실패');
       await fetchTransactions(); // 서버 데이터 즉시 fetch
       router.refresh(); // 서버 컴포넌트도 최신화
+      triggerRefresh(); // 대시보드 등 전체 갱신
       setSuccessMsg('삭제되었습니다.');
       toast({ type: 'success', message: '입금내역이 삭제되었습니다.' });
     } catch (err: any) {
@@ -1419,6 +1420,7 @@ export default function TransactionDetailClient({ transactions, initialSelectedI
                 const res = await fetch(`/api/transactions?id=${selectedTx.id}`, { method: 'DELETE' });
                 if (!res.ok) throw new Error('삭제 실패');
                 alert('삭제되었습니다.');
+                triggerRefresh(); // 대시보드 등 전체 갱신
                 router.push('/transactions?refresh=' + Date.now()); // 삭제 후 거래목록으로 이동하며 강제 refetch
               } catch (err) {
                 alert('삭제 중 오류 발생: ' + (err as any).message);
