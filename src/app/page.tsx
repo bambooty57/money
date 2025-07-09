@@ -154,15 +154,20 @@ export default function DashboardPage() {
   );
   const agingData = data.agingAnalysis.map(item => item.amount);
 
-  // 상위 고객 차트 데이터 (x축: 고객명, 그래프 내부: 건별 미수금)
-  const customerLabels = data.topCustomers.map(customer => customer.name);
-  // 각 고객별 미수 거래만 추출
-  const maxTxCount = Math.max(...data.topCustomers.map(c => c.transactions.filter(tx => tx.status === 'unpaid').length));
+  // 1. Top 10 고객만 추출
+  const top10 = data.topCustomers.slice(0, 10);
+  // 2. X축 라벨: 고객명(윗줄) + 총 미수금(아랫줄)
+  const customerLabels = top10.map(c => `${c.name}\n₩${c.unpaidAmount.toLocaleString()}`);
+  // 3. 각 고객별 건별 미수금 스택 데이터셋 생성
+  const maxTxCount = Math.max(...top10.map(c => c.transactions.filter(tx => tx.status === 'unpaid').length));
   const stackDatasets = Array.from({ length: maxTxCount }).map((_, stackIdx) => ({
     label: `${stackIdx + 1}번째 건`,
-    data: data.topCustomers.map(c => {
+    data: top10.map(c => {
       const unpaidTxs = (c.transactions as any[]).filter((tx: any) => tx.status === 'unpaid');
-      return unpaidTxs[stackIdx]?.amount || 0;
+      const tx = unpaidTxs[stackIdx];
+      if (!tx) return 0;
+      const paid = (tx.payments || []).reduce((sum: any, p: any) => sum + (p.amount || 0), 0);
+      return Math.max((tx.amount || 0) - paid, 0);
     }),
     backgroundColor: stackColors[stackIdx % stackColors.length],
     borderColor: stackBorderColors[stackIdx % stackBorderColors.length],
@@ -398,7 +403,7 @@ export default function DashboardPage() {
             </div>
             <Bar
               data={{
-                labels: customerLabels, // 고객명 배열이 x축에 정확히 들어감
+                labels: customerLabels,
                 datasets: stackDatasets
               }}
               options={{
@@ -411,24 +416,22 @@ export default function DashboardPage() {
                     font: { weight: 'bold', size: 16 },
                     anchor: 'center',
                     align: 'center',
-                    // 각 스택별 미수금은 이미 표시됨, 아래는 각 고객별 합계(막대 중앙) 추가 표시
                     formatter: function(value, context) {
-                      // 마지막 스택(맨 위)만 합계 표시
-                      const datasetIndex = context.datasetIndex;
-                      const dataIndex = context.dataIndex;
-                      if (datasetIndex === stackDatasets.length - 1) {
-                        // 해당 고객의 전체 미수금 합계
-                        const total = data.topCustomers[dataIndex]?.unpaidAmount || 0;
-                        return total > 0 ? `₩${total.toLocaleString('ko-KR')}` : '';
-                      }
-                      return '';
+                      // 각 스택 조각에만 금액 표시 (합계는 x축 라벨로 대체)
+                      return value > 0 ? `₩${Number(value).toLocaleString('ko-KR')}` : '';
                     },
                   },
                 },
                 scales: {
                   x: {
                     stacked: true,
-                    ticks: { font: { size: 16 }, callback: (v) => v },
+                    ticks: {
+                      font: { size: 16 },
+                      callback: function(value, index) {
+                        // index 기반 2줄 라벨 강제 반환
+                        return customerLabels[index] ? customerLabels[index].split('\n') : value;
+                      }
+                    },
                   },
                   y: {
                     stacked: true,
