@@ -3,7 +3,7 @@ import { useEffect } from 'react';
 import { createClient } from './supabase';
 import { useRefreshContext } from './refresh-context';
 
-export function usePaymentsRealtime() {
+export function usePaymentsRealtime({ customerId, onPaymentsChange }: { customerId?: string, onPaymentsChange?: () => void } = {}) {
   const { triggerRefresh } = useRefreshContext();
 
   useEffect(() => {
@@ -13,12 +13,19 @@ export function usePaymentsRealtime() {
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'payments' },
-        () => triggerRefresh()
+        (payload) => {
+          // customerId가 있으면 해당 거래만, 아니면 전체
+          if (onPaymentsChange) {
+            onPaymentsChange();
+          } else {
+            triggerRefresh();
+          }
+        }
       )
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [triggerRefresh]);
+  }, [triggerRefresh, customerId, onPaymentsChange]);
 } 

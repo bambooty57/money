@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import type { Database } from '@/types/database';
 import { supabase } from '@/lib/supabase';
 import dynamic from 'next/dynamic';
@@ -15,6 +15,9 @@ import TransactionForm from '@/components/transaction-form';
 import { useRouter } from 'next/navigation';
 import { useRefreshContext } from '@/lib/refresh-context';
 import { usePaymentsRealtime } from '@/lib/usePaymentsRealtime';
+import { createClient } from '@/lib/supabase';
+import { useToast } from '@/components/ui/alert';
+import { VirtualList } from '@/components/ui/virtual-list';
 
 type Transaction = Database['public']['Tables']['transactions']['Row'];
 type File = Database['public']['Tables']['files']['Row'];
@@ -1064,10 +1067,47 @@ type NormalizedPayment = Omit<PaymentType,
 };
 
 export default function TransactionDetailClient({ transactions, initialSelectedId, customerId, onPaymentSuccess }: Props) {
-  usePaymentsRealtime();
   const [selectedId, setSelectedId] = useState(initialSelectedId || transactions[0]?.id);
   const [txList, setTxList] = useState(transactions);
-  const selectedTx = txList.find(tx => tx.id === selectedId) || txList[0];
+  const router = useRouter();
+  const { triggerRefresh, refreshKey } = useRefreshContext();
+  const toast = useToast();
+
+  // 거래/입금 데이터 fetch 함수
+  const fetchTransactions = useCallback(async () => {
+    if (!customerId) return;
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from('transactions')
+      .select('*, payments(*), files(*), customers:customer_id(*), models_types:models_types_id(model, type)')
+      .eq('customer_id', customerId);
+    if (data) {
+      // 집계 로직 동일하게 적용
+      const txs: TransactionWithDetails[] = (data as any[]).map(tx => {
+        const paid = (tx.payments || []).reduce((sum: number, p: any) => sum + (p.amount || 0), 0);
+        const unpaid = (tx.amount || 0) - paid;
+        const ratio = tx.amount ? Math.round((paid / tx.amount) * 100) : 0;
+        return {
+          ...tx,
+          paid_amount: paid,
+          unpaid_amount: unpaid,
+          paid_ratio: ratio,
+          payments: tx.payments,
+          files: tx.files
+        };
+      });
+      setTxList(txs);
+    }
+  }, [customerId]);
+
+  // 실시간 구독: payments 테이블 변경 시 해당 고객 거래 데이터 fetch
+  usePaymentsRealtime({ customerId, onPaymentsChange: fetchTransactions });
+
+  // refreshKey, customerId가 바뀔 때마다 fetch
+  useEffect(() => {
+    fetchTransactions();
+  }, [fetchTransactions, refreshKey, customerId]);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [showSignature, setShowSignature] = useState(false);
@@ -1076,8 +1116,6 @@ export default function TransactionDetailClient({ transactions, initialSelectedI
   const [selectedAttachmentType, setSelectedAttachmentType] = useState(ATTACHMENT_TYPES[0]);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [editOpen, setEditOpen] = useState(false);
-  const router = useRouter();
-  const { triggerRefresh } = useRefreshContext();
 
   // 입금내역 필터/검색/정렬 상태
   const [paymentFilter, setPaymentFilter] = useState({
@@ -1093,18 +1131,19 @@ export default function TransactionDetailClient({ transactions, initialSelectedI
     search: '',
   });
 
+  const selectedTx = txList.find(tx => tx.id === selectedId) || txList[0];
   // 필터링된 입금내역
-  const filteredPayments = (selectedTx.payments || [])
-    .filter(p => !paymentFilter.method || p.method === paymentFilter.method)
-    .filter(p => !paymentFilter.minAmount || (p.amount || 0) >= Number(paymentFilter.minAmount))
-    .filter(p => !paymentFilter.maxAmount || (p.amount || 0) <= Number(paymentFilter.maxAmount))
-    .filter(p => !paymentFilter.startDate || (p.paid_at || '') >= paymentFilter.startDate)
-    .filter(p => !paymentFilter.endDate || (p.paid_at || '') <= paymentFilter.endDate)
-    .filter(p => !paymentFilter.note || (p.note || '').includes(paymentFilter.note))
-    .filter(p => !paymentFilter.search || (
+  const filteredPayments = (selectedTx && selectedTx.payments ? selectedTx.payments : [])
+    .filter((p: any) => !paymentFilter.method || p.method === paymentFilter.method)
+    .filter((p: any) => !paymentFilter.minAmount || (p.amount || 0) >= Number(paymentFilter.minAmount))
+    .filter((p: any) => !paymentFilter.maxAmount || (p.amount || 0) <= Number(paymentFilter.maxAmount))
+    .filter((p: any) => !paymentFilter.startDate || (p.paid_at || '') >= paymentFilter.startDate)
+    .filter((p: any) => !paymentFilter.endDate || (p.paid_at || '') <= paymentFilter.endDate)
+    .filter((p: any) => !paymentFilter.note || (p.note || '').includes(paymentFilter.note))
+    .filter((p: any) => !paymentFilter.search || (
       (p.note || '').includes(paymentFilter.search)
     ))
-    .sort((a, b) => {
+    .sort((a: any, b: any) => {
       const field = paymentFilter.sortBy;
       const order = paymentFilter.sortOrder === 'asc' ? 1 : -1;
       if (field === 'amount') return ((a.amount || 0) - (b.amount || 0)) * order;
@@ -1259,20 +1298,10 @@ export default function TransactionDetailClient({ transactions, initialSelectedI
   // 결제 등록 후 목록 갱신
   const handlePaymentSuccess = async () => {
     if (onPaymentSuccess) onPaymentSuccess();
-    // 기존: triggerRefresh();
-    // 개선: 해당 거래 최신 정보 fetch 후 txList 갱신
-    try {
-      if (!selectedId) return;
-      const res = await fetch(`/api/customers/${selectedTx.customer_id}/transactions/${selectedId}`);
-      if (res.ok) {
-        const updatedTx = await res.json();
-        setTxList(prev => prev.map(tx => tx.id === selectedId ? updatedTx : tx));
-      } else {
-        triggerRefresh(); // fallback
-      }
-    } catch {
-      triggerRefresh(); // fallback
-    }
+    router.refresh(); // 서버 컴포넌트 재실행
+    await fetchTransactions(); // 클라이언트 즉시 fetch
+    triggerRefresh(); // context 갱신
+    toast({ type: 'success', message: '입금 등록이 완료되었습니다.' });
   };
 
   const handleDeletePayment = async (paymentId: string) => {
@@ -1288,8 +1317,10 @@ export default function TransactionDetailClient({ transactions, initialSelectedI
         return tx;
       }));
       setSuccessMsg('삭제되었습니다.');
+      toast({ type: 'success', message: '입금내역이 삭제되었습니다.' });
     } catch (err: any) {
       setErrorMsg(err.message || '삭제 중 오류 발생');
+      toast({ type: 'error', message: err.message || '삭제 중 오류 발생' });
     }
   };
 
@@ -1567,89 +1598,92 @@ export default function TransactionDetailClient({ transactions, initialSelectedI
             </thead>
             <tbody>
               {filteredPayments.length > 0 ? (
-                filteredPayments.map(p => (
-                  <tr key={p.id} className="hover:bg-blue-50 border-b border-gray-200">
-                    <td className="border border-gray-300 px-4 py-4 text-center">{p.paid_at?.slice(0, 10)}</td>
-                    <td className="border border-gray-300 px-4 py-4 font-semibold">{p.payer_name}</td>
-                    <td className="border border-gray-300 px-4 py-4 text-center">
-                      <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">
-                        {p.method}
-                      </span>
-                    </td>
-                    <td className="border border-gray-300 px-4 py-4 text-right font-bold text-blue-600">{p.amount?.toLocaleString()}원</td>
-                    <td className="border border-gray-300 px-4 py-4 text-center">
-                      {p.bank_name ? (
-                        <span className="bg-green-100 text-green-800 px-3 py-2 rounded-full text-base font-semibold">
-                          🏦 {p.bank_name}
+                <VirtualList
+                  items={filteredPayments}
+                  itemHeight={64}
+                  containerHeight={400}
+                  renderItem={(item: any, index: number) => (
+                    <tr key={item.id} className={`hover:bg-blue-50 border-b border-gray-200 ${index % 2 === 0 ? 'bg-gray-50' : ''}`}>
+                      <td className="border border-gray-300 px-4 py-4 text-center">{item.paid_at?.slice(0, 10)}</td>
+                      <td className="border border-gray-300 px-4 py-4 font-semibold">{item.payer_name}</td>
+                      <td className="border border-gray-300 px-4 py-4 text-center">
+                        <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">
+                          {item.method}
                         </span>
-                      ) : (
-                        <span className="text-gray-400 text-base">-</span>
-                      )}
-                    </td>
-                    <td className="border border-gray-300 px-4 py-4 text-base leading-relaxed">
-                      {p.method === '카드' && (
-                        <div className="space-y-1">
-                          <div><span className="font-semibold text-blue-600">📍 장소:</span> <span className="text-gray-800">{p.paid_location || '미기입'}</span></div>
-                          <div><span className="font-semibold text-blue-600">👤 담당:</span> <span className="text-gray-800">{p.paid_by || '미기입'}</span></div>
-                        </div>
-                      )}
-                      {p.method === '중고인수' && (
-                        <div className="space-y-1">
-                          <div><span className="font-semibold text-purple-600">🚜 기종:</span> <span className="text-gray-800">{p.used_model_type || '미기입'}</span></div>
-                          <div><span className="font-semibold text-purple-600">📱 모델:</span> <span className="text-gray-800">{p.used_model || '미기입'}</span></div>
-                          <div><span className="font-semibold text-purple-600">📍 장소:</span> <span className="text-gray-800">{p.used_place || '미기입'}</span></div>
-                          <div><span className="font-semibold text-purple-600">👤 담당:</span> <span className="text-gray-800">{p.used_by || '미기입'}</span></div>
-                        </div>
-                      )}
-                      {p.method === '기타' && (
-                        <div>
-                          <span className="font-semibold text-orange-600">📝 상세:</span> <span className="text-gray-800">{p.detail || '상세 정보 없음'}</span>
-                        </div>
-                      )}
-                      {p.method === '현금' && (
-                        <div className="space-y-1">
-                          <div><span className="font-semibold text-green-600">📍 장소:</span> <span className="text-gray-800">{p.cash_place || '미기입'}</span></div>
-                          <div><span className="font-semibold text-green-600">👤 수령:</span> <span className="text-gray-800">{p.cash_receiver || '미기입'}</span></div>
-                          {p.cash_detail && (
-                            <div><span className="font-semibold text-green-600">📝 상세:</span> <span className="text-gray-800">{p.cash_detail}</span></div>
-                          )}
-                        </div>
-                      )}
-                      {p.method === '계좌이체' && (
-                        <div className="space-y-1">
-                          <div><span className="font-semibold text-indigo-600">💳 계좌:</span> <span className="text-gray-800 font-mono">{p.account_number || '미기입'}</span></div>
-                          <div><span className="font-semibold text-indigo-600">👤 예금주:</span> <span className="text-gray-800">{p.account_holder || '미기입'}</span></div>
-                        </div>
-                      )}
-                      {p.method === '융자' && (
-                        <div>
-                          <span className="font-semibold text-red-600">📋 융자상세:</span> <span className="text-gray-800">{p.detail || '상세 정보 없음'}</span>
-                        </div>
-                      )}
-                      {p.method === '수표' && p.cheques && (() => {
-                        let cheques = [];
-                        try { cheques = JSON.parse(p.cheques); } catch {}
-                        return (
+                      </td>
+                      <td className="border border-gray-300 px-4 py-4 text-right font-bold text-blue-600">{item.amount?.toLocaleString()}원</td>
+                      <td className="border border-gray-300 px-4 py-4 text-center">
+                        {item.bank_name ? (
+                          <span className="bg-green-100 text-green-800 px-3 py-2 rounded-full text-base font-semibold">
+                            🏦 {item.bank_name}
+                          </span>
+                        ) : null}
+                      </td>
+                      <td className="border border-gray-300 px-4 py-4 text-base leading-relaxed">
+                        {item.method === '카드' && (
                           <div className="space-y-1">
-                            {cheques.map((c: any, i: number) => (
-                              <div key={i}>
-                                <span className="font-semibold text-blue-700">🏦{c.bank}</span> /
-                                <span className="font-semibold text-blue-700">💵{Number(c.amount).toLocaleString()}원</span> /
-                                <span className="font-semibold text-blue-700"># {c.number}</span>
-                              </div>
-                            ))}
+                            <div><span className="font-semibold text-blue-600">📍 장소:</span> <span className="text-gray-800">{item.paid_location || '미기입'}</span></div>
+                            <div><span className="font-semibold text-blue-600">👤 담당:</span> <span className="text-gray-800">{item.paid_by || '미기입'}</span></div>
                           </div>
-                        );
-                      })()}
-                    </td>
-                    <td className="border border-gray-300 px-4 py-4">{p.note}</td>
-                    <td className="border border-gray-300 px-4 py-4 text-center">
-                      <button onClick={() => handleDeletePayment(p.id)} title="삭제" className="text-red-500 hover:text-red-700 bg-red-100 hover:bg-red-200 px-3 py-2 rounded-lg transition-colors duration-200">
-                        <Trash2 size={20} />
-                      </button>
-                    </td>
-                  </tr>
-                ))
+                        )}
+                        {item.method === '중고인수' && (
+                          <div className="space-y-1">
+                            <div><span className="font-semibold text-purple-600">🚜 기종:</span> <span className="text-gray-800">{item.used_model_type || '미기입'}</span></div>
+                            <div><span className="font-semibold text-purple-600">📱 모델:</span> <span className="text-gray-800">{item.used_model || '미기입'}</span></div>
+                            <div><span className="font-semibold text-purple-600">📍 장소:</span> <span className="text-gray-800">{item.used_place || '미기입'}</span></div>
+                            <div><span className="font-semibold text-purple-600">👤 담당:</span> <span className="text-gray-800">{item.used_by || '미기입'}</span></div>
+                          </div>
+                        )}
+                        {item.method === '기타' && (
+                          <div>
+                            <span className="font-semibold text-orange-600">📝 상세:</span> <span className="text-gray-800">{item.detail || '상세 정보 없음'}</span>
+                          </div>
+                        )}
+                        {item.method === '현금' && (
+                          <div className="space-y-1">
+                            <div><span className="font-semibold text-green-600">📍 장소:</span> <span className="text-gray-800">{item.cash_place || '미기입'}</span></div>
+                            <div><span className="font-semibold text-green-600">👤 수령:</span> <span className="text-gray-800">{item.cash_receiver || '미기입'}</span></div>
+                            {item.cash_detail && (
+                              <div><span className="font-semibold text-green-600">📝 상세:</span> <span className="text-gray-800">{item.cash_detail}</span></div>
+                            )}
+                          </div>
+                        )}
+                        {item.method === '계좌이체' && (
+                          <div className="space-y-1">
+                            <div><span className="font-semibold text-indigo-600">💳 계좌:</span> <span className="text-gray-800 font-mono">{item.account_number || '미기입'}</span></div>
+                            <div><span className="font-semibold text-indigo-600">👤 예금주:</span> <span className="text-gray-800">{item.account_holder || '미기입'}</span></div>
+                          </div>
+                        )}
+                        {item.method === '융자' && (
+                          <div>
+                            <span className="font-semibold text-red-600">📋 융자상세:</span> <span className="text-gray-800">{item.detail || '상세 정보 없음'}</span>
+                          </div>
+                        )}
+                        {item.method === '수표' && item.cheques && (() => {
+                          let cheques = [];
+                          try { cheques = JSON.parse(item.cheques); } catch {}
+                          return (
+                            <div className="space-y-1">
+                              {cheques.map((c: any, i: number) => (
+                                <div key={i}>
+                                  <span className="font-semibold text-blue-700">🏦{c.bank}</span> /
+                                  <span className="font-semibold text-blue-700">💵{Number(c.amount).toLocaleString()}원</span> /
+                                  <span className="font-semibold text-blue-700"># {c.number}</span>
+                                </div>
+                              ))}
+                            </div>
+                          );
+                        })()}
+                      </td>
+                      <td className="border border-gray-300 px-4 py-4">{item.note}</td>
+                      <td className="border border-gray-300 px-4 py-4 text-center">
+                        <button onClick={() => handleDeletePayment(item.id)} title="삭제" className="text-red-500 hover:text-red-700 bg-red-100 hover:bg-red-200 px-3 py-2 rounded-lg transition-colors duration-200">
+                          <Trash2 size={20} />
+                        </button>
+                      </td>
+                    </tr>
+                  )}
+                />
               ) : (
                 <tr><td colSpan={8} className="text-center text-gray-400 py-8 text-xl">📭 입금내역이 없습니다</td></tr>
               )}
