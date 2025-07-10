@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Input } from './ui/input'
 import { useModelTypesRealtime } from '@/lib/useModelTypesRealtime';
+import { supabase } from '@/lib/supabase';
 
 interface ModelTypeRow {
   id: string
@@ -85,10 +86,22 @@ export default function ModelTypeManager({ onChange }: ModelTypeManagerProps = {
       return
     }
     try {
+      // access_token 획득
+      let accessToken = '';
+      try {
+        const sessionRes = await supabase.auth.getSession();
+        accessToken = sessionRes.data.session?.access_token || '';
+        console.log('[handleEditSave] accessToken', accessToken);
+      } catch (e) {
+        console.warn('[handleEditSave] accessToken 획득 실패', e);
+      }
       console.log('[handleEditSave] PATCH fetch start', { id: row.id, model: row.editModel, type: row.editType });
       const res = await fetch('/api/models-types', {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {})
+        },
         body: JSON.stringify({ id: row.id, model: row.editModel, type: row.editType })
       })
       console.log('[handleEditSave] PATCH fetch response', res);
