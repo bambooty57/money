@@ -1315,7 +1315,21 @@ export default function TransactionDetailClient({ transactions, initialSelectedI
   const handleDeletePayment = async (paymentId: string) => {
     if (!window.confirm('정말로 이 입금내역을 삭제하시겠습니까?')) return;
     try {
-      const res = await fetch(`/api/payments?id=${paymentId}`, { method: 'DELETE' });
+      // Supabase 세션에서 토큰 가져오기
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+
+      if (!token) {
+        alert('인증이 필요합니다. 다시 로그인해주세요.');
+        return;
+      }
+      
+      const res = await fetch(`/api/payments?id=${paymentId}`, { 
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
       const result = await res.json();
       if (!res.ok || !result.success) throw new Error(result.error || '삭제 실패');
       await fetchTransactions(); // 서버 데이터 즉시 fetch
@@ -1421,8 +1435,27 @@ export default function TransactionDetailClient({ transactions, initialSelectedI
             onClick={async () => {
               if (!window.confirm('정말로 이 거래를 삭제하시겠습니까?')) return;
               try {
-                const res = await fetch(`/api/transactions?id=${selectedTx.id}`, { method: 'DELETE' });
-                if (!res.ok) throw new Error('삭제 실패');
+                // Supabase 세션에서 토큰 가져오기
+                const { data: { session } } = await supabase.auth.getSession();
+                const token = session?.access_token;
+
+                if (!token) {
+                  alert('인증이 필요합니다. 다시 로그인해주세요.');
+                  return;
+                }
+                
+                const res = await fetch(`/api/transactions?id=${selectedTx.id}`, { 
+                  method: 'DELETE',
+                  headers: {
+                    'Authorization': `Bearer ${token}`
+                  }
+                });
+                
+                if (!res.ok) {
+                  const errorText = await res.text();
+                  throw new Error('삭제 실패: ' + errorText);
+                }
+                
                 alert('삭제되었습니다.');
                 triggerRefresh(); // 대시보드 등 전체 갱신
                 router.push('/transactions?refresh=' + Date.now()); // 삭제 후 거래목록으로 이동하며 강제 refetch

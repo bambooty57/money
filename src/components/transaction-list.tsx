@@ -28,6 +28,7 @@ import ModelTypeManager from './model-type-manager';
 import TransactionDetailClient from "@/app/customers/[id]/transactions/TransactionDetailClient";
 import { useRefreshContext } from '@/lib/refresh-context';
 import { usePaymentsRealtime } from '@/lib/usePaymentsRealtime';
+import { supabase } from '@/lib/supabase';
 
 type Transaction = Database['public']['Tables']['transactions']['Row'];
 type Customer = Database['public']['Tables']['customers']['Row'];
@@ -229,17 +230,38 @@ export function TransactionList() {
                       onClick={async (e) => {
                         e.stopPropagation();
                         if (!window.confirm('정말로 이 거래를 삭제하시겠습니까?')) return;
-                        const res = await fetch(`/api/transactions?id=${summary.transactions[0].id}`, { method: 'DELETE' });
-                        if (res.ok) {
-                          triggerRefresh();
-                          setTimeout(() => triggerRefresh(), 700);
-                          // 강제 새로고침 추가 (고객상세와 동일하게)
-                          router.push('/transactions?refresh=' + Date.now());
-                          router.refresh();
-                          alert('삭제되었습니다.');
-                        } else {
-                          const { error } = await res.json();
-                          alert('삭제 실패: ' + error);
+                        
+                        try {
+                          // Supabase 세션에서 토큰 가져오기
+                          const { data: { session } } = await supabase.auth.getSession();
+                          const token = session?.access_token;
+
+                          if (!token) {
+                            alert('인증이 필요합니다. 다시 로그인해주세요.');
+                            return;
+                          }
+                          
+                          const res = await fetch(`/api/transactions?id=${summary.transactions[0].id}`, { 
+                            method: 'DELETE',
+                            headers: {
+                              'Authorization': `Bearer ${token}`
+                            }
+                          });
+                          
+                          if (res.ok) {
+                            triggerRefresh();
+                            setTimeout(() => triggerRefresh(), 700);
+                            // 강제 새로고침 추가 (고객상세와 동일하게)
+                            router.push('/transactions?refresh=' + Date.now());
+                            router.refresh();
+                            alert('삭제되었습니다.');
+                          } else {
+                            const errorText = await res.text();
+                            alert('삭제 실패: ' + errorText);
+                          }
+                        } catch (error) {
+                          console.error('거래 삭제 중 오류:', error);
+                          alert('거래 삭제 중 오류가 발생했습니다.');
                         }
                       }}
                     >🗑️</button>

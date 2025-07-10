@@ -127,9 +127,21 @@ export function CustomerForm({ onSuccess, open, setOpen, customer }: CustomerFor
         try {
           console.log('🗑️ 사진 삭제 시도 - ID:', (photo as any).id);
           
+          // Supabase 세션에서 토큰 가져오기
+          const { data: { session } } = await supabase.auth.getSession();
+          const token = session?.access_token;
+
+          if (!token) {
+            alert('인증이 필요합니다. 다시 로그인해주세요.');
+            return;
+          }
+          
           // 실제 파일 ID로 삭제 API 호출
           const res = await fetch(`/api/files?file_id=${(photo as any).id}`, {
             method: 'DELETE',
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
           });
           
           if (!res.ok) {
@@ -239,6 +251,14 @@ export function CustomerForm({ onSuccess, open, setOpen, customer }: CustomerFor
       // 주소 필수
       if (!formData.address_road || !formData.zipcode) throw new Error('주소검색을 완료하세요.');
 
+      // Supabase 세션에서 토큰 가져오기
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+
+      if (!token) {
+        throw new Error('인증이 필요합니다. 다시 로그인해주세요.');
+      }
+
       // payload 정제: undefined/null → ''
       const rawPayload = {
         ...formData,
@@ -252,18 +272,27 @@ export function CustomerForm({ onSuccess, open, setOpen, customer }: CustomerFor
         // 수정
         response = await fetch(`/api/customers/${customer.id}`, {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
           body: JSON.stringify(payload),
         });
       } else {
         // 신규
         response = await fetch('/api/customers', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
           body: JSON.stringify(payload),
         });
       }
-      if (!response.ok) throw new Error(customer ? '고객 수정 실패' : '고객 등록 실패');
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`${customer ? '고객 수정' : '고객 등록'} 실패: ${errorText}`);
+      }
       customerResult = await response.json();
       // 사진 업로드: File 객체만 업로드
       const newFiles = photos.filter(p => p instanceof File) as File[];
