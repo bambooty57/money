@@ -914,11 +914,31 @@ async function handlePdfExportPdfLib(selectedTx: TransactionWithDetails, filtere
     let paymentRowY = paymentHeaderY - rowHeight;
     filteredPayments.slice(0, maxRows).forEach((p, rowIdx) => {
       // Place '비고' immediately after '상세'
+      // 수표 정보 처리 함수
+      const getChequeDetail = (cheques: string) => {
+        try {
+          const chequesArray = JSON.parse(cheques);
+          if (Array.isArray(chequesArray) && chequesArray.length > 0) {
+            return chequesArray.map((cheque: any, idx: number) => {
+              if (cheque.bank || cheque.amount || cheque.number) {
+                return `수표${idx + 1}: ${cheque.bank || '?'}은행 ${(cheque.amount ? parseInt(cheque.amount).toLocaleString() : '?')}원 (${cheque.number || '?'}번)`;
+              }
+              return '';
+            }).filter(Boolean).join(' / ');
+          }
+        } catch (e) {
+          return '수표정보 오류';
+        }
+        return '';
+      };
+
       const detail = p.method === '현금'
         ? `장소:${p.cash_place||''} 수령:${p.cash_receiver||''}`
         : p.method === '계좌이체'
           ? `계좌:${p.account_number||''} (${p.account_holder||''})`
-          : p.detail || '';
+          : p.method === '수표' && p.cheques
+            ? getChequeDetail(p.cheques)
+            : p.detail || '';
       const cells = [
         p.paid_at?.slice(0,10) || '',
         p.payer_name || '',
@@ -1632,7 +1652,7 @@ export default function TransactionDetailClient({ transactions, initialSelectedI
                 <th className="border-2 border-gray-300 px-4 py-4 font-bold text-gray-800 w-24 min-w-[80px] max-w-[100px] text-center whitespace-nowrap overflow-hidden text-ellipsis">방식</th>
                 <th className="border-2 border-gray-300 px-4 py-4 font-bold text-gray-800 w-32 min-w-[120px] max-w-[160px] text-right whitespace-nowrap overflow-hidden text-ellipsis">금액</th>
                 <th className="border-2 border-gray-300 px-4 py-4 font-bold text-gray-800 w-32 min-w-[120px] max-w-[160px] text-center whitespace-nowrap overflow-hidden text-ellipsis">입금은행</th>
-                <th className="border-2 border-gray-300 px-4 py-4 font-bold text-gray-800 w-40 min-w-[140px] max-w-[180px] text-center whitespace-nowrap overflow-hidden text-ellipsis">상세정보</th>
+                <th className="border-2 border-gray-300 px-4 py-4 font-bold text-gray-800 w-60 min-w-[200px] max-w-[300px] text-center">상세정보</th>
                 <th className="border-2 border-gray-300 px-4 py-4 font-bold text-gray-800 w-24 min-w-[100px] max-w-[120px] text-center whitespace-nowrap overflow-hidden text-ellipsis">비고</th>
                 <th className="border-2 border-gray-300 px-4 py-4 font-bold text-gray-800 w-16 min-w-[60px] max-w-[60px] text-center whitespace-nowrap overflow-hidden text-ellipsis">삭제</th>
               </tr>
@@ -1640,38 +1660,55 @@ export default function TransactionDetailClient({ transactions, initialSelectedI
             <tbody>
               {filteredPayments.length > 0 ? (
                 filteredPayments.map((item: any, index: number) => (
-                  <tr key={item.id} className={`hover:bg-blue-50 border-b border-gray-200 h-16 ${index % 2 === 0 ? 'bg-gray-50' : ''}`}>
+                  <tr key={item.id} className={`hover:bg-blue-50 border-b border-gray-200 ${index % 2 === 0 ? 'bg-gray-50' : ''}`}>
                     <td className="border-2 border-gray-300 px-4 py-4 text-center w-32 min-w-[120px] max-w-[160px] text-lg whitespace-nowrap overflow-hidden text-ellipsis">{item.paid_at?.slice(0, 10)}</td>
                     <td className="border-2 border-gray-300 px-4 py-4 font-semibold w-24 min-w-[80px] max-w-[100px] text-center text-lg whitespace-nowrap overflow-hidden text-ellipsis">{item.payer_name}</td>
                     <td className="border-2 border-gray-300 px-4 py-4 text-center w-24 min-w-[80px] max-w-[100px] text-lg whitespace-nowrap overflow-hidden text-ellipsis">{item.method}</td>
                     <td className="border-2 border-gray-300 px-4 py-4 text-right font-bold text-blue-600 w-32 min-w-[120px] max-w-[160px] text-2xl whitespace-nowrap overflow-hidden text-ellipsis">{item.amount !== undefined && item.amount !== null ? Math.round(item.amount).toLocaleString() : ''}원</td>
                     <td className="border-2 border-gray-300 px-4 py-4 text-center w-32 min-w-[120px] max-w-[160px] text-lg whitespace-nowrap overflow-hidden text-ellipsis">{item.bank_name || item.account_number || ''}</td>
-                    <td className="border-2 border-gray-300 px-4 py-4 text-center w-40 min-w-[140px] max-w-[180px] text-lg whitespace-nowrap overflow-hidden text-ellipsis">
+                    <td className="border-2 border-gray-300 px-4 py-4 text-center w-60 min-w-[200px] max-w-[300px] text-base leading-relaxed">
                       {(() => {
                         const details = [];
                         
-                        // 수표 정보 처리
+                        // 수표 정보 처리 (줄바꿈으로 표시)
                         if (item.method === '수표' && item.cheques) {
                           try {
                             const cheques = JSON.parse(item.cheques);
                             if (Array.isArray(cheques) && cheques.length > 0) {
                               cheques.forEach((cheque: any, idx: number) => {
                                 if (cheque.bank || cheque.amount || cheque.number) {
-                                  details.push(`수표${idx + 1}: ${cheque.bank || '?'}은행 ${(cheque.amount || '?')}원 (${cheque.number || '?'}번)`);
+                                  details.push(
+                                    <div key={`cheque-${idx}`} className="text-sm font-semibold text-purple-700 bg-purple-50 px-2 py-1 rounded mb-1">
+                                      💵 수표{idx + 1}: {cheque.bank || '?'}은행<br/>
+                                      💰 {(cheque.amount ? parseInt(cheque.amount).toLocaleString() : '?')}원<br/>
+                                      🔢 {cheque.number || '?'}번
+                                    </div>
+                                  );
                                 }
                               });
                             }
                           } catch (e) {
-                            details.push('수표정보 오류');
+                            details.push(
+                              <div key="cheque-error" className="text-sm text-red-600 bg-red-50 px-2 py-1 rounded">
+                                수표정보 오류
+                              </div>
+                            );
                           }
                         }
                         
                         // 기존 정보들 추가
-                        [item.account_holder, item.cash_place, item.cash_receiver, item.detail].filter(Boolean).forEach(info => {
-                          details.push(info);
-                        });
+                        const otherDetails = [item.account_holder, item.cash_place, item.cash_receiver, item.detail].filter(Boolean);
+                        if (otherDetails.length > 0) {
+                          details.push(
+                            <div key="other-details" className="text-sm text-gray-700">
+                              {otherDetails.join(' / ')}
+                            </div>
+                          );
+                        }
                         
-                        return details.length > 0 ? details.join(' / ') : '';
+                        return details.length > 0 ? (
+                          <div className="space-y-1">{details}</div>
+                        ) : '';
                       })()}
                     </td>
                     <td className="border-2 border-gray-300 px-4 py-4 w-24 min-w-[100px] max-w-[120px] text-center text-lg whitespace-nowrap overflow-hidden text-ellipsis">{item.note}</td>
