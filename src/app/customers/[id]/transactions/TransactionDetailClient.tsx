@@ -936,8 +936,8 @@ async function handlePdfExportPdfLib(selectedTx: TransactionWithDetails, filtere
         ? `장소:${p.cash_place||''} 수령:${p.cash_receiver||''}`
         : p.method === '계좌이체'
           ? `계좌:${p.account_number||''} (${p.account_holder||''})`
-          : p.method === '수표' && p.cheques
-            ? getChequeDetail(p.cheques)
+          : p.method === '수표' && (p as any).cheques
+            ? getChequeDetail((p as any).cheques)
             : p.detail || '';
       const cells = [
         p.paid_at?.slice(0,10) || '',
@@ -1671,9 +1671,9 @@ export default function TransactionDetailClient({ transactions, initialSelectedI
                         const details = [];
                         
                         // 수표 정보 처리 (줄바꿈으로 표시)
-                        if (item.method === '수표' && item.cheques) {
+                        if (item.method === '수표' && (item as any).cheques) {
                           try {
-                            const cheques = JSON.parse(item.cheques);
+                            const cheques = JSON.parse((item as any).cheques);
                             if (Array.isArray(cheques) && cheques.length > 0) {
                               cheques.forEach((cheque: any, idx: number) => {
                                 if (cheque.bank || cheque.amount || cheque.number) {
