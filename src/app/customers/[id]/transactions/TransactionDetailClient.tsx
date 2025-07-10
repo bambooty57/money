@@ -875,8 +875,21 @@ async function handlePdfExportPdfLib(selectedTx: TransactionWithDetails, filtere
       filteredPayments.slice(0, maxRows).forEach((p) => {
         let detailLines: string[] = [];
         if (p.method === '현금') {
-          const detail = `장소:${p.cash_place||''} 수령:${p.cash_receiver||''}`;
-          detailLines = splitTextByWidth(detail, paymentColWidths[5] - 4, font, 9);
+          // 웹 화면과 동일하게 모든 현금 관련 정보 포함
+          const cashDetails = [
+            p.account_holder ? `계좌주:${p.account_holder}` : '',
+            p.cash_place ? `장소:${p.cash_place}` : '', 
+            p.cash_receiver ? `수령:${p.cash_receiver}` : '',
+            p.detail ? `상세:${p.detail}` : ''
+          ].filter(Boolean);
+          
+          if (cashDetails.length > 0) {
+            // 모든 정보를 합쳐서 긴 텍스트로 만든 후 splitTextByWidth로 자동 줄바꿈
+            const fullCashDetail = cashDetails.join(' / ');
+            detailLines = splitTextByWidth(fullCashDetail, paymentColWidths[5] - 4, font, 9);
+          } else {
+            detailLines = [''];
+          }
         } else if (p.method === '계좌이체') {
           const detail = `계좌:${p.account_number||''} (${p.account_holder||''})`;
           detailLines = splitTextByWidth(detail, paymentColWidths[5] - 4, font, 9);
@@ -982,8 +995,21 @@ async function handlePdfExportPdfLib(selectedTx: TransactionWithDetails, filtere
       // 상세 정보 처리 (수표는 여러 줄, 나머지는 단일 줄)
       let detailLines: string[] = [];
       if (p.method === '현금') {
-        const detail = `장소:${p.cash_place||''} 수령:${p.cash_receiver||''}`;
-        detailLines = splitTextByWidth(detail, paymentColWidths[5] - 4, font, 9);
+        // 웹 화면과 동일하게 모든 현금 관련 정보 포함
+        const cashDetails = [
+          p.account_holder ? `계좌주:${p.account_holder}` : '',
+          p.cash_place ? `장소:${p.cash_place}` : '', 
+          p.cash_receiver ? `수령:${p.cash_receiver}` : '',
+          p.detail ? `상세:${p.detail}` : ''
+        ].filter(Boolean);
+        
+        if (cashDetails.length > 0) {
+          // 모든 정보를 합쳐서 긴 텍스트로 만든 후 splitTextByWidth로 자동 줄바꿈
+          const fullCashDetail = cashDetails.join(' / ');
+          detailLines = splitTextByWidth(fullCashDetail, paymentColWidths[5] - 4, font, 9);
+        } else {
+          detailLines = [''];
+        }
       } else if (p.method === '계좌이체') {
         const detail = `계좌:${p.account_number||''} (${p.account_holder||''})`;
         detailLines = splitTextByWidth(detail, paymentColWidths[5] - 4, font, 9);
