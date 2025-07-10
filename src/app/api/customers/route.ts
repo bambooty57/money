@@ -137,9 +137,7 @@ export async function GET(request: Request) {
         page: page,
         pageSize: pageSize,
         totalPages: Math.ceil((totalCount || 0) / pageSize),
-        cacheControl: search 
-          ? 's-maxage=60, stale-while-revalidate=30' 
-          : 's-maxage=300, stale-while-revalidate=60',
+        cacheControl: 's-maxage=30, stale-while-revalidate=10',
       },
       meta: {
         search: search,
