@@ -78,25 +78,35 @@ export default function ModelTypeManager({ onChange }: ModelTypeManagerProps = {
 
   async function handleEditSave(idx: number) {
     const row = rows[idx]
+    console.log('[handleEditSave] called', { idx, row });
     if (!row.id || !row.editModel || !row.editType) {
       setMsg('id, 기종명, 형식명을 모두 입력하세요')
       setRows(rows => rows.map((r, i) => i === idx ? { ...r, isEditing: false } : r))
       return
     }
-    const res = await fetch('/api/models-types', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: row.id, model: row.editModel, type: row.editType })
-    })
-    if (res.ok) {
-      setMsg('수정 완료')
+    try {
+      console.log('[handleEditSave] PATCH fetch start', { id: row.id, model: row.editModel, type: row.editType });
+      const res = await fetch('/api/models-types', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: row.id, model: row.editModel, type: row.editType })
+      })
+      console.log('[handleEditSave] PATCH fetch response', res);
+      if (res.ok) {
+        setMsg('수정 완료')
+        setRows(rows => rows.map((r, i) => i === idx ? { ...r, isEditing: false } : r))
+        fetchRows();
+        if (onChange) onChange();
+      } else {
+        const err = await res.json().catch(() => ({}))
+        setMsg('수정 실패: ' + (err?.error || res.status))
+        setRows(rows => rows.map((r, i) => i === idx ? { ...r, isEditing: false } : r))
+        console.error('[handleEditSave] PATCH fetch error', err, res.status);
+      }
+    } catch (e) {
+      setMsg('수정 실패: ' + (e instanceof Error ? e.message : String(e)))
       setRows(rows => rows.map((r, i) => i === idx ? { ...r, isEditing: false } : r))
-      fetchRows();
-      if (onChange) onChange();
-    } else {
-      const err = await res.json().catch(() => ({}))
-      setMsg('수정 실패: ' + (err?.error || res.status))
-      setRows(rows => rows.map((r, i) => i === idx ? { ...r, isEditing: false } : r))
+      console.error('[handleEditSave] PATCH fetch exception', e);
     }
   }
 
