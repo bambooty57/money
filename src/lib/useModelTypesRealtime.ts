@@ -2,32 +2,33 @@
 import { useEffect, useState } from 'react';
 import { supabase } from './supabase';
 import { Database } from '@/types/database';
+import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 
 export function useModelTypesRealtime() {
   const [modelTypes, setModelTypes] = useState<Database['public']['Tables']['models_types']['Row'][]>([]);
 
   useEffect(() => {
-    // 최초 데이터 fetch
     supabase.from('models_types').select('*').then(({ data }) => setModelTypes(data ?? []));
 
-    // 실시간 구독
     const channel = supabase
       .channel('models-types-changes')
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'models_types' },
-        (payload) => {
+        (payload: RealtimePostgresChangesPayload<Database['public']['Tables']['models_types']['Row']>) => {
           setModelTypes((prev) => {
             if (payload.eventType === 'INSERT') {
-              // 중복 방지
-              if (prev.some((row) => row.id === payload.new.id)) return prev;
-              return [...prev, payload.new];
+              const newRow = payload.new as Database['public']['Tables']['models_types']['Row'];
+              if (prev.some((row) => row.id === newRow.id)) return prev;
+              return [...prev, newRow];
             }
             if (payload.eventType === 'UPDATE') {
-              return prev.map((row) => row.id === payload.new.id ? payload.new : row);
+              const newRow = payload.new as Database['public']['Tables']['models_types']['Row'];
+              return prev.map((row) => row.id === newRow.id ? newRow : row);
             }
             if (payload.eventType === 'DELETE') {
-              return prev.filter((row) => row.id !== payload.old.id);
+              const oldRow = payload.old as Database['public']['Tables']['models_types']['Row'];
+              return prev.filter((row) => row.id !== oldRow.id);
             }
             return prev;
           });
