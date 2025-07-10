@@ -268,245 +268,348 @@ function PaginatedCustomerListInner({
   return (
     <div className="space-y-4">
       {/* 검색 및 필터 영역 */}
-      <div className="flex flex-col sm:flex-row gap-4 justify-between items-center">
-        <div className="flex-1 max-w-md">
-          <Input
-            type="text"
-            placeholder="고객명, 전화번호, 사업자번호로 검색..."
-            value={searchInputValue}
-            onChange={(e) => setSearchInputValue(e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          />
-        </div>
-        <div className="text-sm text-gray-600">
-          총 {data.pagination.total.toLocaleString()}명의 고객
-        </div>
-      </div>
-
-      {/* 테이블 */}
-      <div className="bg-white rounded-lg shadow-lg overflow-hidden border border-gray-200">
-        <div className="overflow-x-auto">
-          <Table className="table-fixed w-full text-lg border-collapse bg-white rounded-lg shadow-lg">
-            <TableHeader className="bg-gray-100">
-              <TableRow>
-                <TableHead className="px-4 py-4 w-12 min-w-[48px] max-w-[48px] text-center whitespace-nowrap overflow-hidden text-ellipsis"></TableHead>
-                <TableHead className="px-4 py-4 w-32 min-w-[120px] max-w-[160px] text-center whitespace-nowrap overflow-hidden text-ellipsis">거래처명</TableHead>
-                <TableHead className="px-4 py-4 w-20 min-w-[80px] max-w-[100px] text-center whitespace-nowrap overflow-hidden text-ellipsis">거래건수</TableHead>
-                <TableHead className="px-4 py-4 w-32 min-w-[120px] max-w-[160px] text-right whitespace-nowrap overflow-hidden text-ellipsis">미수금</TableHead>
-                <TableHead className="px-4 py-4 w-24 min-w-[100px] max-w-[120px] text-center whitespace-nowrap overflow-hidden text-ellipsis">고객유형</TableHead>
-                <TableHead className="px-4 py-4 w-40 min-w-[140px] max-w-[180px] text-left whitespace-nowrap overflow-hidden text-ellipsis">주소</TableHead>
-                <TableHead className="px-4 py-4 w-32 min-w-[120px] max-w-[160px] text-left whitespace-nowrap overflow-hidden text-ellipsis">연락처</TableHead>
-                <TableHead className="px-4 py-4 w-32 min-w-[120px] max-w-[160px] text-center whitespace-nowrap overflow-hidden text-ellipsis">주민등록번호</TableHead>
-                <TableHead className="px-4 py-4 w-32 min-w-[120px] max-w-[160px] text-center whitespace-nowrap overflow-hidden text-ellipsis">사업자번호</TableHead>
-                <TableHead className="px-4 py-4 w-24 min-w-[100px] max-w-[120px] text-center whitespace-nowrap overflow-hidden text-ellipsis">사진</TableHead>
-                {enableActions && (
-                  <TableHead className="px-4 py-4 w-16 min-w-[60px] max-w-[60px] text-center whitespace-nowrap overflow-hidden text-ellipsis">작업</TableHead>
-                )}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {data.data.map(customer => (
-                <TableRow key={customer.id} className="hover:bg-gray-50 transition-colors border-b border-gray-200">
-                  <TableCell className="px-4 py-4 w-12 min-w-[48px] max-w-[48px] text-center whitespace-nowrap overflow-hidden text-ellipsis">
-                    <input
-                      type="checkbox"
-                      checked={selectedIds.has(customer.id)}
-                      onChange={e => handleCheck(customer.id, e.target.checked)}
-                      className="mr-3 w-5 h-5"
-                      title="고객 선택"
-                    />
-                  </TableCell>
-                  <TableCell className="px-4 py-4 w-32 min-w-[120px] max-w-[160px] text-center whitespace-nowrap overflow-hidden text-ellipsis">
-                    <div className="font-semibold text-lg text-gray-900">{customer.name}</div>
-                    <div className="text-base text-gray-600">{customer.business_name || ''}</div>
-                  </TableCell>
-                  <TableCell className="px-4 py-4 w-20 min-w-[80px] max-w-[100px] text-center whitespace-nowrap overflow-hidden text-ellipsis">{customer.transaction_count ?? 0}건</TableCell>
-                  <TableCell className="px-4 py-4 w-32 min-w-[120px] max-w-[160px] text-right whitespace-nowrap overflow-hidden text-ellipsis">
-                    {customer.total_unpaid && customer.total_unpaid > 0 ? (
-                      <span className="text-lg font-semibold text-red-700">{customer.total_unpaid.toLocaleString()}원</span>
-                    ) : (
-                      <span className="text-lg text-gray-400">0원</span>
-                    )}
-                  </TableCell>
-                  <TableCell className="px-4 py-4 w-24 min-w-[100px] max-w-[120px] text-center whitespace-nowrap overflow-hidden text-ellipsis">
-                    {Array.isArray(customer.customer_type_multi) && customer.customer_type_multi.length > 0 ? customer.customer_type_multi.join(', ') : customer.customer_type || '-'}</TableCell>
-                  <TableCell className="px-4 py-4 w-40 min-w-[140px] max-w-[180px] text-left whitespace-nowrap overflow-hidden text-ellipsis">
-                    <div>
-                      {customer.address_road ? (
-                        <button
-                          onClick={() => openKakaoMap(customer.address_road!)}
-                          className="text-base text-blue-600 underline hover:text-blue-800 font-medium"
-                          style={{ cursor: 'pointer', background: 'none', border: 'none', padding: 0 }}
-                          title="카카오맵에서 보기"
-                        >
-                          {customer.address_road}
-                        </button>
-                      ) : (
-                        <span className="text-base text-gray-400">-</span>
-                      )}
-                    </div>
-                    <div>
-                      {customer.address_jibun ? (
-                        <button
-                          onClick={() => openKakaoMap(customer.address_jibun!)}
-                          className="text-base text-blue-600 underline hover:text-blue-800 font-medium"
-                          style={{ cursor: 'pointer', background: 'none', border: 'none', padding: 0 }}
-                          title="카카오맵에서 보기"
-                        >
-                          {customer.address_jibun}
-                        </button>
-                      ) : (
-                        <span className="text-base text-gray-400">-</span>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell className="px-4 py-4 w-32 min-w-[120px] max-w-[160px] text-left whitespace-nowrap overflow-hidden text-ellipsis">
-                    <div>
-                      {customer.mobile ? (
-                        <a
-                          href={`tel:${customer.mobile.replace(/[^0-9]/g, '')}`}
-                          className="text-blue-600 underline hover:text-blue-800"
-                          style={{ wordBreak: 'break-all' }}
-                        >
-                          {customer.mobile}
-                        </a>
-                      ) : (
-                        <span className="text-gray-400">-</span>
-                      )}
-                    </div>
-                    <div>
-                      {customer.phone ? (
-                        <a
-                          href={`tel:${customer.phone.replace(/[^0-9]/g, '')}`}
-                          className="text-blue-600 underline hover:text-blue-800"
-                          style={{ wordBreak: 'break-all' }}
-                        >
-                          {customer.phone}
-                        </a>
-                      ) : (
-                        <span className="text-gray-400">-</span>
-                      )}
-                    </div>
-                    <div>{customer.fax || ''}</div>
-                  </TableCell>
-                  <TableCell className="px-4 py-4 w-32 min-w-[120px] max-w-[160px] text-center whitespace-nowrap overflow-hidden text-ellipsis">{customer.ssn}</TableCell>
-                  <TableCell className="px-4 py-4 w-32 min-w-[120px] max-w-[160px] text-center whitespace-nowrap overflow-hidden text-ellipsis">{customer.business_no}</TableCell>
-                  <TableCell className="px-4 py-4 w-24 min-w-[100px] max-w-[120px] text-center whitespace-nowrap overflow-hidden text-ellipsis">
-                    {customer.photos && customer.photos.length > 0 ? (
-                      <div className="flex space-x-1">
-                        {customer.photos.slice(0, 3).map((photo, idx) => (
-                          <img
-                            key={idx}
-                            src={photo.url}
-                            alt="고객사진"
-                            className="w-8 h-8 rounded object-cover cursor-pointer hover:opacity-80 border-2 border-white shadow-sm"
-                            onClick={() => window.open(photo.url, '_blank')}
-                          />
-                        ))}
-                      </div>
-                    ) : '-'}
-                  </TableCell>
-                  {enableActions && (
-                    <TableCell className="px-4 py-4 w-16 min-w-[60px] max-w-[60px] text-center whitespace-nowrap overflow-hidden text-ellipsis">
-                      <div className="flex space-x-2">
-                        <button
-                          onClick={() => onEdit && onEdit(customer)}
-                          className="text-green-600 hover:text-green-900"
-                          title="수정"
-                        >✏️</button>
-                        <button
-                          onClick={async () => {
-                            const confirmMessage = `⚠️ 정말로 이 고객을 삭제하시겠습니까?\n\n고객명: ${customer.name}\n거래건수: ${customer.transaction_count ?? 0}건\n미수금: ${customer.total_unpaid ? customer.total_unpaid.toLocaleString() + '원' : '0원'}\n\n⚠️ 고객을 삭제하면 해당 고객의 모든 거래내역도 함께 삭제됩니다!\n이 작업은 되돌릴 수 없습니다.`;
-                            
-                            if (!window.confirm(confirmMessage)) return;
-                            
-                            try {
-                              // Supabase 세션에서 토큰 가져오기
-                              const { createClient } = await import('@supabase/supabase-js');
-                              const supabase = createClient(
-                                process.env.NEXT_PUBLIC_SUPABASE_URL!,
-                                process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-                              );
-                              const { data: { session } } = await supabase.auth.getSession();
-                              const token = session?.access_token;
-                              
-                              if (!token) {
-                                alert('인증이 필요합니다. 로그인을 다시 해주세요.');
-                                return;
-                              }
-                              
-                              const res = await fetch(`/api/customers?id=${customer.id}`, { 
-                                method: 'DELETE',
-                                headers: {
-                                  'Authorization': `Bearer ${token}`,
-                                  'Content-Type': 'application/json'
-                                }
-                              });
-                              
-                              if (res.ok) {
-                                alert('고객과 관련된 모든 데이터가 삭제되었습니다.');
-                                fetchCustomers();
-                              } else {
-                                const { error } = await res.json();
-                                alert('삭제 실패: ' + error);
-                              }
-                            } catch (error) {
-                              console.error('삭제 중 오류:', error);
-                              alert('삭제 중 오류가 발생했습니다.');
-                            }
-                          }}
-                          className="text-red-600 hover:text-red-900"
-                          title="삭제"
-                        >🗑️</button>
-                      </div>
-                    </TableCell>
-                  )}
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-
-        {/* 데이터가 없을 때 */}
-        {data.data.length === 0 && (
-          <div className="text-center py-12">
-            <div className="text-gray-400 text-lg mb-2">
-              {searchTerm ? '검색 결과가 없습니다' : '등록된 고객이 없습니다'}
-            </div>
-            {searchTerm && (
-              <button
-                onClick={() => {
-                  setSearchInputValue('');
-                  setSearchTerm('');
-                  const params = new URLSearchParams(searchParams.toString());
-                  params.delete('search');
-                  router.push(`?${params.toString()}`);
-                }}
-                className="text-blue-600 hover:text-blue-800 text-sm"
-              >
-                검색 조건 초기화
-              </button>
-            )}
+      <div className="bg-white rounded-lg shadow-lg p-8 mb-6 border-2 border-blue-200">
+        <div className="flex flex-col lg:flex-row gap-6 justify-between items-center">
+          <div className="flex-1 max-w-2xl">
+            <label className="block text-xl font-bold text-gray-700 mb-3">
+              🔍 고객 검색
+            </label>
+            <Input
+              type="text"
+              placeholder="고객명, 전화번호, 사업자번호로 검색하세요..."
+              value={searchInputValue}
+              onChange={(e) => setSearchInputValue(e.target.value)}
+              className="w-full px-6 py-4 text-lg border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200"
+            />
           </div>
-        )}
+          <div className="text-center">
+            <div className="text-lg font-semibold text-gray-600 mb-2">📊 전체 고객 수</div>
+            <div className="text-3xl font-bold text-blue-600">
+              {data.pagination.total.toLocaleString()}명
+            </div>
+          </div>
+        </div>
       </div>
+
+      {/* 고객 카드 목록 */}
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
+        {data.data.map(customer => (
+          <div key={customer.id} className="bg-white rounded-xl shadow-lg border-2 border-gray-200 hover:shadow-xl transition-shadow duration-300 relative">
+            {/* 체크박스와 작업 버튼 */}
+            <div className="absolute top-4 left-4 z-10">
+              <input
+                type="checkbox"
+                checked={selectedIds.has(customer.id)}
+                onChange={e => handleCheck(customer.id, e.target.checked)}
+                className="w-6 h-6 text-blue-600 rounded border-2 border-gray-300 focus:ring-2 focus:ring-blue-500"
+                title="고객 선택"
+              />
+            </div>
+            
+            {enableActions && (
+              <div className="absolute top-4 right-4 z-10 flex space-x-2">
+                <button
+                  onClick={() => onEdit && onEdit(customer)}
+                  className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors duration-200 text-base font-semibold shadow-lg"
+                  title="수정"
+                >
+                  ✏️ 수정
+                </button>
+                <button
+                  onClick={async () => {
+                    const confirmMessage = `⚠️ 정말로 이 고객을 삭제하시겠습니까?\n\n고객명: ${customer.name}\n거래건수: ${customer.transaction_count ?? 0}건\n미수금: ${customer.total_unpaid ? customer.total_unpaid.toLocaleString() + '원' : '0원'}\n\n⚠️ 고객을 삭제하면 해당 고객의 모든 거래내역도 함께 삭제됩니다!\n이 작업은 되돌릴 수 없습니다.`;
+                    
+                    if (!window.confirm(confirmMessage)) return;
+                    
+                    try {
+                      // Supabase 세션에서 토큰 가져오기
+                      const { createClient } = await import('@supabase/supabase-js');
+                      const supabase = createClient(
+                        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+                        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+                      );
+                      const { data: { session } } = await supabase.auth.getSession();
+                      const token = session?.access_token;
+                      
+                      if (!token) {
+                        alert('인증이 필요합니다. 로그인을 다시 해주세요.');
+                        return;
+                      }
+                      
+                      const res = await fetch(`/api/customers?id=${customer.id}`, { 
+                        method: 'DELETE',
+                        headers: {
+                          'Authorization': `Bearer ${token}`,
+                          'Content-Type': 'application/json'
+                        }
+                      });
+                      
+                      if (res.ok) {
+                        alert('고객과 관련된 모든 데이터가 삭제되었습니다.');
+                        fetchCustomers();
+                      } else {
+                        const { error } = await res.json();
+                        alert('삭제 실패: ' + error);
+                      }
+                    } catch (error) {
+                      console.error('삭제 중 오류:', error);
+                      alert('삭제 중 오류가 발생했습니다.');
+                    }
+                  }}
+                  className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors duration-200 text-base font-semibold shadow-lg"
+                  title="삭제"
+                >
+                  🗑️ 삭제
+                </button>
+              </div>
+            )}
+
+            {/* 카드 내용 */}
+            <div className="p-8 pt-16">
+              {/* 고객 기본 정보 */}
+              <div className="bg-blue-50 p-6 rounded-lg border-2 border-blue-200 mb-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-2xl font-bold text-blue-800 flex items-center gap-2">
+                    👤 {customer.name}
+                  </h3>
+                  {customer.business_name && (
+                    <span className="text-lg text-blue-600 font-semibold">
+                      {customer.business_name}
+                    </span>
+                  )}
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <span className="text-sm font-semibold text-blue-700 block mb-1">🏷️ 고객유형</span>
+                    <span className="text-lg font-semibold text-blue-800">
+                      {Array.isArray(customer.customer_type_multi) && customer.customer_type_multi.length > 0 ? 
+                        customer.customer_type_multi.join(', ') : 
+                        customer.customer_type || '-'
+                      }
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-sm font-semibold text-blue-700 block mb-1">📊 거래건수</span>
+                    <span className="text-xl font-bold text-purple-800">
+                      {customer.transaction_count ?? 0}건
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* 미수금 정보 */}
+              <div className="bg-red-50 p-6 rounded-lg border-2 border-red-200 mb-6">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xl font-bold text-red-800 flex items-center gap-2">
+                    💰 미수금
+                  </h4>
+                  <div className="text-right">
+                    {customer.total_unpaid && customer.total_unpaid > 0 ? (
+                      <span className="text-3xl font-bold text-red-700">
+                        {customer.total_unpaid.toLocaleString()}원
+                      </span>
+                    ) : (
+                      <span className="text-2xl text-gray-400">0원</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* 연락처 정보 */}
+              <div className="bg-indigo-50 p-6 rounded-lg border-2 border-indigo-200 mb-6">
+                <h4 className="text-xl font-bold text-indigo-800 mb-4 flex items-center gap-2">
+                  📞 연락처
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {customer.mobile && (
+                    <div>
+                      <span className="text-sm font-semibold text-indigo-700 block mb-1">📱 휴대폰</span>
+                      <a
+                        href={`tel:${customer.mobile.replace(/[^0-9]/g, '')}`}
+                        className="text-lg text-indigo-600 underline hover:text-indigo-800 font-medium"
+                      >
+                        {customer.mobile}
+                      </a>
+                    </div>
+                  )}
+                  {customer.phone && (
+                    <div>
+                      <span className="text-sm font-semibold text-indigo-700 block mb-1">☎️ 일반전화</span>
+                      <a
+                        href={`tel:${customer.phone.replace(/[^0-9]/g, '')}`}
+                        className="text-lg text-indigo-600 underline hover:text-indigo-800 font-medium"
+                      >
+                        {customer.phone}
+                      </a>
+                    </div>
+                  )}
+                  {customer.fax && (
+                    <div>
+                      <span className="text-sm font-semibold text-indigo-700 block mb-1">📠 팩스</span>
+                      <span className="text-lg text-indigo-800">{customer.fax}</span>
+                    </div>
+                  )}
+                </div>
+                {!customer.mobile && !customer.phone && !customer.fax && (
+                  <span className="text-lg text-gray-400">연락처 정보 없음</span>
+                )}
+              </div>
+
+              {/* 주소 정보 */}
+              <div className="bg-green-50 p-6 rounded-lg border-2 border-green-200 mb-6">
+                <h4 className="text-xl font-bold text-green-800 mb-4 flex items-center gap-2">
+                  🏠 주소
+                </h4>
+                <div className="space-y-3">
+                  {customer.address_road && (
+                    <div>
+                      <span className="text-sm font-semibold text-green-700 block mb-1">도로명주소</span>
+                      <button
+                        onClick={() => openKakaoMap(customer.address_road!)}
+                        className="text-lg text-green-600 underline hover:text-green-800 font-medium text-left block"
+                        style={{ cursor: 'pointer', background: 'none', border: 'none', padding: 0 }}
+                        title="카카오맵에서 보기"
+                      >
+                        {customer.address_road}
+                      </button>
+                    </div>
+                  )}
+                  {customer.address_jibun && (
+                    <div>
+                      <span className="text-sm font-semibold text-green-700 block mb-1">지번주소</span>
+                      <button
+                        onClick={() => openKakaoMap(customer.address_jibun!)}
+                        className="text-lg text-green-600 underline hover:text-green-800 font-medium text-left block"
+                        style={{ cursor: 'pointer', background: 'none', border: 'none', padding: 0 }}
+                        title="카카오맵에서 보기"
+                      >
+                        {customer.address_jibun}
+                      </button>
+                    </div>
+                  )}
+                  {customer.zipcode && (
+                    <div>
+                      <span className="text-sm font-semibold text-green-700 block mb-1">우편번호</span>
+                      <span className="text-lg text-green-800">{customer.zipcode}</span>
+                    </div>
+                  )}
+                  {!customer.address_road && !customer.address_jibun && !customer.zipcode && (
+                    <span className="text-lg text-gray-400">주소 정보 없음</span>
+                  )}
+                </div>
+              </div>
+
+              {/* 추가 정보 */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* 사업자 정보 */}
+                <div className="bg-yellow-50 p-4 rounded-lg border-2 border-yellow-200">
+                  <h5 className="text-lg font-bold text-yellow-800 mb-2">🏢 사업자 정보</h5>
+                  <div className="space-y-2">
+                    {customer.business_no && (
+                      <div>
+                        <span className="text-sm font-semibold text-yellow-700 block">사업자번호</span>
+                        <span className="text-base font-semibold text-yellow-800">{customer.business_no}</span>
+                      </div>
+                    )}
+                    {customer.ssn && (
+                      <div>
+                        <span className="text-sm font-semibold text-yellow-700 block">주민등록번호</span>
+                        <span className="text-base font-semibold text-yellow-800">{customer.ssn}</span>
+                      </div>
+                    )}
+                    {!customer.business_no && !customer.ssn && (
+                      <span className="text-base text-gray-400">사업자 정보 없음</span>
+                    )}
+                  </div>
+                </div>
+
+                {/* 사진 정보 */}
+                <div className="bg-gray-50 p-4 rounded-lg border-2 border-gray-200">
+                  <h5 className="text-lg font-bold text-gray-800 mb-2">📷 사진</h5>
+                  {customer.photos && customer.photos.length > 0 ? (
+                    <div className="flex flex-wrap gap-2">
+                      {customer.photos.slice(0, 4).map((photo, idx) => (
+                        <img
+                          key={idx}
+                          src={photo.url}
+                          alt="고객사진"
+                          className="w-16 h-16 rounded-lg object-cover cursor-pointer hover:opacity-80 border-2 border-gray-300 shadow-sm"
+                          onClick={() => window.open(photo.url, '_blank')}
+                        />
+                      ))}
+                      {customer.photos.length > 4 && (
+                        <div className="w-16 h-16 rounded-lg bg-gray-300 flex items-center justify-center text-sm font-bold text-gray-600">
+                          +{customer.photos.length - 4}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <span className="text-base text-gray-400">사진 없음</span>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* 데이터가 없을 때 */}
+      {data.data.length === 0 && (
+        <div className="text-center py-16 bg-white rounded-lg shadow-lg">
+          <div className="text-2xl text-gray-400 font-semibold mb-4">
+            {searchTerm ? '🔍 검색 결과가 없습니다' : '👥 등록된 고객이 없습니다'}
+          </div>
+          {searchTerm && (
+            <button
+              onClick={() => {
+                setSearchInputValue('');
+                setSearchTerm('');
+                const params = new URLSearchParams(searchParams.toString());
+                params.delete('search');
+                router.push(`?${params.toString()}`);
+              }}
+              className="px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors duration-200 text-lg font-semibold"
+            >
+              🔄 검색 조건 초기화
+            </button>
+          )}
+        </div>
+      )}
 
       {/* 페이지네이션 */}
       {data.pagination.totalPages > 1 && (
-        <Pagination
-          currentPage={data.pagination.page}
-          totalPages={data.pagination.totalPages}
-          totalItems={data.pagination.total}
-          itemsPerPage={data.pagination.pageSize}
-          onPageChange={handlePageChange}
-          className="mt-6"
-        />
+        <div className="bg-white rounded-lg shadow-lg p-8 border-2 border-blue-200">
+          <div className="text-center mb-6">
+            <div className="text-lg font-semibold text-gray-600 mb-2">
+              📄 페이지 정보
+            </div>
+            <div className="text-xl text-blue-600">
+              {data.pagination.page} / {data.pagination.totalPages} 페이지
+            </div>
+          </div>
+          <Pagination
+            currentPage={data.pagination.page}
+            totalPages={data.pagination.totalPages}
+            totalItems={data.pagination.total}
+            itemsPerPage={data.pagination.pageSize}
+            onPageChange={handlePageChange}
+            className="mt-6"
+          />
+        </div>
       )}
 
       {/* 로딩 오버레이 */}
       {loading && (
-        <div className="absolute inset-0 bg-white bg-opacity-50 flex items-center justify-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-8 shadow-2xl">
+            <div className="flex items-center gap-4">
+              <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-600 border-t-transparent"></div>
+              <div className="text-xl font-semibold text-gray-700">
+                고객 목록을 불러오는 중...
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>

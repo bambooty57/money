@@ -96,45 +96,47 @@ export function Pagination({
   const endItem = Math.min(currentPage * itemsPerPage, totalItems);
 
   return (
-    <div className={`flex flex-col sm:flex-row items-center justify-between gap-4 ${className}`}>
+    <div className={`flex flex-col lg:flex-row items-center justify-between gap-6 ${className}`}>
       {/* 정보 표시 */}
       {showInfo && (
-        <div className="text-sm text-gray-600 order-2 sm:order-1">
-          <span className="font-medium">{startItem.toLocaleString()}</span>
-          {' - '}
-          <span className="font-medium">{endItem.toLocaleString()}</span>
-          {' of '}
-          <span className="font-medium">{totalItems.toLocaleString()}</span>
-          {' items'}
+        <div className="text-lg text-gray-600 order-2 lg:order-1 bg-blue-50 p-4 rounded-lg border-2 border-blue-200">
+          <div className="font-semibold text-blue-800">
+            📊 <span className="font-bold">{startItem.toLocaleString()}</span>
+            {' - '}
+            <span className="font-bold">{endItem.toLocaleString()}</span>
+            {' / '}
+            <span className="font-bold">{totalItems.toLocaleString()}</span>
+            {' 항목'}
+          </div>
         </div>
       )}
 
       {/* 페이지네이션 */}
-      <div className="flex items-center gap-2 order-1 sm:order-2">
+      <div className="flex items-center gap-3 order-1 lg:order-2">
         {/* 이전 페이지 */}
         <button
           onClick={() => handlePageChange(currentPage - 1)}
           disabled={currentPage <= 1}
-          className="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 hover:text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          className="px-6 py-3 text-lg font-bold text-white bg-blue-600 border-2 border-blue-600 rounded-lg hover:bg-blue-700 hover:border-blue-700 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-gray-400 disabled:border-gray-400 transition-colors duration-200 shadow-lg"
           aria-label="Previous page"
         >
-          Previous
+          ⬅️ 이전
         </button>
 
         {/* 페이지 번호들 */}
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-2">
           {getPageNumbers().map((page, index) => (
             <React.Fragment key={index}>
               {page === '...' ? (
-                <span className="px-3 py-2 text-sm text-gray-500">...</span>
+                <span className="px-4 py-3 text-lg text-gray-500 font-bold">...</span>
               ) : (
                 <button
                   onClick={() => handlePageChange(page as number)}
                   onKeyDown={(e) => handleKeyDown(e, page as number)}
-                  className={`px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                  className={`px-4 py-3 text-lg font-bold rounded-lg transition-colors duration-200 shadow-lg min-w-[60px] ${
                     currentPage === page
-                      ? 'bg-blue-600 text-white'
-                      : 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50'
+                      ? 'bg-blue-600 text-white border-2 border-blue-600'
+                      : 'text-blue-600 bg-white border-2 border-blue-300 hover:bg-blue-50 hover:border-blue-500'
                   }`}
                   aria-label={`Go to page ${page}`}
                   aria-current={currentPage === page ? 'page' : undefined}
@@ -150,30 +152,29 @@ export function Pagination({
         <button
           onClick={() => handlePageChange(currentPage + 1)}
           disabled={currentPage >= totalPages}
-          className="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 hover:text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          className="px-6 py-3 text-lg font-bold text-white bg-blue-600 border-2 border-blue-600 rounded-lg hover:bg-blue-700 hover:border-blue-700 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-gray-400 disabled:border-gray-400 transition-colors duration-200 shadow-lg"
           aria-label="Next page"
         >
-          Next
+          다음 ➡️
         </button>
       </div>
 
       {/* 페이지 크기 선택 */}
       {showPageSize && (
-        <div className="flex items-center gap-2 text-sm text-gray-600 order-3">
-          <span>Show:</span>
+        <div className="flex items-center gap-3 text-lg text-gray-600 order-3 bg-green-50 p-4 rounded-lg border-2 border-green-200">
+          <span className="font-semibold text-green-800">📄 페이지당 항목 수:</span>
           <select
             value={itemsPerPage}
             onChange={(e) => handlePageSizeChange(Number(e.target.value))}
-            className="px-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="px-4 py-2 text-lg font-semibold border-2 border-green-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-white"
             title="페이지당 항목 수 선택"
           >
             {pageSizeOptions.map((size) => (
               <option key={size} value={size}>
-                {size}
+                {size}개
               </option>
             ))}
           </select>
-          <span>per page</span>
         </div>
       )}
     </div>
