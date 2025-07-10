@@ -1646,7 +1646,34 @@ export default function TransactionDetailClient({ transactions, initialSelectedI
                     <td className="border-2 border-gray-300 px-4 py-4 text-center w-24 min-w-[80px] max-w-[100px] text-lg whitespace-nowrap overflow-hidden text-ellipsis">{item.method}</td>
                     <td className="border-2 border-gray-300 px-4 py-4 text-right font-bold text-blue-600 w-32 min-w-[120px] max-w-[160px] text-2xl whitespace-nowrap overflow-hidden text-ellipsis">{item.amount !== undefined && item.amount !== null ? Math.round(item.amount).toLocaleString() : ''}원</td>
                     <td className="border-2 border-gray-300 px-4 py-4 text-center w-32 min-w-[120px] max-w-[160px] text-lg whitespace-nowrap overflow-hidden text-ellipsis">{item.bank_name || item.account_number || ''}</td>
-                    <td className="border-2 border-gray-300 px-4 py-4 text-center w-40 min-w-[140px] max-w-[180px] text-lg whitespace-nowrap overflow-hidden text-ellipsis">{[item.account_holder, item.cash_place, item.cash_receiver, item.detail].filter(Boolean).join(' / ')}</td>
+                    <td className="border-2 border-gray-300 px-4 py-4 text-center w-40 min-w-[140px] max-w-[180px] text-lg whitespace-nowrap overflow-hidden text-ellipsis">
+                      {(() => {
+                        const details = [];
+                        
+                        // 수표 정보 처리
+                        if (item.method === '수표' && item.cheques) {
+                          try {
+                            const cheques = JSON.parse(item.cheques);
+                            if (Array.isArray(cheques) && cheques.length > 0) {
+                              cheques.forEach((cheque: any, idx: number) => {
+                                if (cheque.bank || cheque.amount || cheque.number) {
+                                  details.push(`수표${idx + 1}: ${cheque.bank || '?'}은행 ${(cheque.amount || '?')}원 (${cheque.number || '?'}번)`);
+                                }
+                              });
+                            }
+                          } catch (e) {
+                            details.push('수표정보 오류');
+                          }
+                        }
+                        
+                        // 기존 정보들 추가
+                        [item.account_holder, item.cash_place, item.cash_receiver, item.detail].filter(Boolean).forEach(info => {
+                          details.push(info);
+                        });
+                        
+                        return details.length > 0 ? details.join(' / ') : '';
+                      })()}
+                    </td>
                     <td className="border-2 border-gray-300 px-4 py-4 w-24 min-w-[100px] max-w-[120px] text-center text-lg whitespace-nowrap overflow-hidden text-ellipsis">{item.note}</td>
                     <td className="border-2 border-gray-300 px-4 py-4 w-16 min-w-[60px] max-w-[60px] text-center whitespace-nowrap overflow-hidden text-ellipsis">
                       <button
