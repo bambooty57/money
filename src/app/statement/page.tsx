@@ -26,12 +26,13 @@ interface Transaction {
   id: string;
   created_at?: string;
   date: string;
-  description: string;
+  description?: string;
   amount: number;
   paid_amount: number;
   unpaid_amount: number;
   status: string;
   note?: string;
+  notes?: string;
   type?: string;
   payments?: any[];
   model?: string;
@@ -95,7 +96,7 @@ export default function StatementPage() {
         "대변(매출)": tx.amount || 0,
         "차변(입금)": tx.paid_amount || 0,
         잔액: tx.unpaid_amount || 0,
-        비고: tx.note || "",
+        비고: tx.description || tx.notes || tx.note || "",
       });
       // 입금내역 행들
       if (Array.isArray(tx.payments) && tx.payments.length > 0) {
@@ -254,7 +255,7 @@ export default function StatementPage() {
                     <TableCell className="text-right px-4 py-8 bg-red-50 font-semibold w-32">{tx.amount?.toLocaleString() || ""}</TableCell>
                     <TableCell className="text-right px-4 py-8 bg-red-50 font-semibold w-32 pl-32">{tx.paid_amount?.toLocaleString() || ""}</TableCell>
                     <TableCell className="text-right px-4 py-8 bg-red-50 font-semibold w-32">{tx.unpaid_amount?.toLocaleString() || ""}</TableCell>
-                    <TableCell className="px-4 py-8 bg-red-50 font-semibold w-56 text-center">{tx.note || ""}</TableCell>
+                    <TableCell className="px-4 py-8 bg-red-50 font-semibold w-56 text-center">{tx.description || tx.notes || tx.note || ""}</TableCell>
                   </TableRow>
                   {/* 입금내역 하위 표 또는 입금없음 표시 */}
                   {Array.isArray(tx.payments) && tx.payments.length > 0 ? (
