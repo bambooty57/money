@@ -29,8 +29,14 @@ export default function ModelTypeManager({ onChange }: ModelTypeManagerProps = {
     setRows(data.map((row: ModelTypeRow) => ({ ...row, isEditing: false, editModel: row.model, editType: row.type })))
   }
 
-  useEffect(() => { fetchRows() }, [])
-  useModelTypesRealtime({ onChange: () => { console.log('[ModelTypeManager] useModelTypesRealtime onChange'); fetchRows(); } });
+  useEffect(() => {
+    console.log('[ModelTypeManager] useEffect: fetchRows on mount');
+    fetchRows()
+  }, [])
+  useModelTypesRealtime({ onChange: () => {
+    console.log('[ModelTypeManager] useModelTypesRealtime onChange (realtime event)');
+    fetchRows();
+  } });
 
   async function handleAdd() {
     if (!newModel || !newType) return setMsg('기종명/형식명을 모두 입력하세요')
