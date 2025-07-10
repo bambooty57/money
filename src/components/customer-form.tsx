@@ -301,8 +301,14 @@ export function CustomerForm({ onSuccess, open, setOpen, customer }: CustomerFor
       }
       setFormData({ name: '', customer_type: '', customer_type_custom: '', ssn: '', business_name: '', business_no: '', mobile: '', phone: '', fax: '', address_road: '', address_jibun: '', zipcode: '', });
       setPhotos([]);
-      setOpen(false);
+      
+      // 성공 콜백을 먼저 호출하여 데이터 새로고침
       onSuccess();
+      
+      // 약간의 지연 후 모달 닫기 (데이터 업데이트가 완료되도록)
+      setTimeout(() => {
+        setOpen(false);
+      }, 100);
     } catch (error: any) {
       alert(error.message || (customer ? '고객 수정 중 오류 발생' : '고객 등록 중 오류 발생'));
     } finally {
@@ -453,10 +459,17 @@ export function CustomerForm({ onSuccess, open, setOpen, customer }: CustomerFor
             <Button
               type="submit"
               disabled={loading}
-              className={`w-full max-w-xs text-2xl px-8 py-4 flex items-center gap-2 rounded-lg shadow-lg ${loading ? 'bg-gray-400' : 'bg-blue-500 hover:bg-blue-600'} text-white font-bold transition-colors duration-200`}
-              title={loading ? '고객 등록 중...' : (customer ? '수정하기' : '등록하기')}
+              className={`w-full max-w-xs text-2xl px-8 py-4 flex items-center gap-2 rounded-lg shadow-lg ${loading ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-500 hover:bg-blue-600'} text-white font-bold transition-colors duration-200`}
+              title={loading ? '처리 중입니다. 잠시만 기다려주세요.' : (customer ? '수정하기' : '등록하기')}
             >
-              {loading ? '처리중...' : (customer ? (<><span>📝</span> 수정하기</>) : (<><span>➕</span> 등록하기</>))}
+              {loading ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  처리중...
+                </>
+              ) : (
+                customer ? (<><span>📝</span> 수정하기</>) : (<><span>➕</span> 등록하기</>)
+              )}
             </Button>
           </div>
         </form>

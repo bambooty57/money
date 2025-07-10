@@ -72,8 +72,9 @@ export default function CustomersPage() {
           open={formOpen}
           setOpen={setFormOpen}
           onSuccess={() => {
-            setFormOpen(false);
+            // 즉시 refresh key 업데이트하여 데이터 새로고침
             setRefreshKey(k => k + 1);
+            // 모달은 CustomerForm 내부에서 타이머로 닫힘
           }}
           customer={editCustomer}
         />

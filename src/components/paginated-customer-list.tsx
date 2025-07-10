@@ -158,7 +158,13 @@ function PaginatedCustomerListInner({
     fetchCustomers();
   }, [fetchCustomers, refreshKey]);
 
-  useCustomersRealtime({ onChange: fetchCustomers });
+  // 실시간 동기화 - 즉시 데이터 새로고침
+  useCustomersRealtime({ 
+    onChange: () => {
+      // 실시간 변경 시 즉시 새로고침 (로딩 상태 없이)
+      fetchCustomers();
+    }
+  });
 
   // 검색 입력 디바운싱 (성능 최적화)
   const [searchInputValue, setSearchInputValue] = useState(searchTerm);
@@ -410,14 +416,43 @@ function PaginatedCustomerListInner({
                         >✏️</button>
                         <button
                           onClick={async () => {
-                            if (!window.confirm('정말로 이 고객을 삭제하시겠습니까?')) return;
-                            const res = await fetch(`/api/customers?id=${customer.id}`, { method: 'DELETE' });
-                            if (res.ok) {
-                              alert('삭제되었습니다.');
-                              fetchCustomers();
-                            } else {
-                              const { error } = await res.json();
-                              alert('삭제 실패: ' + error);
+                            const confirmMessage = `⚠️ 정말로 이 고객을 삭제하시겠습니까?\n\n고객명: ${customer.name}\n거래건수: ${customer.transaction_count ?? 0}건\n미수금: ${customer.total_unpaid ? customer.total_unpaid.toLocaleString() + '원' : '0원'}\n\n⚠️ 고객을 삭제하면 해당 고객의 모든 거래내역도 함께 삭제됩니다!\n이 작업은 되돌릴 수 없습니다.`;
+                            
+                            if (!window.confirm(confirmMessage)) return;
+                            
+                            try {
+                              // Supabase 세션에서 토큰 가져오기
+                              const { createClient } = await import('@supabase/supabase-js');
+                              const supabase = createClient(
+                                process.env.NEXT_PUBLIC_SUPABASE_URL!,
+                                process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+                              );
+                              const { data: { session } } = await supabase.auth.getSession();
+                              const token = session?.access_token;
+                              
+                              if (!token) {
+                                alert('인증이 필요합니다. 로그인을 다시 해주세요.');
+                                return;
+                              }
+                              
+                              const res = await fetch(`/api/customers?id=${customer.id}`, { 
+                                method: 'DELETE',
+                                headers: {
+                                  'Authorization': `Bearer ${token}`,
+                                  'Content-Type': 'application/json'
+                                }
+                              });
+                              
+                              if (res.ok) {
+                                alert('고객과 관련된 모든 데이터가 삭제되었습니다.');
+                                fetchCustomers();
+                              } else {
+                                const { error } = await res.json();
+                                alert('삭제 실패: ' + error);
+                              }
+                            } catch (error) {
+                              console.error('삭제 중 오류:', error);
+                              alert('삭제 중 오류가 발생했습니다.');
                             }
                           }}
                           className="text-red-600 hover:text-red-900"
