@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { typedQuery, SchemaChecker } from '@/lib/supabase';
+import { typedQuery, SchemaChecker, createServerClient } from '@/lib/supabase';
 import { 
   validateCustomerInsert, 
   validateCustomers,
@@ -256,29 +256,43 @@ export async function POST(request: Request) {
 }
 
 export async function DELETE(request: Request) {
+  // Authorization 헤더에서 토큰 추출
+  const authHeader = request.headers.get('authorization')
+  const token = authHeader?.replace('Bearer ', '')
+  
+  if (!token) {
+    return NextResponse.json(
+      { error: 'Authorization token required' }, 
+      { status: 401 }
+    )
+  }
+  
+  // 인증된 Supabase 클라이언트 생성
+  const authenticatedSupabase = createServerClient(token)
+  
   const { searchParams } = new URL(request.url);
   const id = searchParams.get('id');
   if (!id) return NextResponse.json({ error: '고객 ID가 필요합니다.' }, { status: 400 });
 
   // 1. 고객의 거래 ID 목록 조회
-  const { data: transactions, error: txError } = await supabase.from('transactions').select('id').eq('customer_id', id);
+  const { data: transactions, error: txError } = await authenticatedSupabase.from('transactions').select('id').eq('customer_id', id);
   if (txError) return NextResponse.json({ error: txError.message }, { status: 500 });
   const txIds = (transactions || []).map(tx => tx.id);
 
   // 2. files에서 해당 거래 ID들에 연결된 파일 먼저 삭제
   if (txIds.length > 0) {
-    const { error: fileError } = await supabase.from('files').delete().in('transaction_id', txIds);
+    const { error: fileError } = await authenticatedSupabase.from('files').delete().in('transaction_id', txIds);
     if (fileError) return NextResponse.json({ error: fileError.message }, { status: 500 });
   }
 
   // 3. 거래 삭제
   if (txIds.length > 0) {
-    const { error: txDelError } = await supabase.from('transactions').delete().in('id', txIds);
+    const { error: txDelError } = await authenticatedSupabase.from('transactions').delete().in('id', txIds);
     if (txDelError) return NextResponse.json({ error: txDelError.message }, { status: 500 });
   }
 
   // 4. 고객 삭제
-  const { error } = await supabase.from('customers').delete().eq('id', id);
+  const { error } = await authenticatedSupabase.from('customers').delete().eq('id', id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ success: true });
 } 

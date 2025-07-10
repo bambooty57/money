@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { supabase, createServerClient } from '@/lib/supabase';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -58,20 +58,71 @@ export async function POST(request: Request) {
 }
 
 export async function PUT(request: Request) {
-  // Implementation for PUT request
+  // Authorization 헤더에서 토큰 추출
+  const authHeader = request.headers.get('authorization')
+  const token = authHeader?.replace('Bearer ', '')
+  
+  if (!token) {
+    return NextResponse.json(
+      { error: 'Authorization token required' }, 
+      { status: 401 }
+    )
+  }
+  
+  // 인증된 Supabase 클라이언트 생성
+  const authenticatedSupabase = createServerClient(token)
+  
+  try {
+    const body = await request.json();
+    const { id, ...updateData } = body;
+    
+    if (!id) {
+      return NextResponse.json(
+        { error: 'Transaction ID is required' }, 
+        { status: 400 }
+      )
+    }
+    
+    const { data, error } = await authenticatedSupabase
+      .from('transactions')
+      .update(updateData)
+      .eq('id', id)
+      .select('*,customers(*)')
+      .single();
+      
+    if (error) throw error;
+    return NextResponse.json(data);
+  } catch (error) {
+    console.error('Error updating transaction:', error);
+    return NextResponse.json({ error: 'Failed to update transaction' }, { status: 500 });
+  }
 }
 
 export async function DELETE(request: Request) {
+  // Authorization 헤더에서 토큰 추출
+  const authHeader = request.headers.get('authorization')
+  const token = authHeader?.replace('Bearer ', '')
+  
+  if (!token) {
+    return NextResponse.json(
+      { error: 'Authorization token required' }, 
+      { status: 401 }
+    )
+  }
+  
+  // 인증된 Supabase 클라이언트 생성
+  const authenticatedSupabase = createServerClient(token)
+  
   const { searchParams } = new URL(request.url);
   const id = searchParams.get('id');
   if (!id) return NextResponse.json({ error: '거래 ID가 필요합니다.' }, { status: 400 });
 
   // 1. files에서 해당 거래 참조 파일 먼저 삭제
-  const { error: fileError } = await supabase.from('files').delete().eq('transaction_id', id);
+  const { error: fileError } = await authenticatedSupabase.from('files').delete().eq('transaction_id', id);
   if (fileError) return NextResponse.json({ error: fileError.message }, { status: 500 });
 
   // 2. 거래 삭제
-  const { error } = await supabase.from('transactions').delete().eq('id', id);
+  const { error } = await authenticatedSupabase.from('transactions').delete().eq('id', id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ success: true });
 } 

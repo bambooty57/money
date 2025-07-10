@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { supabase, createServerClient } from '@/lib/supabase';
 
 export async function GET(req: NextRequest) {
   try {
@@ -40,12 +40,26 @@ export async function POST(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   try {
+    // Authorization 헤더에서 토큰 추출
+    const authHeader = req.headers.get('authorization')
+    const token = authHeader?.replace('Bearer ', '')
+    
+    if (!token) {
+      return NextResponse.json(
+        { error: 'Authorization token required' }, 
+        { status: 401 }
+      )
+    }
+    
+    // 인증된 Supabase 클라이언트 생성
+    const authenticatedSupabase = createServerClient(token)
+    
     const { searchParams } = new URL(req.url);
     const file_id = searchParams.get('file_id');
     if (!file_id) throw new Error('Missing file_id');
     
     // 1. 파일 정보 먼저 조회 (Storage 경로 확인용)
-    const { data: fileData, error: fetchError } = await supabase
+    const { data: fileData, error: fetchError } = await authenticatedSupabase
       .from('files')
       .select('url, name')
       .eq('id', file_id)
@@ -75,7 +89,7 @@ export async function DELETE(req: NextRequest) {
             
             console.log('🗑️ Storage 파일 삭제 시도:', { bucket, path: filePath });
             
-            const { error: storageError } = await supabase.storage
+            const { error: storageError } = await authenticatedSupabase.storage
               .from(bucket)
               .remove([filePath]);
             
@@ -94,7 +108,7 @@ export async function DELETE(req: NextRequest) {
     }
     
     // 3. files 테이블에서 레코드 삭제
-    const { data, error } = await supabase.from('files').delete().eq('id', file_id);
+    const { data, error } = await authenticatedSupabase.from('files').delete().eq('id', file_id);
     if (error) throw error;
     
     console.log('✅ 파일 완전 삭제 완료 (Storage + DB)');

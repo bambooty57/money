@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { supabase, createServerClient } from '@/lib/supabase';
 
 export async function GET(request: any, context: any) {
   const { id } = context.params;
@@ -17,13 +17,27 @@ export async function GET(request: any, context: any) {
 
 export async function PUT(request: any, context: any) {
   try {
+    // Authorization 헤더에서 토큰 추출
+    const authHeader = request.headers.get('authorization')
+    const token = authHeader?.replace('Bearer ', '')
+    
+    if (!token) {
+      return NextResponse.json(
+        { error: 'Authorization token required' }, 
+        { status: 401 }
+      )
+    }
+    
+    // 인증된 Supabase 클라이언트 생성
+    const authenticatedSupabase = createServerClient(token)
+    
     const customer_id = context.params.id;
     const body = await request.json();
     // id, customer_type_custom 필드는 DB에 저장하지 않음
     const { id, customer_type_custom, ...updateData } = body;
 
     // 실제 DB 업데이트 예시 (컬럼명/테이블명에 맞게 수정)
-    const { data, error } = await supabase
+    const { data, error } = await authenticatedSupabase
       .from('customers')
       .update(updateData)
       .eq('id', customer_id)
@@ -44,10 +58,24 @@ export async function PUT(request: any, context: any) {
 
 export async function DELETE(request: any, context: any) {
   try {
+    // Authorization 헤더에서 토큰 추출
+    const authHeader = request.headers.get('authorization')
+    const token = authHeader?.replace('Bearer ', '')
+    
+    if (!token) {
+      return NextResponse.json(
+        { error: 'Authorization token required' }, 
+        { status: 401 }
+      )
+    }
+    
+    // 인증된 Supabase 클라이언트 생성
+    const authenticatedSupabase = createServerClient(token)
+    
     const customer_id = context.params.id;
 
     // 1. 해당 고객의 모든 파일 조회
-    const { data: files, error: filesError } = await supabase
+    const { data: files, error: filesError } = await authenticatedSupabase
       .from('files')
       .select('id, url')
       .eq('customer_id', customer_id);
@@ -70,7 +98,7 @@ export async function DELETE(request: any, context: any) {
               const path = pathParts.slice(1).join('/'); // 'customer_photos/uuid/filename.jpg'
               
               console.log('🗑️ Storage 파일 삭제:', { bucket, path });
-              const { error: storageError } = await supabase.storage
+              const { error: storageError } = await authenticatedSupabase.storage
                 .from(bucket)
                 .remove([path]);
               
@@ -85,7 +113,7 @@ export async function DELETE(request: any, context: any) {
       }
 
       // 3. files 테이블에서 파일 레코드들 삭제
-      const { error: deleteFilesError } = await supabase
+      const { error: deleteFilesError } = await authenticatedSupabase
         .from('files')
         .delete()
         .eq('customer_id', customer_id);
@@ -99,7 +127,7 @@ export async function DELETE(request: any, context: any) {
     }
 
     // 4. customers 테이블에서 고객 삭제
-    const { error } = await supabase
+    const { error } = await authenticatedSupabase
       .from('customers')
       .delete()
       .eq('id', customer_id);
