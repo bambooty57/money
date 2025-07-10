@@ -29,7 +29,7 @@ export function ProductModelTypeDropdown({ selectedId, onSelect, refresh }: Prop
     fetchOptions()
   }, [refresh])
 
-  useModelTypesRealtime({ onChange: fetchOptions });
+  useModelTypesRealtime(); // argument removed, now just subscribes for realtime
 
   // Refresh options after modal closes
   const handleDialogOpenChange = (isOpen: boolean) => {
