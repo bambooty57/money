@@ -16,6 +16,22 @@ export async function GET(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   const supabase = createClient()
+  
+  // Authorization 헤더에서 토큰 추출
+  const authHeader = req.headers.get('authorization')
+  const token = authHeader?.replace('Bearer ', '')
+  
+  // 토큰이 있으면 Supabase 클라이언트에 설정
+  if (token) {
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token)
+    if (authError || !user) {
+      return new NextResponse(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401,
+        headers: { 'Cache-Control': 'no-store' }
+      })
+    }
+  }
+  
   const { id } = await req.json()
   console.log('DELETE id:', id)
   if (!id) {
@@ -50,6 +66,22 @@ export async function POST(req: NextRequest) {
 
 export async function PATCH(req: NextRequest) {
   const supabase = createClient()
+  
+  // Authorization 헤더에서 토큰 추출
+  const authHeader = req.headers.get('authorization')
+  const token = authHeader?.replace('Bearer ', '')
+  
+  // 토큰이 있으면 Supabase 클라이언트에 설정
+  if (token) {
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token)
+    if (authError || !user) {
+      return new NextResponse(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401,
+        headers: { 'Cache-Control': 'no-store' }
+      })
+    }
+  }
+  
   const { id, model, type } = await req.json()
   console.log('PATCH id:', id)
   if (!id || !model || !type) {
