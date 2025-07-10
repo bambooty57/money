@@ -50,12 +50,29 @@ export default function ModelTypeManager(props: ModelTypeManagerProps) {
 
   async function handleDelete(id: string) {
     if (!confirm('정말 삭제하시겠습니까?')) return
+    let accessToken = '';
+    try {
+      const sessionRes = await supabase.auth.getSession();
+      accessToken = sessionRes.data.session?.access_token || '';
+    } catch (e) {}
     const res = await fetch('/api/models-types', {
       method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {})
+      },
       body: JSON.stringify({ id })
     })
-    if (res.ok) { setMsg('삭제 완료'); if (onChange) onChange(); } else { setMsg('삭제 실패') }
+    if (res.ok) {
+      let data: any = {};
+      try { data = await res.json(); } catch {}
+      setMsg('삭제 완료');
+      if (onChange) onChange(id);
+    } else {
+      let err: any = {};
+      try { err = await res.json(); } catch {}
+      setMsg('삭제 실패: ' + (err?.error || res.status));
+    }
   }
 
   function handleEditClick(row: ModelTypeRow) {
@@ -77,12 +94,12 @@ export default function ModelTypeManager(props: ModelTypeManagerProps) {
       setRowState(row, { isEditing: false });
       return
     }
+    let accessToken = '';
     try {
-      let accessToken = '';
-      try {
-        const sessionRes = await supabase.auth.getSession();
-        accessToken = sessionRes.data.session?.access_token || '';
-      } catch (e) {}
+      const sessionRes = await supabase.auth.getSession();
+      accessToken = sessionRes.data.session?.access_token || '';
+    } catch (e) {}
+    try {
       const res = await fetch('/api/models-types', {
         method: 'PATCH',
         headers: {
@@ -92,11 +109,14 @@ export default function ModelTypeManager(props: ModelTypeManagerProps) {
         body: JSON.stringify({ id: row.id, model: state.editModel, type: state.editType })
       })
       if (res.ok) {
+        let data: any = {};
+        try { data = await res.json(); } catch {}
         setMsg('수정 완료')
         setRowState(row, { isEditing: false });
-        if (onChange) onChange();
+        if (onChange) onChange(row.id);
       } else {
-        const err = await res.json().catch(() => ({}))
+        let err: any = {};
+        try { err = await res.json(); } catch {}
         setMsg('수정 실패: ' + (err?.error || res.status))
         setRowState(row, { isEditing: false });
       }
