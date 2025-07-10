@@ -231,7 +231,7 @@ export function StatementPDFTable({ transactions = [], customer, supplier, title
                 <Text style={{ width: 110, fontSize: 9 }}>{(tx.매출액 || tx.amount || 0).toLocaleString()}</Text>
                 <Text style={{ width: 110, fontSize: 9 }}>{(tx.입금액 || tx.paid_amount || 0).toLocaleString()}</Text>
                 <Text style={{ width: 110, fontSize: 9 }}>{(tx.잔액 || tx.unpaid_amount || 0).toLocaleString()}</Text>
-                <Text style={{ width: 140, fontSize: 9 }}>{tx.note || ''}</Text>
+                <Text style={{ width: 140, fontSize: 9 }}>{tx.description || tx.notes || tx.note || ''}</Text>
               </View>
               {/* 입금내역 */}
               {Array.isArray(tx.payments) && tx.payments.length > 0 ? (
