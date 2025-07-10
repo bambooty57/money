@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Input } from './ui/input'
 import { useModelTypesRealtime } from '@/lib/useModelTypesRealtime';
 import { supabase } from '@/lib/supabase';
+import { useEffect } from 'react';
 
 interface ModelTypeRow {
   id: string
@@ -23,6 +24,15 @@ export default function ModelTypeManager(props: ModelTypeManagerProps) {
   const [newModel, setNewModel] = useState('')
   const [newType, setNewType] = useState('')
   const [msg, setMsg] = useState('')
+  const [session, setSession] = useState<any>(null);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(res => setSession(res.data.session));
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
+    return () => { listener?.subscription.unsubscribe(); };
+  }, []);
 
   function getRowState(row: ModelTypeRow) {
     return editRows[row.id] || { isEditing: false, editModel: row.model, editType: row.type };
@@ -49,12 +59,9 @@ export default function ModelTypeManager(props: ModelTypeManagerProps) {
   }
 
   async function handleDelete(id: string) {
+    if (!session) return setMsg('로그인 후 이용 가능합니다');
     if (!confirm('정말 삭제하시겠습니까?')) return
-    let accessToken = '';
-    try {
-      const sessionRes = await supabase.auth.getSession();
-      accessToken = sessionRes.data.session?.access_token || '';
-    } catch (e) {}
+    let accessToken = session?.access_token || '';
     const res = await fetch('/api/models-types', {
       method: 'DELETE',
       headers: {
@@ -94,11 +101,12 @@ export default function ModelTypeManager(props: ModelTypeManagerProps) {
       setRowState(row, { isEditing: false });
       return
     }
-    let accessToken = '';
-    try {
-      const sessionRes = await supabase.auth.getSession();
-      accessToken = sessionRes.data.session?.access_token || '';
-    } catch (e) {}
+    if (!session) {
+      setMsg('로그인 후 이용 가능합니다');
+      setRowState(row, { isEditing: false });
+      return;
+    }
+    let accessToken = session?.access_token || '';
     try {
       const res = await fetch('/api/models-types', {
         method: 'PATCH',
