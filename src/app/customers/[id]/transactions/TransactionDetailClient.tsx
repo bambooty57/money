@@ -914,42 +914,55 @@ async function handlePdfExportPdfLib(selectedTx: TransactionWithDetails, filtere
     let paymentRowY = paymentHeaderY - rowHeight;
     filteredPayments.slice(0, maxRows).forEach((p, rowIdx) => {
       // Place '비고' immediately after '상세'
-      // 수표 정보 처리 함수
-      const getChequeDetail = (cheques: string) => {
+      // 수표 정보 처리 함수 (PDF용 - 여러 줄 표시)
+      const getChequeDetailLines = (cheques: string) => {
         try {
           const chequesArray = JSON.parse(cheques);
           if (Array.isArray(chequesArray) && chequesArray.length > 0) {
-            return chequesArray.map((cheque: any, idx: number) => {
+            const lines: string[] = [];
+            chequesArray.forEach((cheque: any, idx: number) => {
               if (cheque.bank || cheque.amount || cheque.number) {
-                return `수표${idx + 1}: ${cheque.bank || '?'}은행 ${(cheque.amount ? parseInt(cheque.amount).toLocaleString() : '?')}원 (${cheque.number || '?'}번)`;
+                lines.push(`수표${idx + 1}: ${cheque.bank || '?'}은행`);
+                lines.push(`       ${(cheque.amount ? parseInt(cheque.amount).toLocaleString() : '?')}원`);
+                lines.push(`       (${cheque.number || '?'}번)`);
+                if (idx < chequesArray.length - 1) {
+                  lines.push(''); // 수표 간 빈 줄
+                }
               }
-              return '';
-            }).filter(Boolean).join(' / ');
+            });
+            return lines;
           }
         } catch (e) {
-          return '수표정보 오류';
+          return ['수표정보 오류'];
         }
-        return '';
+        return [];
       };
 
-      const detail = p.method === '현금'
-        ? `장소:${p.cash_place||''} 수령:${p.cash_receiver||''}`
-        : p.method === '계좌이체'
-          ? `계좌:${p.account_number||''} (${p.account_holder||''})`
-          : p.method === '수표' && (p as any).cheques
-            ? getChequeDetail((p as any).cheques)
-            : p.detail || '';
+      // 상세 정보 처리 (수표는 여러 줄, 나머지는 단일 줄)
+      let detailLines: string[] = [];
+      if (p.method === '현금') {
+        const detail = `장소:${p.cash_place||''} 수령:${p.cash_receiver||''}`;
+        detailLines = splitTextByWidth(detail, paymentColWidths[5] - 4, font, 9);
+      } else if (p.method === '계좌이체') {
+        const detail = `계좌:${p.account_number||''} (${p.account_holder||''})`;
+        detailLines = splitTextByWidth(detail, paymentColWidths[5] - 4, font, 9);
+      } else if (p.method === '수표' && (p as any).cheques) {
+        // 수표 정보는 별도 처리로 여러 줄 표시
+        detailLines = getChequeDetailLines((p as any).cheques);
+      } else {
+        const detail = p.detail || '';
+        detailLines = splitTextByWidth(detail, paymentColWidths[5] - 4, font, 9);
+      }
+      
       const cells = [
         p.paid_at?.slice(0,10) || '',
         p.payer_name || '',
         p.method || '',
         (p.amount || 0).toLocaleString() + '원',
         p.bank_name || '',
-        detail,
+        '', // detail은 별도 처리
         p.note || ''
       ];
-      const maxDetailWidth = paymentColWidths[5] - 4;
-      const detailLines = splitTextByWidth(cells[5], maxDetailWidth, font, 9);
       const rowLines = Math.max(1, detailLines.length);
       for (let lineIdx = 0; lineIdx < rowLines; lineIdx++) {
         cells.forEach((cell, i) => {
