@@ -1657,29 +1657,29 @@ export default function TransactionDetailClient({ transactions, initialSelectedI
           📋 입금내역
         </h2>
         <div className="overflow-x-hidden bg-white rounded-lg shadow-lg border-2 border-gray-200">
-          <table className="table-auto w-full text-lg border-collapse bg-white rounded-lg shadow-lg">
+          <table className="table-auto w-full text-lg border-collapse bg-white rounded-lg shadow-lg" style={{tableLayout: 'auto'}}>
             <thead>
               <tr className="bg-blue-100 border-b-2 border-blue-200 h-16">
-                <th className="border-2 border-gray-300 px-4 py-4 font-bold text-gray-800 w-32 min-w-[120px] max-w-[160px] text-center whitespace-nowrap overflow-hidden text-ellipsis">일자</th>
-                <th className="border-2 border-gray-300 px-4 py-4 font-bold text-gray-800 w-24 min-w-[80px] max-w-[100px] text-center whitespace-nowrap overflow-hidden text-ellipsis">입금자</th>
-                <th className="border-2 border-gray-300 px-4 py-4 font-bold text-gray-800 w-24 min-w-[80px] max-w-[100px] text-center whitespace-nowrap overflow-hidden text-ellipsis">방식</th>
-                <th className="border-2 border-gray-300 px-4 py-4 font-bold text-gray-800 w-32 min-w-[120px] max-w-[160px] text-right whitespace-nowrap overflow-hidden text-ellipsis">금액</th>
-                <th className="border-2 border-gray-300 px-4 py-4 font-bold text-gray-800 w-32 min-w-[120px] max-w-[160px] text-center whitespace-nowrap overflow-hidden text-ellipsis">입금은행</th>
-                <th className="border-2 border-gray-300 px-4 py-4 font-bold text-gray-800 w-60 min-w-[200px] max-w-[300px] text-center">상세정보</th>
-                <th className="border-2 border-gray-300 px-4 py-4 font-bold text-gray-800 w-24 min-w-[100px] max-w-[120px] text-center whitespace-nowrap overflow-hidden text-ellipsis">비고</th>
-                <th className="border-2 border-gray-300 px-4 py-4 font-bold text-gray-800 w-16 min-w-[60px] max-w-[60px] text-center whitespace-nowrap overflow-hidden text-ellipsis">삭제</th>
+                <th className="border-2 border-gray-200 px-4 py-4 font-bold text-gray-800 w-32 min-w-[120px] max-w-[160px] text-center whitespace-nowrap overflow-hidden text-ellipsis">일자</th>
+                <th className="border-2 border-gray-200 px-4 py-4 font-bold text-gray-800 w-24 min-w-[80px] max-w-[100px] text-center whitespace-nowrap overflow-hidden text-ellipsis">입금자</th>
+                <th className="border-2 border-gray-200 px-4 py-4 font-bold text-gray-800 w-24 min-w-[80px] max-w-[100px] text-center whitespace-nowrap overflow-hidden text-ellipsis">방식</th>
+                <th className="border-2 border-gray-200 px-4 py-4 font-bold text-gray-800 w-32 min-w-[120px] max-w-[160px] text-right whitespace-nowrap overflow-hidden text-ellipsis">금액</th>
+                <th className="border-2 border-gray-200 px-4 py-4 font-bold text-gray-800 w-32 min-w-[120px] max-w-[160px] text-center whitespace-nowrap overflow-hidden text-ellipsis">입금은행</th>
+                <th className="border-2 border-gray-200 px-4 py-4 font-bold text-gray-800 w-60 min-w-[200px] max-w-[300px] text-center">상세정보</th>
+                <th className="border-2 border-gray-200 px-4 py-4 font-bold text-gray-800 w-24 min-w-[100px] max-w-[120px] text-center whitespace-nowrap overflow-hidden text-ellipsis">비고</th>
+                <th className="border-2 border-gray-200 px-4 py-4 font-bold text-gray-800 w-16 min-w-[60px] max-w-[60px] text-center whitespace-nowrap overflow-hidden text-ellipsis">삭제</th>
               </tr>
             </thead>
             <tbody>
               {filteredPayments.length > 0 ? (
                 filteredPayments.map((item: any, index: number) => (
-                  <tr key={item.id} className={`hover:bg-blue-50 border-b border-gray-200 ${index % 2 === 0 ? 'bg-gray-50' : ''} align-top`}>
-                    <td className="border-2 border-gray-300 px-4 py-4 text-center w-32 min-w-[120px] max-w-[160px] text-lg whitespace-nowrap overflow-hidden text-ellipsis align-top">{item.paid_at?.slice(0, 10)}</td>
-                    <td className="border-2 border-gray-300 px-4 py-4 font-semibold w-24 min-w-[80px] max-w-[100px] text-center text-lg whitespace-nowrap overflow-hidden text-ellipsis align-top">{item.payer_name}</td>
-                    <td className="border-2 border-gray-300 px-4 py-4 text-center w-24 min-w-[80px] max-w-[100px] text-lg whitespace-nowrap overflow-hidden text-ellipsis align-top">{item.method}</td>
-                    <td className="border-2 border-gray-300 px-4 py-4 text-right font-bold text-blue-600 w-32 min-w-[120px] max-w-[160px] text-2xl whitespace-nowrap overflow-hidden text-ellipsis align-top">{item.amount !== undefined && item.amount !== null ? Math.round(item.amount).toLocaleString() : ''}원</td>
-                    <td className="border-2 border-gray-300 px-4 py-4 text-center w-32 min-w-[120px] max-w-[160px] text-lg whitespace-nowrap overflow-hidden text-ellipsis align-top">{item.bank_name || item.account_number || ''}</td>
-                    <td className="border-2 border-gray-300 px-4 py-4 text-center w-60 min-w-[200px] max-w-[300px] text-base leading-relaxed align-top">
+                  <tr key={item.id} className={`hover:bg-blue-50 border-b border-gray-200 ${index % 2 === 0 ? 'bg-gray-50' : ''} align-top`} style={{height: 'auto'}}>
+                    <td className="border-2 border-gray-200 px-4 py-4 text-center w-32 min-w-[120px] max-w-[160px] text-lg whitespace-nowrap overflow-hidden text-ellipsis align-top">{item.paid_at?.slice(0, 10)}</td>
+                    <td className="border-2 border-gray-200 px-4 py-4 font-semibold w-24 min-w-[80px] max-w-[100px] text-center text-lg whitespace-nowrap overflow-hidden text-ellipsis align-top">{item.payer_name}</td>
+                    <td className="border-2 border-gray-200 px-4 py-4 text-center w-24 min-w-[80px] max-w-[100px] text-lg whitespace-nowrap overflow-hidden text-ellipsis align-top">{item.method}</td>
+                    <td className="border-2 border-gray-200 px-4 py-4 text-right font-bold text-blue-600 w-32 min-w-[120px] max-w-[160px] text-2xl whitespace-nowrap overflow-hidden text-ellipsis align-top">{item.amount !== undefined && item.amount !== null ? Math.round(item.amount).toLocaleString() : ''}원</td>
+                    <td className="border-2 border-gray-200 px-4 py-4 text-center w-32 min-w-[120px] max-w-[160px] text-lg whitespace-nowrap overflow-hidden text-ellipsis align-top">{item.bank_name || item.account_number || ''}</td>
+                    <td className="border-2 border-gray-200 px-4 py-4 text-center w-60 min-w-[200px] max-w-[300px] text-base leading-relaxed align-top" style={{verticalAlign: 'top', height: 'auto'}}>
                       {(() => {
                         const details = [];
                         
@@ -1720,12 +1720,12 @@ export default function TransactionDetailClient({ transactions, initialSelectedI
                         }
                         
                         return details.length > 0 ? (
-                          <div className="space-y-2">{details}</div>
+                          <div className="space-y-2 w-full min-h-fit">{details}</div>
                         ) : '';
                       })()}
                     </td>
-                    <td className="border-2 border-gray-300 px-4 py-4 w-24 min-w-[100px] max-w-[120px] text-center text-lg whitespace-nowrap overflow-hidden text-ellipsis align-top">{item.note}</td>
-                    <td className="border-2 border-gray-300 px-4 py-4 w-16 min-w-[60px] max-w-[60px] text-center whitespace-nowrap overflow-hidden text-ellipsis align-top">
+                    <td className="border-2 border-gray-200 px-4 py-4 w-24 min-w-[100px] max-w-[120px] text-center text-lg whitespace-nowrap overflow-hidden text-ellipsis align-top">{item.note}</td>
+                    <td className="border-2 border-gray-200 px-4 py-4 w-16 min-w-[60px] max-w-[60px] text-center whitespace-nowrap overflow-hidden text-ellipsis align-top">
                       <button
                         className="w-10 h-10 flex items-center justify-center bg-red-100 hover:bg-red-200 text-red-600 rounded-lg text-2xl shadow transition-colors duration-200 mx-auto"
                         onClick={() => handleDeletePayment(item.id)}
@@ -1739,7 +1739,7 @@ export default function TransactionDetailClient({ transactions, initialSelectedI
                   </tr>
                 ))
               ) : (
-                <tr><td colSpan={8} className="text-center text-gray-400 py-8 text-xl">📭 입금내역이 없습니다</td></tr>
+                <tr><td colSpan={8} className="border-2 border-gray-200 text-center text-gray-400 py-8 text-xl">📭 입금내역이 없습니다</td></tr>
               )}
             </tbody>
           </table>
