@@ -17,18 +17,20 @@ export async function GET(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
   const supabase = createClient()
   const { id } = await req.json()
+  console.log('DELETE id:', id)
   if (!id) {
     return new NextResponse(JSON.stringify({ error: 'id is required' }), {
       status: 400,
       headers: { 'Cache-Control': 'no-store' }
     })
   }
-  const { error } = await supabase
+  const { error, count } = await supabase
     .from('models_types')
-    .delete()
+    .delete({ count: 'exact' })
     .eq('id', id)
   if (error) return new NextResponse(JSON.stringify({ error: error.message }), { status: 500, headers: { 'Cache-Control': 'no-store' } })
-  return new NextResponse(JSON.stringify({ success: true }), { status: 200, headers: { 'Cache-Control': 'no-store' } })
+  if (!count) return new NextResponse(JSON.stringify({ error: 'No row deleted', affectedRows: 0 }), { status: 404, headers: { 'Cache-Control': 'no-store' } })
+  return new NextResponse(JSON.stringify({ success: true, affectedRows: count }), { status: 200, headers: { 'Cache-Control': 'no-store' } })
 }
 
 export async function POST(req: NextRequest) {
@@ -49,16 +51,18 @@ export async function POST(req: NextRequest) {
 export async function PATCH(req: NextRequest) {
   const supabase = createClient()
   const { id, model, type } = await req.json()
+  console.log('PATCH id:', id)
   if (!id || !model || !type) {
     return new NextResponse(JSON.stringify({ error: 'id, model and type are required' }), {
       status: 400,
       headers: { 'Cache-Control': 'no-store' }
     })
   }
-  const { error } = await supabase
+  const { error, count } = await supabase
     .from('models_types')
-    .update({ model, type })
+    .update({ model, type }, { count: 'exact' })
     .eq('id', id)
   if (error) return new NextResponse(JSON.stringify({ error: error.message }), { status: 500, headers: { 'Cache-Control': 'no-store' } })
-  return new NextResponse(JSON.stringify({ success: true }), { status: 200, headers: { 'Cache-Control': 'no-store' } })
+  if (!count) return new NextResponse(JSON.stringify({ error: 'No row updated', affectedRows: 0 }), { status: 404, headers: { 'Cache-Control': 'no-store' } })
+  return new NextResponse(JSON.stringify({ success: true, affectedRows: count }), { status: 200, headers: { 'Cache-Control': 'no-store' } })
 } 
