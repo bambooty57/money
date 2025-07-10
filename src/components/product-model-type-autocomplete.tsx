@@ -34,9 +34,7 @@ export function ProductModelTypeDropdown({ selectedId, onSelect, refresh }: Prop
   // Refresh options after modal closes
   const handleDialogOpenChange = (isOpen: boolean) => {
     setOpen(isOpen)
-    // if (!isOpen) {
-    //   fetchOptions()
-    // }
+    // 실시간 구독만 신뢰: fetchOptions() 호출 제거
   }
 
   // Immediate refresh on ModelTypeManager change
