@@ -499,7 +499,7 @@ async function handlePdfExportPdfLib(selectedTx: TransactionWithDetails, filtere
       y: customerBoxY - customerBoxHeight,
       width: customerBoxWidth,
       height: customerBoxHeight,
-      borderColor: rgb(0.7, 0.7, 0.7),
+      borderColor: rgb(0.8, 0.8, 0.8),
       borderWidth: 1
     });
     
@@ -542,7 +542,7 @@ async function handlePdfExportPdfLib(selectedTx: TransactionWithDetails, filtere
       y: customerBoxY - customerBoxHeight,
       width: photoBoxWidth,
       height: customerBoxHeight,
-      borderColor: rgb(0.7, 0.7, 0.7),
+      borderColor: rgb(0.8, 0.8, 0.8),
       borderWidth: 1
     });
     // 고객 사진 (우측) - 실시간 API 호출로 사진 가져오기
@@ -839,7 +839,7 @@ async function handlePdfExportPdfLib(selectedTx: TransactionWithDetails, filtere
       y: boxY - boxHeight,
       width: boxWidth,
       height: boxHeight,
-      borderColor: rgb(0.7,0.7,0.8),
+      borderColor: rgb(0.8,0.8,0.8),
       borderWidth: 1
     });
     // 거래정보 박스 내부 항목 좌우 간격 균등 분포
@@ -869,31 +869,48 @@ async function handlePdfExportPdfLib(selectedTx: TransactionWithDetails, filtere
     const paymentColWidths = [60, 60, 55, 80, 65, 100, 60];
     const rowHeight = 18;
     const maxRows = 15;
-    // 거래내역 박스 높이를 데이터 개수에 따라 동적으로 계산
-    const paymentRowCount = Math.max(filteredPayments.length, 1); // 최소 1행
-    const paymentBoxHeight = (rowHeight * (paymentRowCount + 1)) + 60; // 헤더+데이터+하단여백
-
-    // 거래내역 표 테두리(고객정보/거래정보와 완전히 동일)
-    page.drawRectangle({
-      x: boxX,
-      y: paymentBoxY - paymentBoxHeight,
-      width: boxWidth,
-      height: paymentBoxHeight,
-      borderColor: rgb(0.5,0.5,0.7),
-      borderWidth: 0.4
-    });
-    // 헤더와 밑줄 간 간격 맞춤 (헤더 y좌표 조정)
-    const paymentHeaderY = paymentBoxY - 18;
-    paymentTableHeaders.forEach((header, i) => {
-      page.drawText(header, {
-        x: paymentBoxInnerX + paymentColWidths.slice(0, i).reduce((a, b) => a + b, 0),
-        y: paymentHeaderY,
-        size: 9,
-        font,
-        color: rgb(0.1,0.2,0.5)
+    // 거래내역 박스 높이를 실제 필요 라인 수에 따라 동적으로 계산
+    function calculateTotalRows() {
+      let totalRows = 0;
+      filteredPayments.slice(0, maxRows).forEach((p) => {
+        let detailLines: string[] = [];
+        if (p.method === '현금') {
+          const detail = `장소:${p.cash_place||''} 수령:${p.cash_receiver||''}`;
+          detailLines = splitTextByWidth(detail, paymentColWidths[5] - 4, font, 9);
+        } else if (p.method === '계좌이체') {
+          const detail = `계좌:${p.account_number||''} (${p.account_holder||''})`;
+          detailLines = splitTextByWidth(detail, paymentColWidths[5] - 4, font, 9);
+        } else if (p.method === '수표' && (p as any).cheques) {
+          // 수표 정보 실제 라인 수 계산
+          try {
+            const chequesArray = JSON.parse((p as any).cheques);
+            if (Array.isArray(chequesArray) && chequesArray.length > 0) {
+              const lines: string[] = [];
+              chequesArray.forEach((cheque: any, idx: number) => {
+                if (cheque.bank || cheque.amount || cheque.number) {
+                  lines.push(`수표${idx + 1}: ${cheque.bank || '?'}은행`);
+                  lines.push(`       ${(cheque.amount ? parseInt(cheque.amount).toLocaleString() : '?')}원`);
+                  lines.push(`       (${cheque.number || '?'}번)`);
+                  if (idx < chequesArray.length - 1) {
+                    lines.push(''); // 수표 간 빈 줄
+                  }
+                }
+              });
+              detailLines = lines;
+            }
+          } catch (e) {
+            detailLines = ['수표정보 오류'];
+          }
+        } else {
+          const detail = p.detail || '';
+          detailLines = splitTextByWidth(detail, paymentColWidths[5] - 4, font, 9);
+        }
+        totalRows += Math.max(1, detailLines.length);
       });
-    });
-    // splitTextByWidth 함수 선언을 이 위치로 이동
+      return Math.max(totalRows, 1); // 최소 1행
+    }
+    
+    // splitTextByWidth 함수를 미리 선언
     function splitTextByWidth(text: string, maxWidth: number, font: any, size: number) {
       if (!text) return [''];
       const words = text.split(' ');
@@ -911,6 +928,30 @@ async function handlePdfExportPdfLib(selectedTx: TransactionWithDetails, filtere
       if (current) lines.push(current);
       return lines;
     }
+    
+    const totalRowsNeeded = calculateTotalRows();
+    const paymentBoxHeight = (rowHeight * (totalRowsNeeded + 1)) + 60; // 헤더+실제라인수+하단여백
+
+    // 거래내역 표 테두리(고객정보/거래정보와 완전히 동일)
+    page.drawRectangle({
+      x: boxX,
+      y: paymentBoxY - paymentBoxHeight,
+      width: boxWidth,
+      height: paymentBoxHeight,
+      borderColor: rgb(0.8,0.8,0.8),
+      borderWidth: 0.4
+    });
+    // 헤더와 밑줄 간 간격 맞춤 (헤더 y좌표 조정)
+    const paymentHeaderY = paymentBoxY - 18;
+    paymentTableHeaders.forEach((header, i) => {
+      page.drawText(header, {
+        x: paymentBoxInnerX + paymentColWidths.slice(0, i).reduce((a, b) => a + b, 0),
+        y: paymentHeaderY,
+        size: 9,
+        font,
+        color: rgb(0.1,0.2,0.5)
+      });
+    });
     let paymentRowY = paymentHeaderY - rowHeight;
     filteredPayments.slice(0, maxRows).forEach((p, rowIdx) => {
       // Place '비고' immediately after '상세'
@@ -948,7 +989,9 @@ async function handlePdfExportPdfLib(selectedTx: TransactionWithDetails, filtere
         detailLines = splitTextByWidth(detail, paymentColWidths[5] - 4, font, 9);
       } else if (p.method === '수표' && (p as any).cheques) {
         // 수표 정보는 별도 처리로 여러 줄 표시
+        console.log('PDF 수표 정보 처리:', p.method, (p as any).cheques);
         detailLines = getChequeDetailLines((p as any).cheques);
+        console.log('PDF 수표 처리된 라인:', detailLines);
       } else {
         const detail = p.detail || '';
         detailLines = splitTextByWidth(detail, paymentColWidths[5] - 4, font, 9);
@@ -1685,6 +1728,7 @@ export default function TransactionDetailClient({ transactions, initialSelectedI
                         
                         // 수표 정보 처리 (줄바꿈으로 표시)
                         if (item.method === '수표' && (item as any).cheques) {
+                          console.log('웹 화면 수표 정보:', item.method, (item as any).cheques);
                           try {
                             const cheques = JSON.parse((item as any).cheques);
                             if (Array.isArray(cheques) && cheques.length > 0) {
