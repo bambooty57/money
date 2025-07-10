@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { Input } from './ui/input'
 import { useModelTypesRealtime } from '@/lib/useModelTypesRealtime';
 import { supabase } from '@/lib/supabase';
@@ -16,28 +16,21 @@ interface ModelTypeManagerProps {
   onChange?: (id?: string) => void;
 }
 
-export default function ModelTypeManager({ onChange }: ModelTypeManagerProps = {}) {
-  const [rows, setRows] = useState<ModelTypeRow[]>([])
+export default function ModelTypeManager(props: ModelTypeManagerProps) {
+  const { onChange } = props || {};
+  const modelTypes = useModelTypesRealtime();
+  const [editRows, setEditRows] = useState<Record<string, { isEditing: boolean; editModel: string; editType: string }>>({});
   const [newModel, setNewModel] = useState('')
   const [newType, setNewType] = useState('')
   const [msg, setMsg] = useState('')
 
-  async function fetchRows() {
-    console.log('[ModelTypeManager] fetchRows() called');
-    const res = await fetch('/api/models-types', { cache: 'no-store' });
-    const data = await res.json();
-    console.log('[ModelTypeManager] fetchRows() data:', data);
-    setRows(data.map((row: ModelTypeRow) => ({ ...row, isEditing: false, editModel: row.model, editType: row.type })))
+  function getRowState(row: ModelTypeRow) {
+    return editRows[row.id] || { isEditing: false, editModel: row.model, editType: row.type };
   }
 
-  useEffect(() => {
-    console.log('[ModelTypeManager] useEffect: fetchRows on mount');
-    fetchRows()
-  }, [])
-  useModelTypesRealtime({ onChange: () => {
-    console.log('[ModelTypeManager] useModelTypesRealtime onChange (realtime event)');
-    fetchRows();
-  } });
+  function setRowState(row: ModelTypeRow, state: Partial<{ isEditing: boolean; editModel: string; editType: string }>) {
+    setEditRows((prev) => ({ ...prev, [row.id]: { ...getRowState(row), ...state } }));
+  }
 
   async function handleAdd() {
     if (!newModel || !newType) return setMsg('기종명/형식명을 모두 입력하세요')
@@ -48,7 +41,7 @@ export default function ModelTypeManager({ onChange }: ModelTypeManagerProps = {
     })
     if (res.ok) {
       const data = await res.json();
-      setNewModel(''); setNewType(''); setMsg('추가 완료'); fetchRows();
+      setNewModel(''); setNewType(''); setMsg('추가 완료');
       if (onChange) onChange(data.id);
     } else {
       setMsg('추가 실패')
@@ -62,64 +55,54 @@ export default function ModelTypeManager({ onChange }: ModelTypeManagerProps = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id })
     })
-    if (res.ok) { setMsg('삭제 완료'); fetchRows(); if (onChange) onChange(); } else { setMsg('삭제 실패') }
+    if (res.ok) { setMsg('삭제 완료'); if (onChange) onChange(); } else { setMsg('삭제 실패') }
   }
 
-  function handleEditClick(idx: number) {
-    setRows(rows => rows.map((row, i) => i === idx ? { ...row, isEditing: true, editModel: row.model, editType: row.type } : { ...row, isEditing: false }))
+  function handleEditClick(row: ModelTypeRow) {
+    setRowState(row, { isEditing: true, editModel: row.model, editType: row.type });
   }
 
-  function handleEditCancel(idx: number) {
-    setRows(rows => rows.map((row, i) => i === idx ? { ...row, isEditing: false, editModel: row.model, editType: row.type } : row))
+  function handleEditCancel(row: ModelTypeRow) {
+    setRowState(row, { isEditing: false, editModel: row.model, editType: row.type });
   }
 
-  function handleInputChange(idx: number, field: 'editModel' | 'editType', value: string) {
-    setRows(rows => rows.map((row, i) => i === idx ? { ...row, [field]: value } : row))
+  function handleInputChange(row: ModelTypeRow, field: 'editModel' | 'editType', value: string) {
+    setRowState(row, { [field]: value });
   }
 
-  async function handleEditSave(idx: number) {
-    const row = rows[idx]
-    console.log('[handleEditSave] called', { idx, row });
-    if (!row.id || !row.editModel || !row.editType) {
+  async function handleEditSave(row: ModelTypeRow) {
+    const state = getRowState(row);
+    if (!row.id || !state.editModel || !state.editType) {
       setMsg('id, 기종명, 형식명을 모두 입력하세요')
-      setRows(rows => rows.map((r, i) => i === idx ? { ...r, isEditing: false } : r))
+      setRowState(row, { isEditing: false });
       return
     }
     try {
-      // access_token 획득
       let accessToken = '';
       try {
         const sessionRes = await supabase.auth.getSession();
         accessToken = sessionRes.data.session?.access_token || '';
-        console.log('[handleEditSave] accessToken', accessToken);
-      } catch (e) {
-        console.warn('[handleEditSave] accessToken 획득 실패', e);
-      }
-      console.log('[handleEditSave] PATCH fetch start', { id: row.id, model: row.editModel, type: row.editType });
+      } catch (e) {}
       const res = await fetch('/api/models-types', {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
           ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {})
         },
-        body: JSON.stringify({ id: row.id, model: row.editModel, type: row.editType })
+        body: JSON.stringify({ id: row.id, model: state.editModel, type: state.editType })
       })
-      console.log('[handleEditSave] PATCH fetch response', res);
       if (res.ok) {
         setMsg('수정 완료')
-        setRows(rows => rows.map((r, i) => i === idx ? { ...r, isEditing: false } : r))
-        fetchRows();
+        setRowState(row, { isEditing: false });
         if (onChange) onChange();
       } else {
         const err = await res.json().catch(() => ({}))
         setMsg('수정 실패: ' + (err?.error || res.status))
-        setRows(rows => rows.map((r, i) => i === idx ? { ...r, isEditing: false } : r))
-        console.error('[handleEditSave] PATCH fetch error', err, res.status);
+        setRowState(row, { isEditing: false });
       }
     } catch (e) {
       setMsg('수정 실패: ' + (e instanceof Error ? e.message : String(e)))
-      setRows(rows => rows.map((r, i) => i === idx ? { ...r, isEditing: false } : r))
-      console.error('[handleEditSave] PATCH fetch exception', e);
+      setRowState(row, { isEditing: false });
     }
   }
 
@@ -138,33 +121,36 @@ export default function ModelTypeManager({ onChange }: ModelTypeManagerProps = {
             </tr>
           </thead>
           <tbody>
-            {rows.map((row, i) => (
-              <tr key={row.id || `${row.model}-${row.type}-${i}`}>
-                <td className="border p-1">
-                  {row.isEditing ? (
-                    <Input value={row.editModel ?? ''} onChange={e => handleInputChange(i, 'editModel', e.target.value)} />
-                  ) : row.model}
-                </td>
-                <td className="border p-1">
-                  {row.isEditing ? (
-                    <Input value={row.editType ?? ''} onChange={e => handleInputChange(i, 'editType', e.target.value)} />
-                  ) : row.type}
-                </td>
-                <td className="border p-1">
-                  {row.isEditing ? (
-                    <>
-                      <button onClick={() => handleEditSave(i)} className="text-blue-600">저장</button>
-                      <button onClick={() => handleEditCancel(i)} className="ml-2 text-gray-500">취소</button>
-                    </>
-                  ) : (
-                    <button onClick={() => handleEditClick(i)} className="text-blue-600">수정</button>
-                  )}
-                </td>
-                <td className="border p-1">
-                  <button onClick={() => handleDelete(row.id)} className="text-red-600">삭제</button>
-                </td>
-              </tr>
-            ))}
+            {modelTypes.map((row, i) => {
+              const state = getRowState(row);
+              return (
+                <tr key={row.id || `${row.model}-${row.type}-${i}`}>
+                  <td className="border p-1">
+                    {state.isEditing ? (
+                      <Input value={state.editModel ?? ''} onChange={e => handleInputChange(row, 'editModel', e.target.value)} />
+                    ) : row.model}
+                  </td>
+                  <td className="border p-1">
+                    {state.isEditing ? (
+                      <Input value={state.editType ?? ''} onChange={e => handleInputChange(row, 'editType', e.target.value)} />
+                    ) : row.type}
+                  </td>
+                  <td className="border p-1">
+                    {state.isEditing ? (
+                      <>
+                        <button onClick={() => handleEditSave(row)} className="text-blue-600">저장</button>
+                        <button onClick={() => handleEditCancel(row)} className="ml-2 text-gray-500">취소</button>
+                      </>
+                    ) : (
+                      <button onClick={() => handleEditClick(row)} className="text-blue-600">수정</button>
+                    )}
+                  </td>
+                  <td className="border p-1">
+                    <button onClick={() => handleDelete(row.id)} className="text-red-600">삭제</button>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
