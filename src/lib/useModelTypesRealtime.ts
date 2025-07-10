@@ -1,3 +1,4 @@
+'use client';
 import { useEffect } from 'react';
 import { supabase } from './supabase';
 import { useRefreshContext } from './refresh-context';
