@@ -289,6 +289,7 @@ export default function TransactionForm({ customers, onSuccess, transaction, ref
             onWheel={(e) => {
               // 마우스 스크롤로 인한 숫자 변경 방지
               e.preventDefault();
+              e.currentTarget.blur(); // 스크롤 시 포커스 해제
               // 포커스가 있을 때만 스크롤 허용하려면 아래 코드 사용
               // if (document.activeElement !== e.target) {
               //   e.preventDefault();

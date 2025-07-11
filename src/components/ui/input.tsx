@@ -2,7 +2,15 @@ import * as React from "react"
 
 import { cn } from "@/lib/utils"
 
-function Input({ className, type, ...props }: React.ComponentProps<"input">) {
+function Input({ className, type, onWheel, ...props }: React.ComponentProps<"input">) {
+  // number 타입이면 onWheel 방지 기본 적용
+  const handleWheel = (e: React.WheelEvent<HTMLInputElement>) => {
+    if (type === 'number') {
+      e.preventDefault();
+      (e.currentTarget as HTMLInputElement).blur(); // 스크롤 시 포커스 해제
+    }
+    if (onWheel) onWheel(e);
+  };
   return (
     <input
       type={type}
@@ -13,6 +21,7 @@ function Input({ className, type, ...props }: React.ComponentProps<"input">) {
         "aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive",
         className
       )}
+      onWheel={handleWheel}
       {...props}
     />
   )
