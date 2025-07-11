@@ -8,6 +8,12 @@ export async function GET(request: Request) {
   try {
     const url = request instanceof Request ? new URL(request.url) : null;
     const countOnly = url?.searchParams.get('count') === '1';
+    
+    // 페이지네이션 파라미터
+    const page = parseInt(url?.searchParams.get('page') || '1');
+    const pageSize = parseInt(url?.searchParams.get('pageSize') || '15');
+    const offset = (page - 1) * pageSize;
+    
     if (countOnly) {
       const { count, error } = await supabase
         .from('transactions')
@@ -22,11 +28,23 @@ export async function GET(request: Request) {
       const totalAmount = (sumData || []).reduce((sum, tx) => sum + (tx.amount || 0), 0);
       return NextResponse.json({ count: count ?? 0, totalAmount });
     }
+    
+    // 전체 거래 수 카운트
+    const { count: totalCount } = await supabase
+      .from('transactions')
+      .select('*', { count: 'exact' })
+      .neq('status', 'deleted');
+    
+    // 페이지네이션 적용된 거래 데이터
     const { data, error } = await supabase
       .from('transactions')
       .select('*,customers(*),models_types(model,type)')
-      .order('created_at', { ascending: false });
+      .neq('status', 'deleted')
+      .order('created_at', { ascending: false })
+      .range(offset, offset + pageSize - 1);
+      
     if (error) throw error;
+    
     const result = (data || []).map((tx: any) => ({
       ...tx,
       model: tx.models_types?.model || '',
@@ -34,7 +52,18 @@ export async function GET(request: Request) {
       due_date: tx.due_date,
       status: tx.status,
     }));
-    return NextResponse.json(result);
+    
+    return NextResponse.json({
+      data: result,
+      pagination: {
+        page,
+        pageSize,
+        total: totalCount || 0,
+        totalPages: Math.ceil((totalCount || 0) / pageSize),
+        hasNext: page < Math.ceil((totalCount || 0) / pageSize),
+        hasPrev: page > 1,
+      }
+    });
   } catch (error) {
     console.error('Error fetching transactions:', error);
     return NextResponse.json({ error: 'Failed to fetch transactions' }, { status: 500 });

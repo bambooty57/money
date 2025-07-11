@@ -286,15 +286,33 @@ export default function TransactionForm({ customers, onSuccess, transaction, ref
                 amount: value === '' ? '' : Math.round(Number(value)).toString()
               }));
             }}
+            onWheel={(e) => {
+              // 마우스 스크롤로 인한 숫자 변경 방지
+              e.preventDefault();
+              // 포커스가 있을 때만 스크롤 허용하려면 아래 코드 사용
+              // if (document.activeElement !== e.target) {
+              //   e.preventDefault();
+              // }
+            }}
+            onKeyDown={(e) => {
+              // 위/아래 화살표 키로 인한 숫자 변경 방지 (선택사항)
+              if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+                e.preventDefault();
+              }
+            }}
             className="block w-full rounded-lg border-2 border-green-300 px-4 py-3 text-lg focus:border-green-500 focus:ring-2 focus:ring-green-200"
             required
-            title="거래 금액을 입력하세요"
+            title="거래 금액을 입력하세요 (마우스 스크롤 비활성화됨)"
             aria-label="거래 금액"
+            placeholder="예: 1000000"
           />
           <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
             <span className="text-green-700 text-xl font-bold">원</span>
           </div>
         </div>
+        <small className="text-green-600 text-base mt-1">
+          ⚠️ 마우스 스크롤로 인한 실수 방지를 위해 스크롤 기능이 비활성화되어 있습니다.
+        </small>
       </div>
       {/* 거래일자 */}
       <div className="bg-green-50 rounded-lg p-8 border-2 border-green-200 shadow-lg flex flex-col gap-2 w-full max-w-2xl mx-auto">

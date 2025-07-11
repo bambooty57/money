@@ -217,8 +217,13 @@ export function QuickJump({
         value={jumpValue}
         onChange={(e) => setJumpValue(e.target.value)}
         onKeyDown={handleKeyDown}
+        onWheel={(e) => {
+          // 마우스 스크롤로 인한 숫자 변경 방지
+          e.preventDefault();
+        }}
         placeholder={currentPage.toString()}
         className="w-16 px-2 py-1 text-center border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+        title="페이지 번호 입력 (마우스 스크롤 비활성화됨)"
       />
       <button
         onClick={handleJump}

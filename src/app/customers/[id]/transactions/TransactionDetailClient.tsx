@@ -236,7 +236,26 @@ function PaymentForm({ transactionId, onSuccess, setSuccessMsg, setErrorMsg }: {
         </div>
         <div className="flex flex-col gap-2">
           <label className="text-lg font-bold text-gray-800">금액</label>
-          <input type="number" value={method === '수표' ? chequeTotal : amount} onChange={e => setAmount(e.target.value)} className="border-2 border-gray-300 rounded-lg px-4 py-3 text-lg bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-200" required title="금액" placeholder="금액을 입력하세요" disabled={method==='수표'} />
+          <input 
+            type="number" 
+            value={method === '수표' ? chequeTotal : amount} 
+            onChange={e => setAmount(e.target.value)} 
+            onWheel={(e) => {
+              // 마우스 스크롤로 인한 숫자 변경 방지
+              e.preventDefault();
+            }}
+            onKeyDown={(e) => {
+              // 위/아래 화살표 키로 인한 숫자 변경 방지
+              if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+                e.preventDefault();
+              }
+            }}
+            className="border-2 border-gray-300 rounded-lg px-4 py-3 text-lg bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-200" 
+            required 
+            title="금액 (마우스 스크롤 비활성화됨)" 
+            placeholder="금액을 입력하세요" 
+            disabled={method==='수표'} 
+          />
         </div>
         <div className="flex flex-col gap-2">
           <label className="text-lg font-bold text-gray-800">비고</label>
@@ -353,7 +372,27 @@ function PaymentForm({ transactionId, onSuccess, setSuccessMsg, setErrorMsg }: {
                   <option value="">발행은행</option>
                   {KOREA_BANKS.map((b, i) => <option key={i} value={b}>{b}</option>)}
                 </select>
-                <input type="number" min="0" step="1000" className="border rounded px-2 py-1 w-28" placeholder="금액" value={c.amount} onChange={e => updateCheque(idx, 'amount', e.target.value)} required />
+                <input 
+                  type="number" 
+                  min="0" 
+                  step="1000" 
+                  className="border rounded px-2 py-1 w-28" 
+                  placeholder="금액" 
+                  value={c.amount} 
+                  onChange={e => updateCheque(idx, 'amount', e.target.value)} 
+                  onWheel={(e) => {
+                    // 마우스 스크롤로 인한 숫자 변경 방지
+                    e.preventDefault();
+                  }}
+                  onKeyDown={(e) => {
+                    // 위/아래 화살표 키로 인한 숫자 변경 방지
+                    if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+                      e.preventDefault();
+                    }
+                  }}
+                  required 
+                  title="수표 금액 (마우스 스크롤 비활성화됨)"
+                />
                 <input type="text" className="border rounded px-2 py-1 w-40" placeholder="수표번호" value={c.number} onChange={e => updateCheque(idx, 'number', e.target.value)} required />
                 <button type="button" className="bg-red-100 text-red-700 px-2 py-1 rounded hover:bg-red-200 text-base font-bold" onClick={() => removeCheque(idx)} disabled={cheques.length===1}>삭제</button>
               </div>

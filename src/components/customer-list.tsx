@@ -108,9 +108,47 @@ export function CustomerList({ customers, onEdit, onDelete }: CustomerListProps)
         <label className="sr-only" htmlFor="filter-address">주소</label>
         <input id="filter-address" name="address" type="text" className="border rounded px-2 py-1" placeholder="주소" title="주소" value={filter.address} onChange={handleFilterChange} />
         <label className="sr-only" htmlFor="filter-minUnpaid">최소 미수금</label>
-        <input id="filter-minUnpaid" name="minUnpaid" type="number" className="border rounded px-2 py-1" placeholder="최소 미수금" title="최소 미수금" value={filter.minUnpaid} onChange={handleFilterChange} />
+        <input 
+          id="filter-minUnpaid" 
+          name="minUnpaid" 
+          type="number" 
+          className="border rounded px-2 py-1" 
+          placeholder="최소 미수금" 
+          title="최소 미수금 (마우스 스크롤 비활성화됨)" 
+          value={filter.minUnpaid} 
+          onChange={handleFilterChange} 
+          onWheel={(e) => {
+            // 마우스 스크롤로 인한 숫자 변경 방지
+            e.preventDefault();
+          }}
+          onKeyDown={(e) => {
+            // 위/아래 화살표 키로 인한 숫자 변경 방지
+            if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+              e.preventDefault();
+            }
+          }}
+        />
         <label className="sr-only" htmlFor="filter-maxUnpaid">최대 미수금</label>
-        <input id="filter-maxUnpaid" name="maxUnpaid" type="number" className="border rounded px-2 py-1" placeholder="최대 미수금" title="최대 미수금" value={filter.maxUnpaid} onChange={handleFilterChange} />
+        <input 
+          id="filter-maxUnpaid" 
+          name="maxUnpaid" 
+          type="number" 
+          className="border rounded px-2 py-1" 
+          placeholder="최대 미수금" 
+          title="최대 미수금 (마우스 스크롤 비활성화됨)" 
+          value={filter.maxUnpaid} 
+          onChange={handleFilterChange} 
+          onWheel={(e) => {
+            // 마우스 스크롤로 인한 숫자 변경 방지
+            e.preventDefault();
+          }}
+          onKeyDown={(e) => {
+            // 위/아래 화살표 키로 인한 숫자 변경 방지
+            if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+              e.preventDefault();
+            }
+          }}
+        />
         <label className="sr-only" htmlFor="filter-startDate">등록 시작일</label>
         <input id="filter-startDate" name="startDate" type="date" className="border rounded px-2 py-1" title="등록 시작일" value={filter.startDate} onChange={handleFilterChange} />
         <label className="sr-only" htmlFor="filter-endDate">등록 종료일</label>
