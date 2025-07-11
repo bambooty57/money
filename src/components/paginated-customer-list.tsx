@@ -118,17 +118,24 @@ function PaginatedCustomerListInner({
   
   // 상태 관리
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [data, setData] = useState<ApiResponse | null>(null);
   const [searchTerm, setSearchTerm] = useState(searchParams.get('search') || '');
   const [sortBy, setSortBy] = useState(searchParams.get('sortBy') || 'created_at');
   const [sortOrder, setSortOrder] = useState(searchParams.get('sortOrder') || 'desc');
+  const [showToast, setShowToast] = useState(false);
   
   // 페이지네이션 훅 사용 (3열6행 = 18개)
   const { currentPage, pageSize } = usePagination(data?.pagination.total || 0, 18);
 
   // 데이터 페칭 함수 (성능 최적화: useCallback 사용)
-  const fetchCustomers = useCallback(async () => {
-    setLoading(true);
+  const fetchCustomers = useCallback(async (isRefresh = false) => {
+    if (isRefresh) {
+      setRefreshing(true);
+    } else {
+      setLoading(true);
+    }
+    
     try {
       const params = new URLSearchParams({
         page: currentPage.toString(),
@@ -143,6 +150,10 @@ function PaginatedCustomerListInner({
       
       if (response.ok) {
         setData(result);
+        if (isRefresh) {
+          setShowToast(true);
+          setTimeout(() => setShowToast(false), 3000);
+        }
       } else {
         console.error('Failed to fetch customers:', result.error);
       }
@@ -150,8 +161,14 @@ function PaginatedCustomerListInner({
       console.error('Error fetching customers:', error);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   }, [currentPage, pageSize, searchTerm, sortBy, sortOrder]);
+
+  // 수동 새로고침 함수
+  const handleRefresh = useCallback(() => {
+    fetchCustomers(true);
+  }, [fetchCustomers]);
 
   // 초기 로딩 및 의존성 변경 시 데이터 페칭
   useEffect(() => {
@@ -162,7 +179,7 @@ function PaginatedCustomerListInner({
   useCustomersRealtime({ 
     onChange: () => {
       // 실시간 변경 시 즉시 새로고침 (로딩 상태 없이)
-      fetchCustomers();
+      fetchCustomers(true);
     }
   });
 
@@ -274,13 +291,32 @@ function PaginatedCustomerListInner({
             <label className="block text-xl font-bold text-gray-700 mb-3">
               🔍 전체 고객 검색
             </label>
-            <Input
-              type="text"
-              placeholder="고객명, 전화번호, 휴대폰, 사업자번호로 전체 고객 검색..."
-              value={searchInputValue}
-              onChange={(e) => setSearchInputValue(e.target.value)}
-              className="w-full px-6 py-4 text-lg border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200"
-            />
+            <div className="flex gap-3">
+              <Input
+                type="text"
+                placeholder="고객명, 전화번호, 휴대폰, 사업자번호로 전체 고객 검색..."
+                value={searchInputValue}
+                onChange={(e) => setSearchInputValue(e.target.value)}
+                className="flex-1 px-6 py-4 text-lg border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200"
+              />
+              <button
+                onClick={handleRefresh}
+                disabled={refreshing}
+                className="px-6 py-4 bg-green-500 text-white rounded-lg hover:bg-green-600 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors duration-200 text-lg font-semibold shadow-lg min-w-[120px]"
+                title="고객 목록 새로고침"
+              >
+                {refreshing ? (
+                  <span className="flex items-center gap-2">
+                    <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
+                    새로고침
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-2">
+                    🔄 새로고침
+                  </span>
+                )}
+              </button>
+            </div>
           </div>
           <div className="text-center">
             <div className="text-lg font-semibold text-gray-600 mb-2">📊 전체 고객 수</div>
@@ -601,14 +637,27 @@ function PaginatedCustomerListInner({
       )}
 
       {/* 로딩 오버레이 */}
-      {loading && (
+      {(loading || refreshing) && (
         <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-8 shadow-2xl">
             <div className="flex items-center gap-4">
               <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-600 border-t-transparent"></div>
               <div className="text-xl font-semibold text-gray-700">
-                고객 목록을 불러오는 중...
+                {refreshing ? '고객 목록을 새로고침하는 중...' : '고객 목록을 불러오는 중...'}
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 토스트 메시지 */}
+      {showToast && (
+        <div className="fixed top-4 right-4 z-50 bg-green-500 text-white px-6 py-4 rounded-lg shadow-2xl border-2 border-green-600 animate-fade-in">
+          <div className="flex items-center gap-3">
+            <div className="text-2xl">✅</div>
+            <div>
+              <div className="font-bold text-lg">새로고침 완료!</div>
+              <div className="text-sm opacity-90">고객 목록이 업데이트되었습니다.</div>
             </div>
           </div>
         </div>
