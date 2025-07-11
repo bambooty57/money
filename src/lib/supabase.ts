@@ -15,6 +15,11 @@ export const supabase = _createClient<Database>(supabaseUrl, supabaseAnonKey, {
       'X-Client-Info': 'money-management-app',
     },
   },
+  realtime: {
+    params: {
+      eventsPerSecond: 10,
+    },
+  },
 });
 
 export function createClient() {

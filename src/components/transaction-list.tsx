@@ -64,7 +64,7 @@ export function TransactionList() {
   const searchParams = useSearchParams();
   
   // 실시간 동기화
-  usePaymentsRealtime();
+  const { connectionStatus, retryCount } = usePaymentsRealtime();
   
   // 상태 관리
   const [loading, setLoading] = useState(true);
@@ -444,6 +444,34 @@ export function TransactionList() {
                 {refreshing ? '거래 목록을 새로고침하는 중...' : '거래 목록을 불러오는 중...'}
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* 실시간 연결 상태 표시 */}
+      {connectionStatus === 'connecting' && (
+        <div className="fixed top-4 left-4 z-50 bg-blue-500 text-white px-4 py-2 rounded-lg shadow-lg border-2 border-blue-600">
+          <div className="flex items-center gap-2">
+            <div className="animate-spin">🔄</div>
+            <div className="text-sm">실시간 연결 중...</div>
+          </div>
+        </div>
+      )}
+      
+      {connectionStatus === 'disconnected' && (
+        <div className="fixed top-4 left-4 z-50 bg-amber-500 text-white px-4 py-2 rounded-lg shadow-lg border-2 border-amber-600">
+          <div className="flex items-center gap-3">
+            <div className="text-sm">⚠️</div>
+            <div className="text-sm">
+              실시간 연결 끊김 
+              {retryCount > 0 && <span className="ml-1">({retryCount}/3 재시도)</span>}
+            </div>
+            <button
+              onClick={handleRefresh}
+              className="px-3 py-1 bg-white text-amber-600 rounded text-xs font-semibold hover:bg-gray-100 transition-colors"
+            >
+              새로고침
+            </button>
           </div>
         </div>
       )}
