@@ -37,32 +37,44 @@ export async function GET(request: Request) {
     // 페이지네이션 계산
     const offset = (page - 1) * pageSize;
     
-    // 성능 최적화: 직접 supabase 쿼리 구성
+    // 1. 필터(검색, hasTransactions 등) 먼저 적용
     let query = typedQuery.customers.selectAll();
-    
-    // 검색 조건 적용 (성능 최적화: 인덱스를 활용한 검색)
     if (search) {
       query = query.or(`name.ilike.%${search}%,phone.ilike.%${search}%,mobile.ilike.%${search}%,business_no.ilike.%${search}%`);
     }
-    
+    // customerIdsSet를 함수 스코프에 선언하여 재사용
+    let customerIdsSet: string[] = [];
+    if (hasTransactions) {
+      // 거래가 있는 고객 ID 목록 추출
+      const { data: customerIdsWithTransactions } = await supabase
+        .from('transactions')
+        .select('customer_id')
+        .not('customer_id', 'is', null);
+      // null 제거
+      customerIdsSet = Array.from(new Set((customerIdsWithTransactions || []).map(tx => tx.customer_id).filter((id): id is string => !!id)));
+      if (customerIdsSet.length > 0) {
+        query = query.in('id', customerIdsSet);
+      } else {
+        // 거래가 있는 고객이 없으면 빈 결과
+        return NextResponse.json({ data: [], pagination: { total: 0, page, pageSize, totalPages: 0 } });
+      }
+    }
     // 정렬 적용
     const ascending = sortOrder === 'asc';
     query = query.order(sortBy, { ascending });
-    
-    // 페이지네이션 적용 (성능 최적화: LIMIT/OFFSET 대신 range 사용)
-    query = query.range(offset, offset + pageSize - 1);
-    
-    // 전체 고객 수 카운트 쿼리 (페이지네이션 정보용, 검색 조건 반영)
-    let countQuery = supabase
-      .from('customers')
-      .select('*', { count: 'exact' });
-    
-    // 검색 조건 적용 (카운트용)
+
+    // 2. 필터 적용 후 전체 고객 수 카운트 (supabase.from 직접 사용, head: true)
+    let countQuery = supabase.from('customers').select('*', { count: 'exact', head: true });
     if (search) {
       countQuery = countQuery.or(`name.ilike.%${search}%,phone.ilike.%${search}%,mobile.ilike.%${search}%,business_no.ilike.%${search}%`);
     }
-    
+    if (hasTransactions && customerIdsSet.length > 0) {
+      countQuery = countQuery.in('id', customerIdsSet);
+    }
     const { count: totalCount } = await countQuery;
+
+    // 3. 필터 적용 후 range로 페이지네이션
+    query = query.range(offset, offset + pageSize - 1);
 
     let customers = [];
     if (minUnpaid || maxUnpaid) {

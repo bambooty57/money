@@ -165,10 +165,46 @@ function PaginatedCustomerListInner({
     }
   }, [currentPage, pageSize, searchTerm, sortBy, sortOrder]);
 
-  // 수동 새로고침 함수
-  const handleRefresh = useCallback(() => {
-    fetchCustomers(true);
-  }, [fetchCustomers]);
+  // 수동 새로고침 함수 (검색 입력 필드 초기화 포함)
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    
+    try {
+      // 검색 입력 필드 초기화
+      setSearchTerm('');
+      setSearchInputValue('');
+      
+      // URL 파라미터에서 search 제거
+      const params = new URLSearchParams(searchParams.toString());
+      params.delete('search');
+      params.set('page', '1');
+      router.push(`?${params.toString()}`);
+      
+      // 초기화된 검색어로 데이터 새로고침
+      const fetchParams = new URLSearchParams({
+        page: '1',
+        pageSize: pageSize.toString(),
+        search: '', // 빈 검색어로 설정
+        sortBy,
+        sortOrder,
+      });
+
+      const response = await fetch(`/api/customers?${fetchParams}`);
+      const result = await response.json();
+      
+      if (response.ok) {
+        setData(result);
+        setShowToast(true);
+        setTimeout(() => setShowToast(false), 3000);
+      } else {
+        console.error('Failed to fetch customers:', result.error);
+      }
+    } catch (error) {
+      console.error('Error refreshing customers:', error);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [searchParams, router, pageSize, sortBy, sortOrder]);
 
   // 초기 로딩 및 의존성 변경 시 데이터 페칭
   useEffect(() => {
@@ -291,27 +327,27 @@ function PaginatedCustomerListInner({
             <label className="block text-xl font-bold text-gray-700 mb-3">
               🔍 전체 고객 검색
             </label>
-            <div className="flex gap-3">
+            <div className="relative">
               <Input
                 type="text"
                 placeholder="고객명, 전화번호, 휴대폰, 사업자번호로 전체 고객 검색..."
                 value={searchInputValue}
                 onChange={(e) => setSearchInputValue(e.target.value)}
-                className="flex-1 px-6 py-4 text-lg border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200"
+                className="w-full px-6 py-4 pr-32 text-lg border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200"
               />
               <button
                 onClick={handleRefresh}
                 disabled={refreshing}
-                className="px-6 py-4 bg-green-500 text-white rounded-lg hover:bg-green-600 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors duration-200 text-lg font-semibold shadow-lg min-w-[120px]"
+                className="absolute right-2 top-1/2 transform -translate-y-1/2 px-3 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors duration-200 text-sm font-semibold shadow-sm border border-green-600"
                 title="고객 목록 새로고침"
               >
                 {refreshing ? (
-                  <span className="flex items-center gap-2">
-                    <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
+                  <span className="flex items-center gap-1 whitespace-nowrap">
+                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
                     새로고침
                   </span>
                 ) : (
-                  <span className="flex items-center gap-2">
+                  <span className="flex items-center gap-1 whitespace-nowrap">
                     🔄 새로고침
                   </span>
                 )}
