@@ -16,7 +16,7 @@ export async function GET(request: Request) {
     // 페이지네이션 및 필터링 파라미터
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get('page') || '1');
-    const pageSize = parseInt(searchParams.get('pageSize') || '15');
+    const pageSize = parseInt(searchParams.get('pageSize') || '18');
     const search = searchParams.get('search') || '';
     const sortBy = searchParams.get('sortBy') || 'created_at';
     const sortOrder = searchParams.get('sortOrder') || 'desc';
@@ -42,7 +42,7 @@ export async function GET(request: Request) {
     
     // 검색 조건 적용 (성능 최적화: 인덱스를 활용한 검색)
     if (search) {
-      query = query.or(`name.ilike.%${search}%,phone.ilike.%${search}%,business_number.ilike.%${search}%`);
+      query = query.or(`name.ilike.%${search}%,phone.ilike.%${search}%,mobile.ilike.%${search}%,business_no.ilike.%${search}%`);
     }
     
     // 정렬 적용
@@ -52,10 +52,17 @@ export async function GET(request: Request) {
     // 페이지네이션 적용 (성능 최적화: LIMIT/OFFSET 대신 range 사용)
     query = query.range(offset, offset + pageSize - 1);
     
-    // 전체 고객 수 카운트 쿼리 (페이지네이션 정보용)
-    const { count: totalCount } = await supabase
+    // 전체 고객 수 카운트 쿼리 (페이지네이션 정보용, 검색 조건 반영)
+    let countQuery = supabase
       .from('customers')
       .select('*', { count: 'exact' });
+    
+    // 검색 조건 적용 (카운트용)
+    if (search) {
+      countQuery = countQuery.or(`name.ilike.%${search}%,phone.ilike.%${search}%,mobile.ilike.%${search}%,business_no.ilike.%${search}%`);
+    }
+    
+    const { count: totalCount } = await countQuery;
 
     let customers = [];
     if (minUnpaid || maxUnpaid) {

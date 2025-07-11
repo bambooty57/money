@@ -143,7 +143,7 @@ export async function GET() {
       today,
       totalUnpaid,
       agingAnalysis,
-      topCustomers: topCustomers.slice(0, 5),
+      topCustomers: topCustomers.slice(0, 10),
       monthlyStats: monthlyStats || [],
       monthlySalesStats: monthlySalesStats || [],
       typeStats: typeStats || [],

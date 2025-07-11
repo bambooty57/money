@@ -123,8 +123,8 @@ function PaginatedCustomerListInner({
   const [sortBy, setSortBy] = useState(searchParams.get('sortBy') || 'created_at');
   const [sortOrder, setSortOrder] = useState(searchParams.get('sortOrder') || 'desc');
   
-  // 페이지네이션 훅 사용
-  const { currentPage, pageSize } = usePagination(data?.pagination.total || 0);
+  // 페이지네이션 훅 사용 (3열6행 = 18개)
+  const { currentPage, pageSize } = usePagination(data?.pagination.total || 0, 18);
 
   // 데이터 페칭 함수 (성능 최적화: useCallback 사용)
   const fetchCustomers = useCallback(async () => {
@@ -268,15 +268,15 @@ function PaginatedCustomerListInner({
   return (
     <div className="space-y-4">
       {/* 검색 및 필터 영역 */}
-      <div className="bg-white rounded-lg shadow-lg p-8 mb-6 border-2 border-blue-200">
+      <div className="bg-white rounded-lg shadow-lg p-6 mb-6 border-2 border-blue-200">
         <div className="flex flex-col lg:flex-row gap-6 justify-between items-center">
           <div className="flex-1 max-w-2xl">
             <label className="block text-xl font-bold text-gray-700 mb-3">
-              🔍 고객 검색
+              🔍 전체 고객 검색
             </label>
             <Input
               type="text"
-              placeholder="고객명, 전화번호, 사업자번호로 검색하세요..."
+              placeholder="고객명, 전화번호, 휴대폰, 사업자번호로 전체 고객 검색..."
               value={searchInputValue}
               onChange={(e) => setSearchInputValue(e.target.value)}
               className="w-full px-6 py-4 text-lg border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200"
@@ -291,8 +291,8 @@ function PaginatedCustomerListInner({
         </div>
       </div>
 
-      {/* 고객 카드 목록 */}
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
+      {/* 고객 카드 목록 (3열6행 = 18개) */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {data.data.map(customer => (
           <div key={customer.id} className="bg-white rounded-xl shadow-lg border-2 border-gray-200 hover:shadow-xl transition-shadow duration-300 relative">
             {/* 체크박스와 작업 버튼 */}
@@ -365,13 +365,13 @@ function PaginatedCustomerListInner({
             )}
 
             {/* 카드 내용 */}
-            <div className="p-8 pt-16">
-              {/* 고객 기본 정보 */}
-              <div className="bg-blue-50 p-6 rounded-lg border-2 border-blue-200 mb-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-2xl font-bold text-blue-800 flex items-center gap-2">
-                    👤 {customer.name}
-                  </h3>
+            <div className="p-6 pt-16">
+                              {/* 고객 기본 정보 */}
+                <div className="bg-blue-50 p-4 rounded-lg border-2 border-blue-200 mb-4">
+                                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-xl font-bold text-blue-800 flex items-center gap-2">
+                      👤 {customer.name}
+                    </h3>
                   {customer.business_name && (
                     <span className="text-lg text-blue-600 font-semibold">
                       {customer.business_name}
@@ -399,11 +399,11 @@ function PaginatedCustomerListInner({
               </div>
 
               {/* 미수금 정보 */}
-              <div className="bg-red-50 p-6 rounded-lg border-2 border-red-200 mb-6">
-                <div className="flex items-center justify-between">
-                  <h4 className="text-xl font-bold text-red-800 flex items-center gap-2">
-                    💰 미수금
-                  </h4>
+              <div className="bg-red-50 p-4 rounded-lg border-2 border-red-200 mb-4">
+                                  <div className="flex items-center justify-between">
+                    <h4 className="text-lg font-bold text-red-800 flex items-center gap-2">
+                      💰 미수금
+                    </h4>
                   <div className="text-right">
                     {customer.total_unpaid && customer.total_unpaid > 0 ? (
                       <span className="text-3xl font-bold text-red-700">
@@ -417,8 +417,8 @@ function PaginatedCustomerListInner({
               </div>
 
               {/* 연락처 정보 */}
-              <div className="bg-indigo-50 p-6 rounded-lg border-2 border-indigo-200 mb-6">
-                <h4 className="text-xl font-bold text-indigo-800 mb-4 flex items-center gap-2">
+              <div className="bg-indigo-50 p-4 rounded-lg border-2 border-indigo-200 mb-4">
+                <h4 className="text-lg font-bold text-indigo-800 mb-3 flex items-center gap-2">
                   📞 연락처
                 </h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -457,8 +457,8 @@ function PaginatedCustomerListInner({
               </div>
 
               {/* 주소 정보 */}
-              <div className="bg-green-50 p-6 rounded-lg border-2 border-green-200 mb-6">
-                <h4 className="text-xl font-bold text-green-800 mb-4 flex items-center gap-2">
+              <div className="bg-green-50 p-4 rounded-lg border-2 border-green-200 mb-4">
+                <h4 className="text-lg font-bold text-green-800 mb-3 flex items-center gap-2">
                   🏠 주소
                 </h4>
                 <div className="space-y-3">
@@ -501,10 +501,10 @@ function PaginatedCustomerListInner({
               </div>
 
               {/* 추가 정보 */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {/* 사업자 정보 */}
                 <div className="bg-yellow-50 p-4 rounded-lg border-2 border-yellow-200">
-                  <h5 className="text-lg font-bold text-yellow-800 mb-2">🏢 사업자 정보</h5>
+                  <h5 className="text-base font-bold text-yellow-800 mb-2">🏢 사업자 정보</h5>
                   <div className="space-y-2">
                     {customer.business_no && (
                       <div>
@@ -526,7 +526,7 @@ function PaginatedCustomerListInner({
 
                 {/* 사진 정보 */}
                 <div className="bg-gray-50 p-4 rounded-lg border-2 border-gray-200">
-                  <h5 className="text-lg font-bold text-gray-800 mb-2">📷 사진</h5>
+                  <h5 className="text-base font-bold text-gray-800 mb-2">📷 사진</h5>
                   {customer.photos && customer.photos.length > 0 ? (
                     <div className="flex flex-wrap gap-2">
                       {customer.photos.slice(0, 4).map((photo, idx) => (
@@ -579,7 +579,7 @@ function PaginatedCustomerListInner({
 
       {/* 페이지네이션 */}
       {data.pagination.totalPages > 1 && (
-        <div className="bg-white rounded-lg shadow-lg p-8 border-2 border-blue-200">
+        <div className="bg-white rounded-lg shadow-lg p-6 border-2 border-blue-200">
           <div className="text-center mb-6">
             <div className="text-lg font-semibold text-gray-600 mb-2">
               📄 페이지 정보
@@ -588,14 +588,15 @@ function PaginatedCustomerListInner({
               {data.pagination.page} / {data.pagination.totalPages} 페이지
             </div>
           </div>
-          <Pagination
-            currentPage={data.pagination.page}
-            totalPages={data.pagination.totalPages}
-            totalItems={data.pagination.total}
-            itemsPerPage={data.pagination.pageSize}
-            onPageChange={handlePageChange}
-            className="mt-6"
-          />
+                      <Pagination
+              currentPage={data.pagination.page}
+              totalPages={data.pagination.totalPages}
+              totalItems={data.pagination.total}
+              itemsPerPage={data.pagination.pageSize}
+              onPageChange={handlePageChange}
+              pageSizeOptions={[10, 18, 20, 30, 50]}
+              className="mt-6"
+            />
         </div>
       )}
 

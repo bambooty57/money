@@ -23,7 +23,7 @@ export function Pagination({
   onPageChange,
   showInfo = true,
   showPageSize = true,
-  pageSizeOptions = [10, 20, 50, 100],
+  pageSizeOptions = [10, 18, 20, 30, 50, 100],
   className = '',
 }: PaginationProps) {
   const router = useRouter();
@@ -231,7 +231,7 @@ export function QuickJump({
 }
 
 // 페이지네이션 정보 훅 (로직 재사용)
-export function usePagination(totalItems: number, itemsPerPage: number = 15) {
+export function usePagination(totalItems: number, itemsPerPage: number = 18) {
   const searchParams = useSearchParams();
   const currentPage = parseInt(searchParams.get('page') || '1');
   const pageSize = parseInt(searchParams.get('pageSize') || itemsPerPage.toString());
