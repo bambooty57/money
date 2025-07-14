@@ -93,9 +93,6 @@ export default function DashboardPage() {
   const [galleryPhotos, setGalleryPhotos] = useState<string[]>([]);
   const [galleryIndex, setGalleryIndex] = useState(0);
   const galleryBackdropRef = useRef<HTMLDivElement>(null);
-  // 연도 선택 상태 추가
-  const currentYear = new Date().getFullYear();
-  const [selectedYear, setSelectedYear] = useState(currentYear);
   const router = useRouter();
   const { refreshKey } = useRefreshContext();
 
@@ -148,12 +145,6 @@ export default function DashboardPage() {
   const maxUnpaid = Math.max(...data.topCustomers.map(c => c.unpaidAmount || 0));
   const yAxisMax = Math.ceil(maxUnpaid / 10000000) * 10000000 + 10000000; // 1천만 단위 올림
 
-  // 미수금 연령 분석 차트 데이터
-  const agingLabels = data.agingAnalysis.map(item => 
-    new Date(item.created_at).toLocaleDateString('ko-KR')
-  );
-  const agingData = data.agingAnalysis.map(item => item.amount);
-
   // 1. Top 10 고객만 추출
   const top10 = data.topCustomers.slice(0, 10);
   // 2. X축 라벨: 고객명(윗줄) + 총 미수금(아랫줄)
@@ -182,10 +173,6 @@ export default function DashboardPage() {
       clip: false,
     }
   }));
-
-  // 연도 선택 드롭다운용 연도 배열 (2022~현재)
-  const yearOptions = [];
-  for (let y = 2022; y <= currentYear; y++) yearOptions.push(y);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -228,10 +215,10 @@ export default function DashboardPage() {
       <div className="max-w-screen-2xl mx-auto px-8 py-8">
         {/* 헤더 */}
         <div className="bg-white rounded-lg shadow-lg p-8 mb-8 border-2 border-gray-200">
-          <h1 className="text-4xl font-bold mb-6 text-gray-800 flex items-center gap-3">
-            📊 관리 대시보드
-          </h1>
           <div className="flex items-center justify-between">
+            <h1 className="text-4xl font-bold text-gray-800 flex items-center gap-3 mb-0">
+              📊 관리 대시보드
+            </h1>
             <div className="text-xl text-gray-600 font-semibold flex items-center gap-2">
               📅 오늘: <span className="text-blue-600 font-bold">{data.today}</span>
             </div>
@@ -285,115 +272,7 @@ export default function DashboardPage() {
         </div>
 
         {/* 차트 영역 */}
-        <div className="grid grid-cols-1 gap-8 mb-8">
-          {/* 채권 연령 분석({selectedYear}) - 미수금/매출 그룹형 Bar 차트 */}
-          <div className="bg-white p-8 rounded-lg shadow-lg border-2 border-gray-200">
-            <div className="flex items-center gap-4 mb-4">
-              <h3 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-                📊 채권 연령 분석({selectedYear})
-              </h3>
-              <select
-                className="ml-4 px-4 py-2 border rounded-lg text-lg font-semibold bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-200"
-                value={selectedYear}
-                onChange={e => setSelectedYear(Number(e.target.value))}
-                aria-label="연도 선택"
-              >
-                {yearOptions.map(y => (
-                  <option key={y} value={y}>{y}년</option>
-                ))}
-              </select>
-            </div>
-            {/* 월별 YYYY-MM 배열로 매핑 정확히 */}
-            {(() => {
-              const year = selectedYear;
-              const barLabels = Array.from({length: 12}, (_, i) => `${i+1}월`);
-              const barMonths = Array.from({length: 12}, (_, i) => `${year}-${String(i+1).padStart(2, '0')}`);
-              const salesData = barMonths.map(month => data.monthlySalesStats?.find(m => m.month === month)?.total || 0);
-              const unpaidData = barMonths.map(month => data.monthlyStats?.find(m => m.month === month)?.total || 0);
-              return (
-                <Bar
-                  data={{
-                    labels: barLabels,
-                    datasets: [
-                      {
-                        label: '매출(신규등록액)',
-                        data: salesData,
-                        backgroundColor: 'rgba(0, 191, 165, 0.7)', // 청록
-                        borderColor: 'rgb(0, 191, 165)',
-                        borderWidth: 2,
-                        borderRadius: 6,
-                      },
-                      {
-                        label: '미수금(잔액)',
-                        data: unpaidData,
-                        backgroundColor: 'rgba(255, 99, 132, 0.7)', // 핑크/빨강
-                        borderColor: 'rgb(255, 99, 132)',
-                        borderWidth: 2,
-                        borderRadius: 6,
-                      }
-                    ]
-                  }}
-                  options={{
-                    responsive: true,
-                    plugins: {
-                      legend: {
-                        position: 'top' as const,
-                        labels: {
-                          font: {
-                            size: 16,
-                            weight: 'bold'
-                          }
-                        }
-                      },
-                      tooltip: {
-                        callbacks: {
-                          label: function(context: any) {
-                            const value = context.parsed.y;
-                            return `${context.dataset.label}: ₩${value.toLocaleString('ko-KR')}`;
-                          }
-                        }
-                      },
-                      datalabels: {
-                        anchor: 'end',
-                        align: 'end',
-                        color: '#222',
-                        font: {
-                          weight: 700,
-                          size: 14
-                        },
-                        formatter: function(value: any) {
-                          return value > 0 ? `₩${Number(value).toLocaleString('ko-KR')}` : '';
-                        },
-                        display: true,
-                      }
-                    },
-                    scales: {
-                      y: {
-                        min: 0,
-                        ticks: {
-                          font: { size: 14 },
-                          callback: function(tickValue, _index, _ticks) {
-                            if (typeof tickValue === 'string') {
-                              return tickValue.includes('\n') ? tickValue.split('\n') : tickValue;
-                            }
-                            return typeof tickValue === 'number' ? `₩${tickValue.toLocaleString('ko-KR')}` : tickValue;
-                          }
-                        }
-                      },
-                      x: {
-                        ticks: {
-                          font: { size: 14 }
-                        }
-                      }
-                    }
-                  }}
-                  plugins={[ChartDataLabels]}
-                />
-              );
-            })()}
-          </div>
-          {/* 상위 미수금 고객 */}
-          <div className="bg-white p-8 rounded-lg shadow-lg border-2 border-gray-200">
+        <div className="bg-white p-8 rounded-lg shadow-lg border-2 border-gray-200">
             <h3 className="text-2xl font-bold mb-6 text-gray-800 flex items-center gap-2">
               👑 상위 미수금 고객
             </h3>
@@ -448,7 +327,6 @@ export default function DashboardPage() {
               plugins={[ChartDataLabels]}
             />
           </div>
-        </div>
 
         {/* 상위 고객 상세 테이블 */}
         <div className="bg-white p-8 rounded-lg shadow-lg border-2 border-gray-200 mb-8">
