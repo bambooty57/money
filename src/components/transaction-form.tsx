@@ -91,6 +91,12 @@ export default function TransactionForm({ customers, onSuccess, transaction, ref
     setLoading(true);
     setSuccessMsg('');
     setErrorMsg('');
+    // 고객 선택 필수 체크
+    if (!formData.customer_id) {
+      setErrorMsg('고객을 반드시 선택해야 합니다.');
+      setLoading(false);
+      return;
+    }
     try {
       let error;
       let txId = transaction?.id;
@@ -252,17 +258,26 @@ export default function TransactionForm({ customers, onSuccess, transaction, ref
             type="text"
             className="border rounded px-4 py-3 text-xl min-w-[200px] w-full focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
             placeholder="고객명/전화번호로 검색"
-            value={customerSearch !== '' ? customerSearch : (allCustomers.find(c => c.id === formData.customer_id)?.name || '')}
-            onChange={e => {
-              setCustomerSearch(e.target.value);
-              setFormData(prev => ({ ...prev, customer_id: '' }));
-            }}
+            value={
+              transaction
+                ? (allCustomers.find(c => c.id === formData.customer_id)?.name || '')
+                : (customerSearch !== '' ? customerSearch : (allCustomers.find(c => c.id === formData.customer_id)?.name || ''))
+            }
+            onChange={transaction
+              ? undefined
+              : e => {
+                  setCustomerSearch(e.target.value);
+                  setFormData(prev => ({ ...prev, customer_id: '' }));
+                }
+            }
+            readOnly={!!transaction}
             autoComplete="off"
             style={{ fontSize: '1.25rem' }}
             required
             title="고객명 또는 전화번호로 검색"
           />
-          {customerSearch.length >= 2 && filteredCustomers.length > 0 && (
+          {/* 드롭다운은 등록 모드(신규)일 때만 표시 */}
+          {!transaction && customerSearch.length >= 2 && filteredCustomers.length > 0 && (
             <ul className="absolute left-0 right-0 bg-white border rounded shadow-lg z-10 mt-1 max-h-72 overflow-y-auto text-lg">
               {filteredCustomers.map(c => (
                 <li
@@ -280,7 +295,7 @@ export default function TransactionForm({ customers, onSuccess, transaction, ref
               ))}
             </ul>
           )}
-          {customerSearch.length >= 2 && filteredCustomers.length === 0 && (
+          {!transaction && customerSearch.length >= 2 && filteredCustomers.length === 0 && (
             <div className="absolute left-0 right-0 bg-white border rounded shadow-lg z-10 mt-1 px-4 py-3 text-gray-500 text-lg">검색 결과 없음</div>
           )}
         </div>
