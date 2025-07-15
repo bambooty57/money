@@ -106,13 +106,14 @@ export default function TransactionForm({ customers, onSuccess, transaction, ref
         const updatePayload = {
           customer_id: formData.customer_id,
           type: formData.type,
-          amount: parseFloat(formData.amount),
+          amount: formData.amount !== '' ? parseFloat(formData.amount) : undefined,
           status: formData.status,
           description: formData.description || null,
-          models_types_id: formData.models_types_id,
-          due_date: formData.due_date || null,
-          created_at: formData.date || undefined,
+          models_types_id: formData.models_types_id !== '' ? formData.models_types_id : undefined,
+          due_date: formData.due_date !== '' ? formData.due_date : undefined,
+          created_at: formData.date !== '' ? formData.date : undefined,
         };
+        console.log('거래 수정 PATCH payload:', updatePayload);
         ({ error } = await supabase
           .from('transactions')
           .update(updatePayload)
