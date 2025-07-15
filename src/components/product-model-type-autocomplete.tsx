@@ -14,38 +14,30 @@ type Props = {
 }
 
 export function ProductModelTypeDropdown({ selectedId, onSelect, refresh }: Props) {
-  const [options, setOptions] = useState<Option[]>([])
+  // options state 제거, 실시간 modelTypes 사용
+  const modelTypes = useModelTypesRealtime();
   const [open, setOpen] = useState(false)
 
-  // Fetch options utility for reuse
+  // fetchOptions는 직접입력(모달) 후 강제 갱신용으로만 사용
   const fetchOptions = async () => {
-    const res = await fetch(`/api/models-types`)
-    const data: Option[] = await res.json()
-    setOptions(data)
-    return data;
+    // 실시간 동기화가 보장되지만, 직접입력(추가/수정/삭제) 후 강제 fetch로 최신화
+    await fetch(`/api/models-types`)
+    // modelTypes는 useModelTypesRealtime()에서 자동 갱신됨
   }
 
-  useEffect(() => {
-    fetchOptions()
-  }, [refresh])
-
-  useModelTypesRealtime(); // argument removed, now just subscribes for realtime
-
-  // Refresh options after modal closes
+  // 모달 닫힘 시 fetchOptions 제거 (실시간만 신뢰)
   const handleDialogOpenChange = (isOpen: boolean) => {
     setOpen(isOpen)
-    // 실시간 구독만 신뢰: fetchOptions() 호출 제거
   }
 
-  // Immediate refresh on ModelTypeManager change
+  // 직접입력(추가/수정/삭제) 후 강제 fetch
   const handleManagerChange = async (newId?: string) => {
-    // 직접입력(추가/수정/삭제) 후 강제 fetch로 options 즉시 갱신
-    const data = await fetchOptions();
+    await fetchOptions();
     if (newId) {
-      setOpen(false); // 직접입력(추가) 시 모달 자동 닫힘
+      setOpen(false);
       onSelect(newId);
-    } else if (data.length > 0) {
-      onSelect(data[data.length - 1].id);
+    } else if (modelTypes.length > 0) {
+      onSelect(modelTypes[modelTypes.length - 1].id);
     }
   };
 
@@ -53,7 +45,7 @@ export function ProductModelTypeDropdown({ selectedId, onSelect, refresh }: Prop
     <div className="space-y-2">
       <label>기종/형식명</label>
       <select
-        value={selectedId}
+        value={String(selectedId)}
         onChange={e => {
           if (e.target.value === '__custom__') {
             setOpen(true)
@@ -65,8 +57,12 @@ export function ProductModelTypeDropdown({ selectedId, onSelect, refresh }: Prop
         title="기종/형식명 선택"
       >
         <option value="">기종/형식명을 선택하세요</option>
-        {options.map(opt => (
-          <option key={opt.id} value={opt.id}>{opt.model} / {opt.type}</option>
+        {/* selectedId가 modelTypes에 없으면 fallback 표시 */}
+        {selectedId && !modelTypes.find(opt => String(opt.id) === String(selectedId)) && (
+          <option value={String(selectedId)} style={{ color: 'red' }}>이전 선택값(삭제됨)</option>
+        )}
+        {modelTypes.map(opt => (
+          <option key={String(opt.id)} value={String(opt.id)}>{opt.model} / {opt.type}</option>
         ))}
         <option value="__custom__">직접입력 (기종/형식명 관리)</option>
       </select>

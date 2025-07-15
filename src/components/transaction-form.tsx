@@ -64,12 +64,23 @@ export default function TransactionForm({ customers, onSuccess, transaction, ref
   useEffect(() => {
     if (transaction) {
       let models_types_id = transaction.models_types_id || '';
-      // models_types_id가 없고 model/model_type이 있을 때 options에서 찾아 세팅
-      if (!models_types_id && transaction.model && transaction.model_type && modelTypeOptions.length > 0) {
-        const found = modelTypeOptions.find(
+      // 디버깅: 거래 데이터, 옵션 목록, models_types_id 출력
+      console.log('[거래수정] transaction:', transaction);
+      console.log('[거래수정] modelTypeOptions:', modelTypeOptions);
+      console.log('[거래수정] 기존 models_types_id:', models_types_id);
+      // models_types_id가 옵션에 없고 model/model_type이 있을 때 options에서 찾아 세팅
+      const found = modelTypeOptions.find(mt => mt.id === models_types_id);
+      if (!found && transaction.model && transaction.model_type && modelTypeOptions.length > 0) {
+        const byName = modelTypeOptions.find(
           mt => mt.model === transaction.model && mt.type === transaction.model_type
         );
-        models_types_id = found?.id || '';
+        models_types_id = byName?.id || '';
+        console.log('[거래수정] model/model_type로 재탐색:', byName);
+      }
+      // 그래도 없으면 빈값
+      if (models_types_id && !modelTypeOptions.find(mt => mt.id === models_types_id)) {
+        models_types_id = '';
+        console.log('[거래수정] 옵션에 없는 models_types_id, 빈값으로 세팅');
       }
       setFormData(prev => ({
         ...prev,
@@ -348,7 +359,7 @@ export default function TransactionForm({ customers, onSuccess, transaction, ref
       <div className="bg-orange-50 rounded-lg p-8 border-2 border-orange-200 shadow-lg flex flex-col gap-2 w-full max-w-2xl mx-auto">
         <label className="text-xl font-bold flex items-center gap-2">🚜 기종/형식명</label>
         <ProductModelTypeDropdown
-          selectedId={formData.models_types_id}
+          selectedId={String(formData.models_types_id || '')}
           onSelect={(id: string) => setFormData(prev => ({ ...prev, models_types_id: id }))}
           refresh={refresh}
         />

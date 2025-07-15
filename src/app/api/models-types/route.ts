@@ -5,11 +5,14 @@ export async function GET(req: NextRequest) {
   const supabase = createClient()
   const { searchParams } = new URL(req.url)
   const q = searchParams.get('q') || ''
-  const { data, error } = await supabase
+  let query = supabase
     .from('models_types')
     .select('id, model, type')
-    .or(`model.ilike.%${q}%,type.ilike.%${q}%`)
     .order('model')
+  if (q) {
+    query = query.or(`model.ilike.%${q}%,type.ilike.%${q}%`)
+  }
+  const { data, error } = await query
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json(data)
 }
