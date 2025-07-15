@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import type { Database } from '@/types/database';
 import { ProductModelTypeDropdown } from './product-model-type-autocomplete'
+import { useState as useReactState } from 'react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Alert } from './ui/alert';
@@ -52,8 +53,24 @@ export default function TransactionForm({ customers, onSuccess, transaction, ref
     }
   }, [customers]);
 
+  // 기종/형식명 전체 목록 fetch (ProductModelTypeDropdown과 동일하게)
+  const [modelTypeOptions, setModelTypeOptions] = useReactState<{ id: string; model: string; type: string }[]>([]);
+  useEffect(() => {
+    fetch('/api/models-types')
+      .then(res => res.json())
+      .then(data => setModelTypeOptions(data || []));
+  }, [refresh]);
+
   useEffect(() => {
     if (transaction) {
+      let models_types_id = transaction.models_types_id || '';
+      // models_types_id가 없고 model/model_type이 있을 때 보정
+      if (!models_types_id && transaction.model && transaction.model_type && modelTypeOptions.length > 0) {
+        const found = modelTypeOptions.find(
+          mt => mt.model === transaction.model && mt.type === transaction.model_type
+        );
+        models_types_id = found?.id || '';
+      }
       setFormData({
         customer_id: transaction.customer_id || '',
         type: transaction.type || '',
@@ -63,11 +80,11 @@ export default function TransactionForm({ customers, onSuccess, transaction, ref
         date: transaction.date ? String(transaction.date).slice(0, 10) : '',
         due_date: transaction.due_date ? String(transaction.due_date).slice(0, 10) : '',
         proofs: [],
-        models_types_id: transaction.models_types_id || '',
+        models_types_id,
       });
       if (transaction.date) setCustomerSearch(allCustomers.find(c => c.id === transaction.customer_id)?.name || '');
     }
-  }, [transaction, allCustomers]);
+  }, [transaction, allCustomers, modelTypeOptions]);
 
   const handleFileUpload = async (files: File[], transactionId: string) => {
     for (const file of files) {
