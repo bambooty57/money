@@ -13,6 +13,7 @@ interface PaginationProps {
   showPageSize?: boolean;
   pageSizeOptions?: number[];
   className?: string;
+  scrollToTopOnPageChange?: boolean; // 추가
 }
 
 export function Pagination({
@@ -25,15 +26,18 @@ export function Pagination({
   showPageSize = true,
   pageSizeOptions = [10, 18, 20, 30, 50, 100],
   className = '',
+  scrollToTopOnPageChange = true, // 기본값 true
 }: PaginationProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
 
   // 페이지 변경 시 URL 업데이트 (SEO 최적화)
   const handlePageChange = (page: number) => {
-    const params = new URLSearchParams(searchParams.toString());
-    params.set('page', page.toString());
-    router.push(`?${params.toString()}`);
+    if (scrollToTopOnPageChange) {
+      const params = new URLSearchParams(searchParams.toString());
+      params.set('page', page.toString());
+      router.push(`?${params.toString()}`);
+    }
     onPageChange?.(page);
   };
 

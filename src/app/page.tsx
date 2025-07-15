@@ -17,6 +17,7 @@ import ChartDataLabels from 'chartjs-plugin-datalabels';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase';
 import { useRefreshContext } from '@/lib/refresh-context';
+import { Pagination } from '@/components/ui/pagination';
 
 ChartJS.register(
   CategoryScale,
@@ -95,6 +96,12 @@ export default function DashboardPage() {
   const galleryBackdropRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
   const { refreshKey } = useRefreshContext();
+  // 지급예정 거래건 페이지네이션 상태 (최상단으로 이동)
+  const [duePage, setDuePage] = useState(1);
+  const duePageSize = 15;
+  // 지급예정일이 지난 거래건 페이지네이션 상태
+  const [overduePage, setOverduePage] = useState(1);
+  const overduePageSize = 15;
 
   useEffect(() => {
     async function fetchDashboard() {
@@ -173,6 +180,15 @@ export default function DashboardPage() {
       clip: false,
     }
   }));
+
+  // DashboardPage 내부
+  const dueTxs = (data as any).dueThisMonth || [];
+  const dueTotalPages = Math.ceil(dueTxs.length / duePageSize);
+  const dueTxsPage = dueTxs.slice((duePage - 1) * duePageSize, duePage * duePageSize);
+
+  const overdueTxs = (data as any).overdueTxs || [];
+  const overdueTotalPages = Math.ceil(overdueTxs.length / overduePageSize);
+  const overdueTxsPage = overdueTxs.slice((overduePage - 1) * overduePageSize, overduePage * overduePageSize);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -505,80 +521,93 @@ export default function DashboardPage() {
         </div>
 
         {/* 이번달 지급예정 거래건 */}
-        {Array.isArray((data as any).dueThisMonth) && (data as any).dueThisMonth.length > 0 && (
-          <div className="bg-blue-50 p-8 rounded-lg shadow-lg border-2 border-blue-200 mb-8">
-            <h3 className="text-2xl font-bold mb-6 text-blue-800 flex items-center gap-2">
-              📅 이번달 지급예정 거래건
-            </h3>
-            {viewMode === 'table' ? (
-              <div className="overflow-x-auto">
-                <table className="w-full text-lg border-collapse bg-white rounded-lg">
-                  <thead>
-                    <tr className="bg-blue-100 border-b-2 border-blue-200">
-                      <th className="border border-gray-300 px-4 py-4 font-bold text-gray-800">👤 고객명</th>
-                      <th className="border border-gray-300 px-4 py-4 font-bold text-gray-800">🚜 기종</th>
-                      <th className="border border-gray-300 px-4 py-4 font-bold text-gray-800">📱 모델</th>
-                      <th className="border border-gray-300 px-4 py-4 font-bold text-gray-800">💰 전체금액</th>
-                      <th className="border border-gray-300 px-4 py-4 font-bold text-gray-800">💳 입금액</th>
-                      <th className="border border-gray-300 px-4 py-4 font-bold text-gray-800">💸 미수금</th>
-                      <th className="border border-gray-300 px-4 py-4 font-bold text-gray-800">📊 입금율</th>
-                      <th className="border border-gray-300 px-4 py-4 font-bold text-gray-800">📅 지급예정일</th>
-                      <th className="border border-gray-300 px-4 py-4 font-bold text-gray-800">⏰ 남은일수</th>
+        <div className="bg-blue-50 p-8 rounded-lg shadow-lg border-2 border-blue-200 mb-8">
+          <h3 className="text-2xl font-bold mb-6 text-blue-800 flex items-center gap-2">
+            📅 이번달 지급예정 거래건
+          </h3>
+          {viewMode === 'table' ? (
+            <div className="overflow-x-auto">
+              <table className="w-full text-lg border-collapse bg-white rounded-lg">
+                <thead>
+                  <tr className="bg-blue-100 border-b-2 border-blue-200">
+                    <th className="border border-gray-300 px-4 py-4 font-bold text-gray-800">👤 고객명</th>
+                    <th className="border border-gray-300 px-4 py-4 font-bold text-gray-800">🚜 기종</th>
+                    <th className="border border-gray-300 px-4 py-4 font-bold text-gray-800">📱 모델</th>
+                    <th className="border border-gray-300 px-4 py-4 font-bold text-gray-800">💰 전체금액</th>
+                    <th className="border border-gray-300 px-4 py-4 font-bold text-gray-800">💳 입금액</th>
+                    <th className="border border-gray-300 px-4 py-4 font-bold text-gray-800">💸 미수금</th>
+                    <th className="border border-gray-300 px-4 py-4 font-bold text-gray-800">📊 입금율</th>
+                    <th className="border border-gray-300 px-4 py-4 font-bold text-gray-800">📅 지급예정일</th>
+                    <th className="border border-gray-300 px-4 py-4 font-bold text-gray-800">⏰ 남은일수</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {dueTxsPage.map((tx: any) => (
+                    <tr key={tx.id} className="border-b hover:bg-blue-50">
+                      <td className="border border-gray-300 px-4 py-4 font-semibold">{tx.customer_name}</td>
+                      <td className="border border-gray-300 px-4 py-4">{tx.model}</td>
+                      <td className="border border-gray-300 px-4 py-4">{tx.model_type}</td>
+                      <td className="border border-gray-300 px-4 py-4 text-right font-bold">{tx.amount?.toLocaleString()}원</td>
+                      <td className="border border-gray-300 px-4 py-4 text-right font-bold text-blue-600">{tx.paid_amount?.toLocaleString()}원</td>
+                      <td className="border border-gray-300 px-4 py-4 text-right font-bold text-yellow-600">{tx.unpaid_amount?.toLocaleString()}원</td>
+                      <td className="border border-gray-300 px-4 py-4 text-center font-bold">{tx.paid_ratio}%</td>
+                      <td className="border border-gray-300 px-4 py-4 text-center">{tx.due_date ? new Date(tx.due_date).toLocaleDateString() : '-'}</td>
+                      <td className="border border-gray-300 px-4 py-4 text-center font-semibold text-blue-600">{typeof tx.days_left === 'number' ? `${tx.days_left}일 전` : '-'}</td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {(data as any).dueThisMonth.map((tx: any) => (
-                      <tr key={tx.id} className="border-b hover:bg-blue-50">
-                        <td className="border border-gray-300 px-4 py-4 font-semibold">{tx.customer_name}</td>
-                        <td className="border border-gray-300 px-4 py-4">{tx.model}</td>
-                        <td className="border border-gray-300 px-4 py-4">{tx.model_type}</td>
-                        <td className="border border-gray-300 px-4 py-4 text-right font-bold">{tx.amount?.toLocaleString()}원</td>
-                        <td className="border border-gray-300 px-4 py-4 text-right font-bold text-blue-600">{tx.paid_amount?.toLocaleString()}원</td>
-                        <td className="border border-gray-300 px-4 py-4 text-right font-bold text-yellow-600">{tx.unpaid_amount?.toLocaleString()}원</td>
-                        <td className="border border-gray-300 px-4 py-4 text-center font-bold">{tx.paid_ratio}%</td>
-                        <td className="border border-gray-300 px-4 py-4 text-center">{tx.due_date ? new Date(tx.due_date).toLocaleDateString() : '-'}</td>
-                        <td className="border border-gray-300 px-4 py-4 text-center font-semibold text-blue-600">{typeof tx.days_left === 'number' ? `${tx.days_left}일 전` : '-'}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {(data as any).dueThisMonth.map((tx: any) => (
-                  <div key={tx.id} className="bg-white border-2 border-blue-200 rounded-lg p-6 shadow-lg hover:shadow-xl transition-shadow duration-200">
-                    <div className="font-bold text-blue-800 mb-3 text-xl flex items-center gap-2">
-                      👤 {tx.customer_name}
-                    </div>
-                    <div className="text-lg text-gray-600 mb-3">
-                      🚜 기종: <span className="font-semibold">{tx.model}</span> / 📱 모델: <span className="font-semibold">{tx.model_type}</span>
-                    </div>
-                    <div className="grid grid-cols-2 gap-3 text-base mb-3">
-                      <div className="bg-gray-50 p-3 rounded-lg">
-                        <div className="text-gray-600 text-sm">💰 전체금액</div>
-                        <div className="font-bold text-lg">{tx.amount?.toLocaleString()}원</div>
-                      </div>
-                      <div className="bg-blue-50 p-3 rounded-lg">
-                        <div className="text-blue-600 text-sm">💳 입금액</div>
-                        <div className="font-bold text-lg text-blue-700">{tx.paid_amount?.toLocaleString()}원</div>
-                      </div>
-                      <div className="bg-yellow-50 p-3 rounded-lg">
-                        <div className="text-yellow-600 text-sm">💸 미수금</div>
-                        <div className="font-bold text-lg text-yellow-700">{tx.unpaid_amount?.toLocaleString()}원</div>
-                      </div>
-                      <div className="bg-green-50 p-3 rounded-lg">
-                        <div className="text-green-600 text-sm">📊 입금율</div>
-                        <div className="font-bold text-lg text-green-700">{tx.paid_ratio}%</div>
-                      </div>
-                    </div>
-                    <div className="text-base text-gray-600 mb-2">📅 지급예정일: <span className="font-semibold">{tx.due_date ? new Date(tx.due_date).toLocaleDateString() : '-'}</span></div>
-                    <div className="text-base">⏰ 남은일수: <span className="font-bold text-blue-600">{typeof tx.days_left === 'number' ? `${tx.days_left}일 전` : '-'}</span></div>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {dueTxsPage.map((tx: any) => (
+                <div key={tx.id} className="bg-white border-2 border-blue-200 rounded-lg p-6 shadow-lg hover:shadow-xl transition-shadow duration-200">
+                  <div className="font-bold text-blue-800 mb-3 text-xl flex items-center gap-2">
+                    👤 {tx.customer_name}
                   </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
+                  <div className="text-lg text-gray-600 mb-3">
+                    🚜 기종: <span className="font-semibold">{tx.model}</span> / 📱 모델: <span className="font-semibold">{tx.model_type}</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3 text-base mb-3">
+                    <div className="bg-gray-50 p-3 rounded-lg">
+                      <div className="text-gray-600 text-sm">💰 전체금액</div>
+                      <div className="font-bold text-lg">{tx.amount?.toLocaleString()}원</div>
+                    </div>
+                    <div className="bg-blue-50 p-3 rounded-lg">
+                      <div className="text-blue-600 text-sm">💳 입금액</div>
+                      <div className="font-bold text-lg text-blue-700">{tx.paid_amount?.toLocaleString()}원</div>
+                    </div>
+                    <div className="bg-yellow-50 p-3 rounded-lg">
+                      <div className="text-yellow-600 text-sm">💸 미수금</div>
+                      <div className="font-bold text-lg text-yellow-700">{tx.unpaid_amount?.toLocaleString()}원</div>
+                    </div>
+                    <div className="bg-green-50 p-3 rounded-lg">
+                      <div className="text-green-600 text-sm">📊 입금율</div>
+                      <div className="font-bold text-lg text-green-700">{tx.paid_ratio}%</div>
+                    </div>
+                  </div>
+                  <div className="text-base text-gray-600 mb-2">📅 지급예정일: <span className="font-semibold">{tx.due_date ? new Date(tx.due_date).toLocaleDateString() : '-'}</span></div>
+                  <div className="text-base">⏰ 남은일수: <span className="font-bold text-blue-600">{typeof tx.days_left === 'number' ? `${tx.days_left}일 전` : '-'}</span></div>
+                </div>
+              ))}
+            </div>
+          )}
+          {/* 페이지네이션 */}
+          {dueTotalPages > 1 && (
+            <div className="flex justify-center mt-8">
+              <Pagination
+                currentPage={duePage}
+                totalPages={dueTotalPages}
+                totalItems={dueTxs.length}
+                itemsPerPage={duePageSize}
+                onPageChange={setDuePage}
+                showPageSize={false}
+                showInfo={false}
+                scrollToTopOnPageChange={false}
+              />
+            </div>
+          )}
+        </div>
 
         {/* 지급예정일이 지난 거래건 */}
         {Array.isArray((data as any).overdueTxs) && (data as any).overdueTxs.length > 0 && (
@@ -603,7 +632,7 @@ export default function DashboardPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {(data as any).overdueTxs.map((tx: any) => (
+                    {overdueTxsPage.map((tx: any) => (
                       <tr key={tx.id} className="border-b hover:bg-red-50">
                         <td className="border border-gray-300 px-4 py-4 font-semibold">{tx.customer_name}</td>
                         <td className="border border-gray-300 px-4 py-4">{tx.model}</td>
@@ -621,7 +650,7 @@ export default function DashboardPage() {
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {(data as any).overdueTxs.map((tx: any) => (
+                {overdueTxsPage.map((tx: any) => (
                   <div key={tx.id} className="bg-white border-2 border-red-200 rounded-lg p-6 shadow-lg hover:shadow-xl transition-shadow duration-200">
                     <div className="font-bold text-red-800 mb-3 text-xl flex items-center gap-2">
                       👤 {tx.customer_name}
@@ -655,6 +684,21 @@ export default function DashboardPage() {
                     </div>
                   </div>
                 ))}
+              </div>
+            )}
+            {/* 페이지네이션 */}
+            {overdueTotalPages > 1 && (
+              <div className="flex justify-center mt-8">
+                <Pagination
+                  currentPage={overduePage}
+                  totalPages={overdueTotalPages}
+                  totalItems={overdueTxs.length}
+                  itemsPerPage={overduePageSize}
+                  onPageChange={setOverduePage}
+                  showPageSize={false}
+                  showInfo={false}
+                  scrollToTopOnPageChange={false}
+                />
               </div>
             )}
           </div>
