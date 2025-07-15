@@ -102,6 +102,7 @@ export default function DashboardPage() {
   // 지급예정일이 지난 거래건 페이지네이션 상태
   const [overduePage, setOverduePage] = useState(1);
   const overduePageSize = 15;
+  const [showScrollTop, setShowScrollTop] = useState(false);
 
   useEffect(() => {
     async function fetchDashboard() {
@@ -111,6 +112,17 @@ export default function DashboardPage() {
     }
     fetchDashboard();
   }, [refreshKey]);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setShowScrollTop(window.scrollY > 300);
+    };
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+  const handleScrollTop = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   // 갤러리 모달 닫기 핸들러
   const closeGallery = () => setGalleryOpen(false);
@@ -226,6 +238,16 @@ export default function DashboardPage() {
             </div>
           </div>
         </div>
+      )}
+      {/* 맨위로 가기 버튼 */}
+      {showScrollTop && (
+        <button
+          onClick={handleScrollTop}
+          className="fixed bottom-8 right-8 z-50 bg-blue-600 text-white text-2xl font-bold px-6 py-4 rounded-full shadow-2xl flex items-center gap-3 hover:bg-blue-700 transition-colors duration-200 focus:outline-none focus:ring-4 focus:ring-blue-300"
+          aria-label="맨위로 가기"
+        >
+          ⬆️ 맨위로
+        </button>
       )}
       {/* 시니어 친화적 대시보드 전체 래퍼 */}
       <div className="max-w-screen-2xl mx-auto px-8 py-8">
@@ -526,6 +548,7 @@ export default function DashboardPage() {
             📅 이번달 지급예정 거래건
           </h3>
           {viewMode === 'table' ? (
+            <>
             <div className="overflow-x-auto">
               <table className="w-full text-lg border-collapse bg-white rounded-lg">
                 <thead>
@@ -558,7 +581,23 @@ export default function DashboardPage() {
                 </tbody>
               </table>
             </div>
+            {dueTotalPages > 1 && (
+              <div className="flex justify-center mt-8">
+                <Pagination
+                  currentPage={duePage}
+                  totalPages={dueTotalPages}
+                  totalItems={dueTxs.length}
+                  itemsPerPage={duePageSize}
+                  onPageChange={setDuePage}
+                  showPageSize={false}
+                  showInfo={false}
+                  scrollToTopOnPageChange={false}
+                />
+              </div>
+            )}
+            </>
           ) : (
+            <>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {dueTxsPage.map((tx: any) => (
                 <div key={tx.id} className="bg-white border-2 border-blue-200 rounded-lg p-6 shadow-lg hover:shadow-xl transition-shadow duration-200">
@@ -591,21 +630,22 @@ export default function DashboardPage() {
                 </div>
               ))}
             </div>
-          )}
-          {/* 페이지네이션 */}
-          {dueTotalPages > 1 && (
-            <div className="flex justify-center mt-8">
-              <Pagination
-                currentPage={duePage}
-                totalPages={dueTotalPages}
-                totalItems={dueTxs.length}
-                itemsPerPage={duePageSize}
-                onPageChange={setDuePage}
-                showPageSize={false}
-                showInfo={false}
-                scrollToTopOnPageChange={false}
-              />
-            </div>
+            {/* 카드형 페이지네이션 */}
+            {dueTotalPages > 1 && (
+              <div className="flex justify-center mt-8">
+                <Pagination
+                  currentPage={duePage}
+                  totalPages={dueTotalPages}
+                  totalItems={dueTxs.length}
+                  itemsPerPage={duePageSize}
+                  onPageChange={setDuePage}
+                  showPageSize={false}
+                  showInfo={false}
+                  scrollToTopOnPageChange={false}
+                />
+              </div>
+            )}
+            </>
           )}
         </div>
 
@@ -616,6 +656,7 @@ export default function DashboardPage() {
               ⚠️ 지급예정일이 지난 거래건
             </h3>
             {viewMode === 'table' ? (
+              <>
               <div className="overflow-x-auto">
                 <table className="w-full text-lg border-collapse bg-white rounded-lg">
                   <thead>
@@ -648,7 +689,23 @@ export default function DashboardPage() {
                   </tbody>
                 </table>
               </div>
+              {overdueTotalPages > 1 && (
+                <div className="flex justify-center mt-8">
+                  <Pagination
+                    currentPage={overduePage}
+                    totalPages={overdueTotalPages}
+                    totalItems={overdueTxs.length}
+                    itemsPerPage={overduePageSize}
+                    onPageChange={setOverduePage}
+                    showPageSize={false}
+                    showInfo={false}
+                    scrollToTopOnPageChange={false}
+                  />
+                </div>
+              )}
+              </>
             ) : (
+              <>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {overdueTxsPage.map((tx: any) => (
                   <div key={tx.id} className="bg-white border-2 border-red-200 rounded-lg p-6 shadow-lg hover:shadow-xl transition-shadow duration-200">
@@ -685,21 +742,22 @@ export default function DashboardPage() {
                   </div>
                 ))}
               </div>
-            )}
-            {/* 페이지네이션 */}
-            {overdueTotalPages > 1 && (
-              <div className="flex justify-center mt-8">
-                <Pagination
-                  currentPage={overduePage}
-                  totalPages={overdueTotalPages}
-                  totalItems={overdueTxs.length}
-                  itemsPerPage={overduePageSize}
-                  onPageChange={setOverduePage}
-                  showPageSize={false}
-                  showInfo={false}
-                  scrollToTopOnPageChange={false}
-                />
-              </div>
+              {/* 카드형 페이지네이션 */}
+              {overdueTotalPages > 1 && (
+                <div className="flex justify-center mt-8">
+                  <Pagination
+                    currentPage={overduePage}
+                    totalPages={overdueTotalPages}
+                    totalItems={overdueTxs.length}
+                    itemsPerPage={overduePageSize}
+                    onPageChange={setOverduePage}
+                    showPageSize={false}
+                    showInfo={false}
+                    scrollToTopOnPageChange={false}
+                  />
+                </div>
+              )}
+              </>
             )}
           </div>
         )}
