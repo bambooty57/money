@@ -43,7 +43,7 @@ export default function TransactionForm({ customers, onSuccess, transaction, ref
   // 모든 고객 목록 가져오기 (신규 거래 등록용)
   useEffect(() => {
     if (!customers) {
-      fetch('/api/customers')
+      fetch('/api/customers?page=1&pageSize=1000')
         .then(res => res.json())
         .then(data => setAllCustomers(data.data || []))
         .catch(err => console.error('Failed to fetch customers:', err));
@@ -260,6 +260,7 @@ export default function TransactionForm({ customers, onSuccess, transaction, ref
           <option value="운송">운송</option>
           <option value="수리">수리</option>
           <option value="렌탈/임대">렌탈/임대</option>
+          <option value="보조금">보조금</option>
           <option value="기타">기타</option>
         </select>
       </div>
@@ -320,7 +321,7 @@ export default function TransactionForm({ customers, onSuccess, transaction, ref
         <label className="text-xl font-bold flex items-center gap-2">📅 거래일자</label>
         <input
           type="date"
-          value={formData.date}
+          value={formData.date ? String(formData.date).slice(0, 10) : ''}
           onChange={e => setFormData(prev => ({ ...prev, date: e.target.value }))}
           className="rounded-lg border-2 border-green-300 px-4 py-3 text-lg focus:border-green-500 focus:ring-2 focus:ring-green-200"
           required
@@ -335,7 +336,7 @@ export default function TransactionForm({ customers, onSuccess, transaction, ref
           type="date"
           id="due_date"
           name="due_date"
-          value={formData.due_date}
+          value={formData.due_date ? String(formData.due_date).slice(0, 10) : ''}
           onChange={e => setFormData(prev => ({ ...prev, due_date: e.target.value }))}
           className="rounded-lg border-2 border-yellow-300 px-4 py-3 text-lg focus:border-yellow-500 focus:ring-2 focus:ring-yellow-200"
           required

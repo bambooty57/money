@@ -332,13 +332,13 @@ function PaymentForm({ transactionId, onSuccess, setSuccessMsg, setErrorMsg }: {
       {method === '중고인수' && (
         <div className="flex flex-wrap gap-2 items-center bg-white p-2 rounded">
           <label>담당자</label>
-          <input type="text" value={usedBy} onChange={e => setUsedBy(e.target.value)} className="border rounded px-2 py-1" title="담당자" placeholder="담당자" required={method==='중고인수'} />
+          <input type="text" value={usedBy} onChange={e => setUsedBy(e.target.value)} className="border rounded px-2 py-1" title="담당자" placeholder="담당자" />
           <label>인수장소</label>
-          <input type="text" value={usedPlace} onChange={e => setUsedPlace(e.target.value)} className="border rounded px-2 py-1" title="인수장소" placeholder="인수장소" required={method==='중고인수'} />
+          <input type="text" value={usedPlace} onChange={e => setUsedPlace(e.target.value)} className="border rounded px-2 py-1" title="인수장소" placeholder="인수장소" />
           <label>기종</label>
-          <input type="text" value={usedModelType} onChange={e => setUsedModelType(e.target.value)} className="border rounded px-2 py-1" title="기종" placeholder="기종" required={method==='중고인수'} />
+          <input type="text" value={usedModelType} onChange={e => setUsedModelType(e.target.value)} className="border rounded px-2 py-1" title="기종" placeholder="기종" />
           <label>모델</label>
-          <input type="text" value={usedModel} onChange={e => setUsedModel(e.target.value)} className="border rounded px-2 py-1" title="모델" placeholder="모델" required={method==='중고인수'} />
+          <input type="text" value={usedModel} onChange={e => setUsedModel(e.target.value)} className="border rounded px-2 py-1" title="모델" placeholder="모델" />
           <label>비고</label>
           <input type="text" value={note} onChange={e => setNote(e.target.value)} className="border-2 border-gray-300 rounded-lg px-4 py-3 text-lg bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-200" title="비고" placeholder="비고" />
         </div>
@@ -1568,7 +1568,11 @@ export default function TransactionDetailClient({ transactions, initialSelectedI
               <DialogHeader>
                 <DialogTitle className="text-2xl">거래 정보 수정</DialogTitle>
               </DialogHeader>
-              <TransactionForm transaction={selectedTx} onSuccess={() => { setEditOpen(false); router.refresh(); }} />
+              <TransactionForm transaction={{
+                ...selectedTx,
+                date: selectedTx?.created_at ? String(selectedTx.created_at).slice(0, 10) : '',
+                due_date: selectedTx?.due_date ? String(selectedTx.due_date).slice(0, 10) : '',
+              }} onSuccess={() => { setEditOpen(false); router.refresh(); }} />
             </DialogContent>
           </Dialog>
           <button
