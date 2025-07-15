@@ -17,17 +17,18 @@ interface TransactionFormProps {
   transaction?: any; // 수정 대상 거래(있으면 수정 모드)
   refresh?: number;
   onPaymentSuccess?: () => void;
+  defaultCustomerId?: string;
 }
 
 type Customer = Database['public']['Tables']['customers']['Row'];
 
-export default function TransactionForm({ customers, onSuccess, transaction, refresh, onPaymentSuccess }: TransactionFormProps) {
+export default function TransactionForm({ customers, onSuccess, transaction, refresh, onPaymentSuccess, defaultCustomerId }: TransactionFormProps) {
   const [allCustomers, setAllCustomers] = useState<Customer[]>(customers || []);
   const [loading, setLoading] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const [formData, setFormData] = useState({
-    customer_id: transaction?.customer_id || '',
+    customer_id: transaction?.customer_id || defaultCustomerId || '',
     type: transaction?.type || '',
     amount: transaction?.amount?.toString() || '',
     status: transaction?.status || 'unpaid',
@@ -260,18 +261,18 @@ export default function TransactionForm({ customers, onSuccess, transaction, ref
             className="border rounded px-4 py-3 text-xl min-w-[200px] w-full focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
             placeholder="고객명/전화번호로 검색"
             value={
-              transaction
+              (transaction || defaultCustomerId)
                 ? (allCustomers.find(c => c.id === formData.customer_id)?.name || '')
                 : (customerSearch !== '' ? customerSearch : (allCustomers.find(c => c.id === formData.customer_id)?.name || ''))
             }
-            onChange={transaction
+            onChange={transaction || defaultCustomerId
               ? undefined
               : e => {
                   setCustomerSearch(e.target.value);
                   setFormData(prev => ({ ...prev, customer_id: '' }));
                 }
             }
-            readOnly={!!transaction}
+            readOnly={!!transaction || !!defaultCustomerId}
             autoComplete="off"
             style={{ fontSize: '1.25rem' }}
             required

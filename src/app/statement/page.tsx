@@ -31,7 +31,7 @@ async function deleteTransaction(id: string) {
     headers: token ? { 'Authorization': `Bearer ${token}` } : {},
   });
   if (res.ok) {
-    setTimeout(() => window.location.reload(), 700);
+    triggerRefresh();
     alert('삭제되었습니다.');
   } else {
     const errorText = await res.text();
@@ -47,7 +47,7 @@ async function deletePayment(id: string) {
     headers: token ? { 'Authorization': `Bearer ${token}` } : {},
   });
   if (res.ok) {
-    setTimeout(() => window.location.reload(), 700);
+    triggerRefresh();
     alert('삭제되었습니다.');
   } else {
     const errorText = await res.text();
@@ -87,7 +87,7 @@ export default function StatementPage() {
   const [pdfModalOpen, setPdfModalOpen] = useState(false);
   const [pdfViewMode, setPdfViewMode] = useState<'pdf' | 'table'>('pdf');
   const [pdfError, setPdfError] = useState<string | null>(null);
-  const { refreshKey } = useRefreshContext();
+  const { refreshKey, triggerRefresh } = useRefreshContext();
   const [search, setSearch] = useState('');
   const [filteredCustomers, setFilteredCustomers] = useState<Customer[]>([]);
   // 1. 고객 등록 모달 상태
@@ -272,7 +272,7 @@ export default function StatementPage() {
       </Dialog>
       {/* CustomerForm 모달 */}
       {customerFormOpen && (
-        <CustomerForm open={customerFormOpen} setOpen={setCustomerFormOpen} onSuccess={() => { setCustomerFormOpen(false); setTimeout(() => window.location.reload(), 700); }} customer={editCustomer} />
+        <CustomerForm open={customerFormOpen} setOpen={setCustomerFormOpen} onSuccess={() => { setCustomerFormOpen(false); triggerRefresh(); }} customer={editCustomer} />
       )}
       {/* 거래 등록 버튼 (고객 선택 시 활성화) */}
       {/* 상단(카드 바깥)의 고객등록/거래등록 버튼은 완전히 제거 */}
@@ -416,11 +416,11 @@ export default function StatementPage() {
       </Card>
       {/* PaymentForm 모달 (등록/수정) */}
       {paymentFormOpen && (
-        <PaymentForm onSuccess={() => { setPaymentFormOpen(false); setTimeout(() => window.location.reload(), 700); }} transactionId={targetTransactionId} payment={editPayment} />
+        <PaymentForm onSuccess={() => { setPaymentFormOpen(false); triggerRefresh(); }} transactionId={targetTransactionId} payment={editPayment} />
       )}
       {/* TransactionForm 모달(등록/수정) */}
       {transactionFormOpen && (
-        <TransactionForm onSuccess={() => { setTransactionFormOpen(false); setTimeout(() => window.location.reload(), 700); }} customers={customers} transaction={editTransaction} />
+        <TransactionForm onSuccess={() => { setTransactionFormOpen(false); triggerRefresh(); }} customers={customers} transaction={editTransaction} defaultCustomerId={!editTransaction ? selectedCustomer : undefined} />
       )}
       {/* 삭제 확인 모달 */}
       <Dialog open={deleteModalOpen} onClose={() => setDeleteModalOpen(false)} className="fixed z-50 inset-0 flex items-center justify-center">
