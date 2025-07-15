@@ -22,7 +22,7 @@ import TransactionForm from '@/components/transaction-form';
 import PaymentForm from '@/components/payment-form';
 import { supabase } from '@/lib/supabase';
 // 삭제 함수 직접 구현
-async function deleteTransaction(id: string) {
+async function deleteTransaction(id: string, triggerRefresh: () => void) {
   if (!id) return;
   const { data: sessionData } = await supabase.auth.getSession();
   const token = sessionData?.session?.access_token;
@@ -38,7 +38,7 @@ async function deleteTransaction(id: string) {
     alert('삭제 실패: ' + errorText);
   }
 }
-async function deletePayment(id: string) {
+async function deletePayment(id: string, triggerRefresh: () => void) {
   if (!id) return;
   const { data: sessionData } = await supabase.auth.getSession();
   const token = sessionData?.session?.access_token;
@@ -370,7 +370,7 @@ export default function StatementPage() {
                       {Array.isArray(tx.payments) && tx.payments.length === 1 && (
                         <>
                           <Button onClick={() => { setTargetTransactionId(tx.id); setEditPayment((tx.payments as any[])[0]); setPaymentFormOpen(true); }} className="bg-green-700 text-white px-4 py-2 rounded-lg text-lg font-bold">✏️ 입금 수정</Button>
-                          <Button onClick={async () => { if(window.confirm('정말 삭제하시겠습니까?')) { await deletePayment((tx.payments as any[])[0].id); }}} className="bg-red-700 text-white px-4 py-2 rounded-lg text-lg font-bold">🗑️ 입금 삭제</Button>
+                          <Button onClick={async () => { if(window.confirm('정말 삭제하시겠습니까?')) { await deletePayment((tx.payments as any[])[0].id, triggerRefresh); }}} className="bg-red-700 text-white px-4 py-2 rounded-lg text-lg font-bold">🗑️ 입금 삭제</Button>
                         </>
                       )}
                     </TableCell>
@@ -428,7 +428,7 @@ export default function StatementPage() {
         <div className="relative bg-white rounded-xl shadow-xl p-8 max-w-md w-full mx-auto flex flex-col items-center">
           <h2 className="text-2xl font-bold mb-4">정말 삭제하시겠습니까?</h2>
           <div className="flex gap-4 mt-2">
-            <Button onClick={async () => { if(deleteTargetId) { await deleteTransaction(deleteTargetId); setDeleteModalOpen(false); setDeleteTargetId(null); }}} className="bg-red-600 text-white px-6 py-3 rounded-lg text-xl font-bold">삭제</Button>
+            <Button onClick={async () => { if(deleteTargetId) { await deleteTransaction(deleteTargetId, triggerRefresh); setDeleteModalOpen(false); setDeleteTargetId(null); }}} className="bg-red-600 text-white px-6 py-3 rounded-lg text-xl font-bold">삭제</Button>
             <Button onClick={() => { setDeleteModalOpen(false); setDeleteTargetId(null); }} className="bg-gray-400 text-white px-6 py-3 rounded-lg text-xl font-bold">취소</Button>
           </div>
         </div>
