@@ -64,14 +64,15 @@ export default function TransactionForm({ customers, onSuccess, transaction, ref
   useEffect(() => {
     if (transaction) {
       let models_types_id = transaction.models_types_id || '';
-      // models_types_id가 없고 model/model_type이 있을 때 보정
+      // models_types_id가 없고 model/model_type이 있을 때 options에서 찾아 세팅
       if (!models_types_id && transaction.model && transaction.model_type && modelTypeOptions.length > 0) {
         const found = modelTypeOptions.find(
           mt => mt.model === transaction.model && mt.type === transaction.model_type
         );
         models_types_id = found?.id || '';
       }
-      setFormData({
+      setFormData(prev => ({
+        ...prev,
         customer_id: transaction.customer_id || '',
         type: transaction.type || '',
         amount: transaction.amount?.toString() || '',
@@ -81,7 +82,7 @@ export default function TransactionForm({ customers, onSuccess, transaction, ref
         due_date: transaction.due_date ? String(transaction.due_date).slice(0, 10) : '',
         proofs: [],
         models_types_id,
-      });
+      }));
       if (transaction.date) setCustomerSearch(allCustomers.find(c => c.id === transaction.customer_id)?.name || '');
     }
   }, [transaction, allCustomers, modelTypeOptions]);

@@ -17,6 +17,7 @@ import { useRefreshContext } from '@/lib/refresh-context';
 import { usePaymentsRealtime } from '@/lib/usePaymentsRealtime';
 import { useToast } from '@/components/ui/alert';
 import { VirtualList } from '@/components/ui/virtual-list';
+import { useTransactionsRealtime } from '@/lib/useTransactionsRealtime';
 
 type Transaction = Database['public']['Tables']['transactions']['Row'];
 type File = Database['public']['Tables']['files']['Row'];
@@ -1251,6 +1252,7 @@ export default function TransactionDetailClient({ transactions, initialSelectedI
 
   // 실시간 구독: payments 테이블 변경 시 해당 고객 거래 데이터 fetch
   usePaymentsRealtime({ customerId, onPaymentsChange: fetchTransactions });
+  useTransactionsRealtime({ customerId, onChange: fetchTransactions });
 
   // refreshKey, customerId가 바뀔 때마다 fetch
   useEffect(() => {
@@ -1572,7 +1574,7 @@ export default function TransactionDetailClient({ transactions, initialSelectedI
                 ...selectedTx,
                 date: selectedTx?.created_at ? String(selectedTx.created_at).slice(0, 10) : '',
                 due_date: selectedTx?.due_date ? String(selectedTx.due_date).slice(0, 10) : '',
-              }} onSuccess={() => { setEditOpen(false); router.refresh(); }} />
+              }} onSuccess={() => { setEditOpen(false); fetchTransactions(); router.refresh(); }} />
             </DialogContent>
           </Dialog>
           <button
