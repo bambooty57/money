@@ -21,6 +21,8 @@ import { CustomerForm } from '@/components/customer-form';
 import TransactionForm from '@/components/transaction-form';
 import PaymentForm from '@/components/payment-form';
 import { supabase } from '@/lib/supabase';
+import { useTransactionsRealtime } from '@/lib/useTransactionsRealtime';
+import { usePaymentsRealtime } from '@/lib/usePaymentsRealtime';
 // 삭제 함수 직접 구현
 async function deleteTransaction(id: string, triggerRefresh: () => void) {
   if (!id) return;
@@ -149,6 +151,16 @@ export default function StatementPage() {
     })
     .finally(() => setLoading(false));
   }, [selectedCustomer, customers, refreshKey]);
+
+  // 실시간 거래/입금 구독: 선택된 고객이 있을 때만 구독
+  useTransactionsRealtime({
+    customerId: selectedCustomer,
+    onChange: triggerRefresh,
+  });
+  usePaymentsRealtime({
+    customerId: selectedCustomer,
+    onPaymentsChange: triggerRefresh,
+  });
 
   // 3. 엑셀 다운로드
   const handleExcelDownload = () => {
