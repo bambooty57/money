@@ -369,8 +369,8 @@ export default function StatementPage() {
                       )}
                       {Array.isArray(tx.payments) && tx.payments.length === 1 && (
                         <>
-                          <Button onClick={() => { setTargetTransactionId(tx.id); setEditPayment(tx.payments[0]); setPaymentFormOpen(true); }} className="bg-green-700 text-white px-4 py-2 rounded-lg text-lg font-bold">✏️ 입금 수정</Button>
-                          <Button onClick={async () => { if(window.confirm('정말 삭제하시겠습니까?')) { await deletePayment(tx.payments[0].id); }}} className="bg-red-700 text-white px-4 py-2 rounded-lg text-lg font-bold">🗑️ 입금 삭제</Button>
+                          <Button onClick={() => { setTargetTransactionId(tx.id); setEditPayment((tx.payments as any[])[0]); setPaymentFormOpen(true); }} className="bg-green-700 text-white px-4 py-2 rounded-lg text-lg font-bold">✏️ 입금 수정</Button>
+                          <Button onClick={async () => { if(window.confirm('정말 삭제하시겠습니까?')) { await deletePayment((tx.payments as any[])[0].id); }}} className="bg-red-700 text-white px-4 py-2 rounded-lg text-lg font-bold">🗑️ 입금 삭제</Button>
                         </>
                       )}
                     </TableCell>
