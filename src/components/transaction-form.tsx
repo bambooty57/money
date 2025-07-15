@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import type { Database } from '@/types/database';
 import { ProductModelTypeDropdown } from './product-model-type-autocomplete'
@@ -39,6 +39,7 @@ export default function TransactionForm({ customers, onSuccess, transaction, ref
   });
 
   const { triggerRefresh } = useRefreshContext();
+  const inputRef = useRef<HTMLInputElement>(null);
 
   // 모든 고객 목록 가져오기 (신규 거래 등록용)
   useEffect(() => {
@@ -58,13 +59,14 @@ export default function TransactionForm({ customers, onSuccess, transaction, ref
         amount: transaction.amount?.toString() || '',
         status: transaction.status || 'unpaid',
         description: transaction.description || '',
-        date: transaction.date || '',
-        due_date: transaction.due_date || '',
+        date: transaction.date ? String(transaction.date).slice(0, 10) : '',
+        due_date: transaction.due_date ? String(transaction.due_date).slice(0, 10) : '',
         proofs: [],
         models_types_id: transaction.models_types_id || '',
       });
+      if (transaction.date) setCustomerSearch(allCustomers.find(c => c.id === transaction.customer_id)?.name || '');
     }
-  }, [transaction]);
+  }, [transaction, allCustomers]);
 
   const handleFileUpload = async (files: File[], transactionId: string) => {
     for (const file of files) {
@@ -219,6 +221,22 @@ export default function TransactionForm({ customers, onSuccess, transaction, ref
     setFormData(prev => ({ ...prev, type: e.target.value }));
   };
 
+  // 고객명 입력 UI 교체: 실시간 자동완성 검색
+  const [customerSearch, setCustomerSearch] = useState('');
+  const [filteredCustomers, setFilteredCustomers] = useState<Customer[]>([]);
+  useEffect(() => {
+    if (customerSearch.length < 2) {
+      setFilteredCustomers([]);
+      return;
+    }
+    setFilteredCustomers(
+      allCustomers.filter(c =>
+        c.name.includes(customerSearch) ||
+        (c.mobile && c.mobile.replace(/-/g, '').includes(customerSearch.replace(/-/g, '')))
+      ).slice(0, 20)
+    );
+  }, [customerSearch, allCustomers]);
+
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-6 p-8 w-full max-w-3xl mx-auto">
       {successMsg && <Alert variant="default" className="text-xl font-bold flex items-center gap-2 bg-green-50 border-green-300 text-green-700 p-4 rounded-lg shadow-lg mb-4"><span>✅</span>{successMsg}</Alert>}
@@ -226,19 +244,46 @@ export default function TransactionForm({ customers, onSuccess, transaction, ref
       {/* 고객명 */}
       <div className="bg-blue-50 rounded-lg p-8 border-2 border-blue-200 shadow-lg flex flex-col gap-2 w-full max-w-2xl mx-auto">
         <label htmlFor="customer_id" className="text-xl font-bold flex items-center gap-2">👤 고객명<span className="text-red-500">*</span></label>
-        <select
-          id="customer_id"
-          name="customer_id"
-          value={formData.customer_id}
-          onChange={e => setFormData(prev => ({ ...prev, customer_id: e.target.value }))}
-          required
-          className="text-lg px-4 py-3 rounded-lg border-2 border-blue-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
-        >
-          <option value="">고객명을 선택하세요</option>
-          {allCustomers.filter((c, i, arr) => arr.findIndex(x => x.name === c.name) === i).map((c) => (
-            <option key={c.id} value={c.id}>{c.name}</option>
-          ))}
-        </select>
+        <div className="relative w-full max-w-xs">
+          <input
+            ref={inputRef}
+            id="customer_id"
+            name="customer_id"
+            type="text"
+            className="border rounded px-4 py-3 text-xl min-w-[200px] w-full focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+            placeholder="고객명/전화번호로 검색"
+            value={customerSearch !== '' ? customerSearch : (allCustomers.find(c => c.id === formData.customer_id)?.name || '')}
+            onChange={e => {
+              setCustomerSearch(e.target.value);
+              setFormData(prev => ({ ...prev, customer_id: '' }));
+            }}
+            autoComplete="off"
+            style={{ fontSize: '1.25rem' }}
+            required
+            title="고객명 또는 전화번호로 검색"
+          />
+          {customerSearch.length >= 2 && filteredCustomers.length > 0 && (
+            <ul className="absolute left-0 right-0 bg-white border rounded shadow-lg z-10 mt-1 max-h-72 overflow-y-auto text-lg">
+              {filteredCustomers.map(c => (
+                <li
+                  key={c.id}
+                  className="px-4 py-3 hover:bg-blue-100 cursor-pointer flex justify-between items-center"
+                  onClick={() => {
+                    setFormData(prev => ({ ...prev, customer_id: c.id }));
+                    setCustomerSearch('');
+                    inputRef.current?.blur();
+                  }}
+                >
+                  <span className="font-bold">{c.name}</span>
+                  <span className="text-gray-500 text-base ml-2">{c.mobile}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+          {customerSearch.length >= 2 && filteredCustomers.length === 0 && (
+            <div className="absolute left-0 right-0 bg-white border rounded shadow-lg z-10 mt-1 px-4 py-3 text-gray-500 text-lg">검색 결과 없음</div>
+          )}
+        </div>
         <small className="text-blue-600 text-base mt-1">고객관리에서 등록된 고객만 거래 등록이 가능합니다. (신규 고객은 고객관리에서 먼저 등록)</small>
       </div>
       {/* 거래유형 */}
@@ -386,6 +431,18 @@ export default function TransactionForm({ customers, onSuccess, transaction, ref
         >
           {loading ? '처리중...' : (transaction ? (<><span>📝</span> 수정하기</>) : (<><span>➕</span> 등록하기</>))}
         </Button>
+        {transaction && (
+          <Button
+            type="button"
+            className="w-full max-w-xs text-2xl px-8 py-4 flex items-center gap-2 rounded-lg shadow-lg bg-gray-400 hover:bg-gray-500 text-white font-bold transition-colors duration-200 ml-4"
+            onClick={() => {
+              if (onSuccess) onSuccess();
+            }}
+            title="수정 취소"
+          >
+            취소하기
+          </Button>
+        )}
       </div>
     </form>
   );

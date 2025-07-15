@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import * as XLSX from "xlsx";
@@ -16,11 +16,47 @@ import { PDFDownloadLink } from '@react-pdf/renderer';
 import { Dialog } from '@headlessui/react';
 import { PDFViewer } from '@react-pdf/renderer';
 import { useRefreshContext } from '@/lib/refresh-context';
-
-interface Customer {
-  id: string;
-  name: string;
+import ScrollToTop from '@/components/ui/scroll-to-top';
+import { CustomerForm } from '@/components/customer-form';
+import TransactionForm from '@/components/transaction-form';
+import PaymentForm from '@/components/payment-form';
+import { supabase } from '@/lib/supabase';
+// 삭제 함수 직접 구현
+async function deleteTransaction(id: string) {
+  if (!id) return;
+  const { data: sessionData } = await supabase.auth.getSession();
+  const token = sessionData?.session?.access_token;
+  const res = await fetch(`/api/transactions?id=${id}`, {
+    method: 'DELETE',
+    headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+  });
+  if (res.ok) {
+    setTimeout(() => window.location.reload(), 700);
+    alert('삭제되었습니다.');
+  } else {
+    const errorText = await res.text();
+    alert('삭제 실패: ' + errorText);
+  }
 }
+async function deletePayment(id: string) {
+  if (!id) return;
+  const { data: sessionData } = await supabase.auth.getSession();
+  const token = sessionData?.session?.access_token;
+  const res = await fetch(`/api/payments?id=${id}`, {
+    method: 'DELETE',
+    headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+  });
+  if (res.ok) {
+    setTimeout(() => window.location.reload(), 700);
+    alert('삭제되었습니다.');
+  } else {
+    const errorText = await res.text();
+    alert('삭제 실패: ' + errorText);
+  }
+}
+
+import type { Database } from '@/types/database';
+type Customer = Database['public']['Tables']['customers']['Row'];
 
 interface Transaction {
   id: string;
@@ -52,6 +88,23 @@ export default function StatementPage() {
   const [pdfViewMode, setPdfViewMode] = useState<'pdf' | 'table'>('pdf');
   const [pdfError, setPdfError] = useState<string | null>(null);
   const { refreshKey } = useRefreshContext();
+  const [search, setSearch] = useState('');
+  const [filteredCustomers, setFilteredCustomers] = useState<Customer[]>([]);
+  // 1. 고객 등록 모달 상태
+  const [customerFormOpen, setCustomerFormOpen] = useState(false);
+  const [editCustomer, setEditCustomer] = useState<any>(null);
+  // 2. 거래 등록/수정 모달 상태
+  const [transactionFormOpen, setTransactionFormOpen] = useState(false);
+  const [editTransaction, setEditTransaction] = useState<any>(null);
+  // 3. 입금 등록/수정 모달 상태
+  const [paymentFormOpen, setPaymentFormOpen] = useState(false);
+  const [editPayment, setEditPayment] = useState<any>(null);
+  const [targetTransactionId, setTargetTransactionId] = useState<string | null>(null);
+  // 삭제 확인 모달 상태 추가
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
+
+  const inputRef = useRef<HTMLInputElement>(null);
 
   // 1. 고객 목록 불러오기
   useEffect(() => {
@@ -59,6 +112,20 @@ export default function StatementPage() {
       .then((res) => res.json())
       .then((data) => setCustomers(data.data || []));
   }, []);
+
+  // 고객 선택 영역 교체
+  useEffect(() => {
+    if (search.length < 2) {
+      setFilteredCustomers([]);
+      return;
+    }
+    setFilteredCustomers(
+      customers.filter(c =>
+        c.name.includes(search) ||
+        (c.mobile && c.mobile.replace(/-/g, '').includes(search.replace(/-/g, '')))
+      ).slice(0, 20)
+    );
+  }, [search, customers]);
 
   // 2. 고객 선택 시 거래내역+부분합 fetch
   useEffect(() => {
@@ -139,6 +206,7 @@ export default function StatementPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      <ScrollToTop />
       {/* PDF 미리보기/다운로드 모달 */}
       <Dialog open={pdfModalOpen} onClose={() => setPdfModalOpen(false)} className="fixed z-50 inset-0 flex items-center justify-center">
         <div className="fixed inset-0 bg-black bg-opacity-30" aria-hidden="true" />
@@ -202,23 +270,56 @@ export default function StatementPage() {
           </div>
         </div>
       </Dialog>
-      <Card className="rounded-2xl shadow-xl border bg-white p-8 max-w-[1400px] w-full mx-auto">
+      {/* CustomerForm 모달 */}
+      {customerFormOpen && (
+        <CustomerForm open={customerFormOpen} setOpen={setCustomerFormOpen} onSuccess={() => { setCustomerFormOpen(false); setTimeout(() => window.location.reload(), 700); }} customer={editCustomer} />
+      )}
+      {/* 거래 등록 버튼 (고객 선택 시 활성화) */}
+      {/* 상단(카드 바깥)의 고객등록/거래등록 버튼은 완전히 제거 */}
+      {/* 고객 등록 버튼 (검색창 옆) */}
+      {/* 상단(카드 바깥)의 고객등록/거래등록 버튼은 완전히 제거 */}
+      <Card className="rounded-2xl shadow-xl border bg-white p-8 max-w-none w-full mx-auto">
         <h1 className="text-3xl font-bold text-blue-800 flex items-center gap-3 mb-8 justify-center text-center">
           거래명세서
         </h1>
-        <div className="mb-6 flex flex-col md:flex-row gap-4 items-center">
-          <label className="text-lg font-semibold text-gray-700">고객 선택:</label>
-          <select
-            className="border rounded px-4 py-2 text-lg min-w-[200px]"
-            value={selectedCustomer}
-            onChange={(e) => setSelectedCustomer(e.target.value)}
-            title="고객 선택"
-          >
-            <option value="">고객을 선택하세요</option>
-            {customers.map((c) => (
-              <option key={c.id} value={c.id}>{c.name}</option>
-            ))}
-          </select>
+        <div className="mb-6 flex flex-col md:flex-row gap-4 items-center relative">
+          <label className="text-lg font-semibold text-gray-700">고객 검색:</label>
+          <div className="relative w-full max-w-xs">
+            <input
+              ref={inputRef}
+              type="text"
+              className="border rounded px-4 py-3 text-xl min-w-[200px] w-full focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+              placeholder="고객명/전화번호로 검색"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              autoComplete="off"
+              style={{ fontSize: '1.25rem' }}
+            />
+            {search.length >= 2 && filteredCustomers.length > 0 && (
+              <ul className="absolute left-0 right-0 bg-white border rounded shadow-lg z-10 mt-1 max-h-72 overflow-y-auto text-lg">
+                {filteredCustomers.map(c => (
+                  <li
+                    key={c.id}
+                    className="px-4 py-3 hover:bg-blue-100 cursor-pointer flex justify-between items-center"
+                    onClick={() => { setSelectedCustomer(c.id); setSearch(''); inputRef.current?.blur(); }}
+                  >
+                    <span className="font-bold">{c.name}</span>
+                    <span className="text-gray-500 text-base ml-2">{c.mobile}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {search.length >= 2 && filteredCustomers.length === 0 && (
+              <div className="absolute left-0 right-0 bg-white border rounded shadow-lg z-10 mt-1 px-4 py-3 text-gray-500 text-lg">검색 결과 없음</div>
+            )}
+          </div>
+          {/* 버튼 우측 정렬: flex-row-reverse */}
+          <div className="flex flex-row-reverse gap-2 w-full md:w-auto">
+            <Button onClick={() => { setEditCustomer(null); setCustomerFormOpen(true); }} className="bg-blue-700 text-white px-6 py-3 rounded-lg text-xl font-bold">➕ 신규 고객 등록</Button>
+            {selectedCustomer && (
+              <Button onClick={() => { setEditTransaction(null); setTransactionFormOpen(true); }} className="bg-orange-600 text-white px-6 py-3 rounded-lg text-xl font-bold">➕ 거래 등록</Button>
+            )}
+          </div>
           <Button onClick={handleExcelDownload} className="bg-green-600 text-white px-4 py-2 rounded-lg text-lg font-bold">엑셀 다운로드</Button>
           <Button onClick={handlePdfPrint} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-lg font-bold">프린트</Button>
         </div>
@@ -231,7 +332,7 @@ export default function StatementPage() {
           </div>
         </div>
         <div className="overflow-x-auto">
-          <Table id="statement-table" className="min-w-[900px] divide-y divide-blue-100">
+          <Table id="statement-table" className="w-full divide-y divide-blue-100">
             <TableHeader>
               <TableRow className="bg-blue-50">
                 <TableHead className="w-20 text-center">#</TableHead>
@@ -256,33 +357,38 @@ export default function StatementPage() {
                     <TableCell className="text-right px-4 py-8 bg-red-50 font-semibold w-32 pl-32">{tx.paid_amount?.toLocaleString() || ""}</TableCell>
                     <TableCell className="text-right px-4 py-8 bg-red-50 font-semibold w-32">{tx.unpaid_amount?.toLocaleString() || ""}</TableCell>
                     <TableCell className="px-4 py-8 bg-red-50 font-semibold w-56 text-center">{tx.description || tx.notes || tx.note || ""}</TableCell>
+                    <TableCell className="text-center flex flex-row gap-2 justify-center items-center bg-red-50">
+                      <Button onClick={() => { setEditTransaction(tx); setTransactionFormOpen(true); }} className="bg-purple-600 text-white px-4 py-2 rounded-lg text-lg font-bold">✏️ 수정</Button>
+                      {editTransaction && editTransaction.id === tx.id && (
+                        <Button onClick={() => { setEditTransaction(null); setTransactionFormOpen(false); }} className="bg-gray-400 text-white px-4 py-2 rounded-lg text-lg font-bold hover:bg-gray-300">취소하기</Button>
+                      )}
+                      <Button onClick={() => { setDeleteTargetId(tx.id); setDeleteModalOpen(true); }} className="bg-red-600 text-white px-4 py-2 rounded-lg text-lg font-bold">🗑️ 삭제</Button>
+                      {/* 입금 등록/수정/삭제 버튼: 거래 1건당 1개만 허용 */}
+                      {Array.isArray(tx.payments) && tx.payments.length === 0 && (
+                        <Button onClick={() => { setTargetTransactionId(tx.id); setEditPayment(null); setPaymentFormOpen(true); }} className="bg-green-600 text-white px-4 py-2 rounded-lg text-lg font-bold">➕ 입금 등록</Button>
+                      )}
+                      {Array.isArray(tx.payments) && tx.payments.length === 1 && (
+                        <>
+                          <Button onClick={() => { setTargetTransactionId(tx.id); setEditPayment(tx.payments[0]); setPaymentFormOpen(true); }} className="bg-green-700 text-white px-4 py-2 rounded-lg text-lg font-bold">✏️ 입금 수정</Button>
+                          <Button onClick={async () => { if(window.confirm('정말 삭제하시겠습니까?')) { await deletePayment(tx.payments[0].id); }}} className="bg-red-700 text-white px-4 py-2 rounded-lg text-lg font-bold">🗑️ 입금 삭제</Button>
+                        </>
+                      )}
+                    </TableCell>
                   </TableRow>
-                  {/* 입금내역 하위 표 또는 입금없음 표시 */}
+                  {/* 입금내역 하위 행은 정보만 표시, 버튼은 제거 */}
                   {Array.isArray(tx.payments) && tx.payments.length > 0 ? (
-                    <>
-                      <TableRow className="bg-blue-50">
+                    tx.payments.map((p, pidx) => (
+                      <TableRow key={p.id || pidx} className="bg-blue-50">
                         <TableCell className="w-20" />
                         <TableCell className="w-20" />
-                        <TableCell className="w-24 text-center">입금일</TableCell>
-                        <TableCell className="w-28 text-right pr-4">금액</TableCell>
-                        <TableCell className="w-28 pl-4">입금방법</TableCell>
-                        <TableCell className="w-28">입금자</TableCell>
-                        <TableCell className="w-40 text-center">비고</TableCell>
+                        <TableCell className="w-24 text-center">{p.paid_at?.slice(0, 10) || ""}</TableCell>
+                        <TableCell className="w-28 text-right pr-4">{p.amount?.toLocaleString() || ""}</TableCell>
+                        <TableCell className="w-28 pl-4">{p.method || ""}</TableCell>
+                        <TableCell className="w-28">{p.payer_name || ""}</TableCell>
+                        <TableCell className="w-40 text-center">{[p.bank_name, p.account_number, p.account_holder, p.cash_place, p.cash_receiver, p.detail, p.note].filter(Boolean).join(' / ')}</TableCell>
                         <TableCell />
                       </TableRow>
-                      {tx.payments.map((p, pidx) => (
-                        <TableRow key={p.id || pidx}>
-                          <TableCell className="w-20" />
-                          <TableCell className="w-20" />
-                          <TableCell className="w-24 text-center">{p.paid_at?.slice(0, 10) || ""}</TableCell>
-                          <TableCell className="w-28 text-right pr-4">{p.amount?.toLocaleString() || ""}</TableCell>
-                          <TableCell className="w-28 pl-4">{p.method || ""}</TableCell>
-                          <TableCell className="w-28">{p.payer_name || ""}</TableCell>
-                          <TableCell className="w-40 text-center">{[p.bank_name, p.account_number, p.account_holder, p.cash_place, p.cash_receiver, p.detail, p.note].filter(Boolean).join(' / ')}</TableCell>
-                          <TableCell />
-                        </TableRow>
-                      ))}
-                    </>
+                    ))
                   ) : (
                     <TableRow className="bg-blue-50">
                       <TableCell className="w-20" />
@@ -308,6 +414,25 @@ export default function StatementPage() {
           </Table>
         </div>
       </Card>
+      {/* PaymentForm 모달 (등록/수정) */}
+      {paymentFormOpen && (
+        <PaymentForm onSuccess={() => { setPaymentFormOpen(false); setTimeout(() => window.location.reload(), 700); }} transactionId={targetTransactionId} payment={editPayment} />
+      )}
+      {/* TransactionForm 모달(등록/수정) */}
+      {transactionFormOpen && (
+        <TransactionForm onSuccess={() => { setTransactionFormOpen(false); setTimeout(() => window.location.reload(), 700); }} customers={customers} transaction={editTransaction} />
+      )}
+      {/* 삭제 확인 모달 */}
+      <Dialog open={deleteModalOpen} onClose={() => setDeleteModalOpen(false)} className="fixed z-50 inset-0 flex items-center justify-center">
+        <div className="fixed inset-0 bg-black bg-opacity-30" aria-hidden="true" />
+        <div className="relative bg-white rounded-xl shadow-xl p-8 max-w-md w-full mx-auto flex flex-col items-center">
+          <h2 className="text-2xl font-bold mb-4">정말 삭제하시겠습니까?</h2>
+          <div className="flex gap-4 mt-2">
+            <Button onClick={async () => { if(deleteTargetId) { await deleteTransaction(deleteTargetId); setDeleteModalOpen(false); setDeleteTargetId(null); }}} className="bg-red-600 text-white px-6 py-3 rounded-lg text-xl font-bold">삭제</Button>
+            <Button onClick={() => { setDeleteModalOpen(false); setDeleteTargetId(null); }} className="bg-gray-400 text-white px-6 py-3 rounded-lg text-xl font-bold">취소</Button>
+          </div>
+        </div>
+      </Dialog>
     </div>
   );
 } 

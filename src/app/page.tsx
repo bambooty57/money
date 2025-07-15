@@ -18,6 +18,7 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase';
 import { useRefreshContext } from '@/lib/refresh-context';
 import { Pagination } from '@/components/ui/pagination';
+import ScrollToTop from '@/components/ui/scroll-to-top';
 
 ChartJS.register(
   CategoryScale,
@@ -240,15 +241,7 @@ export default function DashboardPage() {
         </div>
       )}
       {/* 맨위로 가기 버튼 */}
-      {showScrollTop && (
-        <button
-          onClick={handleScrollTop}
-          className="fixed bottom-8 right-8 z-50 bg-blue-600 text-white text-2xl font-bold px-6 py-4 rounded-full shadow-2xl flex items-center gap-3 hover:bg-blue-700 transition-colors duration-200 focus:outline-none focus:ring-4 focus:ring-blue-300"
-          aria-label="맨위로 가기"
-        >
-          ⬆️ 맨위로
-        </button>
-      )}
+      <ScrollToTop />
       {/* 시니어 친화적 대시보드 전체 래퍼 */}
       <div className="max-w-screen-2xl mx-auto px-8 py-8">
         {/* 헤더 */}

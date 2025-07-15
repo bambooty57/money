@@ -39,6 +39,7 @@ export function ProductModelTypeDropdown({ selectedId, onSelect, refresh }: Prop
 
   // Immediate refresh on ModelTypeManager change
   const handleManagerChange = async (newId?: string) => {
+    // 직접입력(추가/수정/삭제) 후 강제 fetch로 options 즉시 갱신
     const data = await fetchOptions();
     if (newId) {
       setOpen(false); // 직접입력(추가) 시 모달 자동 닫힘

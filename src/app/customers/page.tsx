@@ -16,6 +16,7 @@ import {
 import { ExcelUploadForm } from '@/components/excel-upload-form';
 import { usePaymentsRealtime } from '@/lib/usePaymentsRealtime';
 import { useCustomersRealtime } from '@/lib/useCustomersRealtime';
+import ScrollToTop from '@/components/ui/scroll-to-top';
 
 type Customer = Database['public']['Tables']['customers']['Row'];
 
@@ -57,6 +58,7 @@ export default function CustomersPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      <ScrollToTop />
       <div className="max-w-screen-2xl mx-auto px-8 py-8">
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-3xl md:text-4xl font-bold text-gray-800 flex items-center gap-3">

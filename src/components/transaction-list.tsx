@@ -67,11 +67,15 @@ export function TransactionList() {
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
   const [formOpen, setFormOpen] = useState(false);
-  const [totalCount, setTotalCount] = useState<number>(0);
-  const [totalCustomerCount, setTotalCustomerCount] = useState<number>(0);
+  // 전체 집계 상태 추가
+  const [globalSummary, setGlobalSummary] = useState<any>(null);
   const searchParams = useSearchParams();
   const urlRefreshKey = searchParams.get('refresh') || 0;
   const [modelTypeRefresh, setModelTypeRefresh] = useState(0);
+  // 검색어 상태 추가
+  const [searchTerm, setSearchTerm] = useState(searchParams.get('search') || '');
+  const [searchInputValue, setSearchInputValue] = useState(searchTerm);
+  const [refreshing, setRefreshing] = useState(false);
   // 페이지네이션 상태 추가
   const [page, setPage] = useState<number>(() => {
     if (typeof window !== 'undefined') {
@@ -93,15 +97,45 @@ export function TransactionList() {
     router.refresh();
   }, [urlRefreshKey]);
 
+  // 검색 입력 디바운싱
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (searchInputValue !== searchTerm) {
+        setSearchTerm(searchInputValue);
+        // 검색 시 첫 페이지로 이동
+        const params = new URLSearchParams(window.location.search);
+        params.set('search', searchInputValue);
+        params.set('page', '1');
+        window.history.replaceState(null, '', `?${params.toString()}`);
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchInputValue, searchTerm]);
+
+  // 새로고침 핸들러
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    setSearchTerm('');
+    setSearchInputValue('');
+    const params = new URLSearchParams(window.location.search);
+    params.delete('search');
+    params.set('page', '1');
+    window.history.replaceState(null, '', `?${params.toString()}`);
+    setRefreshing(false);
+  };
+
   useEffect(() => {
     async function fetchData() {
       setLoading(true);
       try {
-        // page, pageSize를 API에 전달
-        const res = await fetch(`/api/customers?hasTransactions=true&page=${page}&pageSize=${pageSize}`, { cache: 'no-store' });
+        // 전체 집계 fetch
+        const summaryRes = await fetch('/api/transactions/summary', { cache: 'no-store' });
+        const summaryData = await summaryRes.json();
+        setGlobalSummary(summaryData);
+        // page, pageSize, searchTerm를 API에 전달
+        const res = await fetch(`/api/customers?hasTransactions=true&page=${page}&pageSize=${pageSize}&search=${encodeURIComponent(searchTerm)}`, { cache: 'no-store' });
         const data = await res.json();
         setCustomers(data.data || []);
-        setTotalCustomerCount(data.pagination?.total || 0); // 전체 고객 수 저장
         // 고객별 summary 병렬 호출
         const summaryResults = await Promise.all(
           (data.data || []).map((c: Customer) =>
@@ -109,10 +143,6 @@ export function TransactionList() {
           )
         );
         setSummaries(summaryResults);
-        // 전체 거래 row 수 fetch
-        const txRes = await fetch('/api/transactions?count=1');
-        const txData = await txRes.json();
-        setTotalCount(txData.count || 0);
       } catch (err) {
         setError(err instanceof Error ? err.message : '알 수 없는 오류가 발생했습니다.');
       } finally {
@@ -120,7 +150,7 @@ export function TransactionList() {
       }
     }
     fetchData();
-  }, [page]);
+  }, [page, searchTerm]);
 
   const handleExcelDownload = () => {
     const excelRows = customers.map(c => {
@@ -158,14 +188,53 @@ export function TransactionList() {
   if (loading) return <div className="p-4">로딩 중...</div>;
   if (error) return <div className="p-4 text-red-500">{error}</div>;
 
-  // 상단 요약 집계
-  const totalSales = summaries.reduce((sum, s) => sum + (s.total_amount || 0), 0);
-  const totalPaid = summaries.reduce((sum, s) => sum + (s.total_paid || 0), 0);
-  const totalUnpaid = summaries.reduce((sum, s) => sum + (s.total_unpaid || 0), 0);
-  const totalRatio = totalSales ? ((totalPaid / totalSales) * 100).toFixed(1) : '0.0';
+  // 상단 요약 집계: 전체 집계 API 결과 사용
+  const totalCustomerCount = globalSummary?.total_customers || 0;
+  const totalCount = globalSummary?.total_transactions || 0;
+  const totalSales = globalSummary?.total_amount || 0;
+  const totalPaid = globalSummary?.total_paid || 0;
+  const totalUnpaid = globalSummary?.total_unpaid || 0;
+  const totalRatio = globalSummary ? globalSummary.paid_ratio?.toFixed(1) : '0.0';
 
   return (
     <div className="overflow-x-auto">
+      {/* 전체 고객 검색 UI */}
+      <div className="bg-white rounded-lg shadow-lg p-6 mb-6 border-2 border-blue-200">
+        <div className="flex flex-col lg:flex-row gap-6 justify-between items-center">
+          <div className="flex-1 max-w-2xl">
+            <label className="block text-xl font-bold text-gray-700 mb-3">
+              🔍 전체 고객 검색
+            </label>
+            <div className="relative">
+              <Input
+                type="text"
+                placeholder="고객명, 전화번호, 휴대폰, 사업자번호로 전체 고객 검색..."
+                value={searchInputValue}
+                onChange={(e) => setSearchInputValue(e.target.value)}
+                className="w-full px-6 py-4 pr-32 text-lg border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200"
+              />
+              <button
+                onClick={handleRefresh}
+                disabled={refreshing}
+                className="absolute right-2 top-1/2 transform -translate-y-1/2 px-3 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors duration-200 text-sm font-semibold shadow-sm border border-green-600"
+                title="고객 목록 새로고침"
+              >
+                {refreshing ? (
+                  <span className="flex items-center gap-1 whitespace-nowrap">
+                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                    새로고침
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-1 whitespace-nowrap">
+                    🔄 새로고침
+                  </span>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+      {/* 상단 요약 집계 카드 */}
       <div className="grid grid-cols-2 md:grid-cols-6 gap-3 mb-6">
         <div className="bg-blue-50 rounded-lg p-3 text-center border border-blue-200">
           <div className="text-xs text-gray-600 mb-1">전체 고객</div>

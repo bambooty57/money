@@ -22,7 +22,7 @@ export async function GET(request: Request, context: any) {
   // 2. 고객의 모든 거래 (상세 정보 포함)
   const { data: transactions, error } = await supabase
     .from('transactions')
-    .select('id, customer_id, type, amount, status, description, created_at, updated_at, model, model_type, models_types(model, type), payments(*)')
+    .select('id, customer_id, type, amount, status, description, created_at, updated_at, due_date, model, model_type, models_types(model, type), payments(*)')
     .eq('customer_id', customer_id);
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
@@ -42,6 +42,8 @@ export async function GET(request: Request, context: any) {
     }
     return {
       ...tx,
+      date: tx.created_at, // 거래일자 필드로 created_at을 명확히 전달
+      due_date: tx.due_date, // 지급예정일
       description,
       note,
       paid_amount: paid,
