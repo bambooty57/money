@@ -298,8 +298,9 @@ export function StatementPDFTable({ transactions = [], customer, supplier, title
               위 거래명세서의 내용을 확인하였으며, 이에 동의합니다.
             </Text>
             <View style={{ flexDirection: 'row', marginTop: 15, justifyContent: 'center' }}>
-              <Text style={{ fontSize: 11, color: '#666' }}>
-                2025년   월   일   고객 서명: _______________________
+              <Text style={{ fontSize: 11, color: '#666', letterSpacing: 8 }}>
+                {/* '년', '월', '일' 사이에 em space(\u2003) 3개씩 추가 */}
+                2025년 0 0 월 0 0 일   고객 서명: _______________________
               </Text>
             </View>
           </View>
