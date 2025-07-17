@@ -295,7 +295,7 @@ export function StatementPDFTable({ transactions = [], customer, supplier, title
             padding: 15
           }}>
             <Text style={{ fontSize: 11, color: '#333', marginBottom: 10, textAlign: 'center' }}>
-              위 거래명세서의 내용을 확인하였으며, 이에 동의합니다.
+              위 거래내용이 틀림없음을 확인하며 잔액에 대하여       년      월     일까지  완납하겠음을 확인합니다
             </Text>
             <View style={{ flexDirection: 'row', marginTop: 15, justifyContent: 'center' }}>
               <Text style={{ fontSize: 11, color: '#666', letterSpacing: 8 }}>
