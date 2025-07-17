@@ -19,6 +19,7 @@ import { createClient } from '@/lib/supabase';
 import { useRefreshContext } from '@/lib/refresh-context';
 import { Pagination } from '@/components/ui/pagination';
 import ScrollToTop from '@/components/ui/scroll-to-top';
+import { supabase } from '@/lib/supabase';
 
 ChartJS.register(
   CategoryScale,
@@ -104,6 +105,14 @@ export default function DashboardPage() {
   const [overduePage, setOverduePage] = useState(1);
   const overduePageSize = 15;
   const [showScrollTop, setShowScrollTop] = useState(false);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!session) {
+        router.replace('/login');
+      }
+    });
+  }, [router]);
 
   useEffect(() => {
     async function fetchDashboard() {
