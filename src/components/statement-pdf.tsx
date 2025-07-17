@@ -295,12 +295,12 @@ export function StatementPDFTable({ transactions = [], customer, supplier, title
             padding: 15
           }}>
             <Text style={{ fontSize: 11, color: '#333', marginBottom: 10, textAlign: 'center' }}>
-              위 거래내용이 틀림없음을 확인하며 잔액에 대하여       년      월     일까지  완납하겠음을 확인합니다
+              위 거래내용이 틀림없음을 확인하며 잔액에 대하여               년        월        일까지  완납하겠음을 확인합니다
             </Text>
             <View style={{ flexDirection: 'row', marginTop: 15, justifyContent: 'center' }}>
-              <Text style={{ fontSize: 11, color: '#666', letterSpacing: 8 }}>
+              <Text style={{ fontSize: 11, color: '#666', letterSpacing: 16 }}>
                 {/* '0 0'만 삭제, '월 일'은 남기고, 서명 끝에 (서명) 추가 */}
-                2025년   월   일   고객 서명: _______________________ (서명)
+                2025년      월      일      고객 서명: _______________________ (서명)
               </Text>
             </View>
           </View>
