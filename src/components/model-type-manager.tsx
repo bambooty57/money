@@ -149,7 +149,11 @@ export default function ModelTypeManager(props: ModelTypeManagerProps) {
             </tr>
           </thead>
           <tbody>
-            {modelTypes.map((row, i) => {
+            {[...modelTypes].sort((a, b) => {
+              const modelCmp = (a.model || '').localeCompare(b.model || '', 'ko');
+              if (modelCmp !== 0) return modelCmp;
+              return (a.type || '').localeCompare(b.type || '', 'ko');
+            }).map((row, i) => {
               const state = getRowState(row);
               return (
                 <tr key={row.id || `${row.model}-${row.type}-${i}`}>

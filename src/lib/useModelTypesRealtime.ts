@@ -41,5 +41,9 @@ export function useModelTypesRealtime() {
     };
   }, []);
 
-  return modelTypes;
+  return [...modelTypes].sort((a, b) => {
+    const modelCmp = (a.model || '').localeCompare(b.model || '', 'ko');
+    if (modelCmp !== 0) return modelCmp;
+    return (a.type || '').localeCompare(b.type || '', 'ko');
+  });
 } 

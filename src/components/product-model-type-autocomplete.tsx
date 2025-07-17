@@ -61,7 +61,11 @@ export function ProductModelTypeDropdown({ selectedId, onSelect, refresh }: Prop
         {selectedId && !modelTypes.find(opt => String(opt.id) === String(selectedId)) && (
           <option value={String(selectedId)} style={{ color: 'red' }}>이전 선택값(삭제됨)</option>
         )}
-        {modelTypes.map(opt => (
+        {[...modelTypes].sort((a, b) => {
+          const modelCmp = (a.model || '').localeCompare(b.model || '', 'ko');
+          if (modelCmp !== 0) return modelCmp;
+          return (a.type || '').localeCompare(b.type || '', 'ko');
+        }).map(opt => (
           <option key={String(opt.id)} value={String(opt.id)}>{opt.model} / {opt.type}</option>
         ))}
         <option value="__custom__">직접입력 (기종/형식명 관리)</option>

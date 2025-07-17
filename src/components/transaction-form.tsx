@@ -62,40 +62,40 @@ export default function TransactionForm({ customers, onSuccess, transaction, ref
   }, [refresh]);
 
   useEffect(() => {
-    if (transaction) {
-      let models_types_id = transaction.models_types_id || '';
-      // 디버깅: 거래 데이터, 옵션 목록, models_types_id 출력
-      console.log('[거래수정] transaction:', transaction);
-      console.log('[거래수정] modelTypeOptions:', modelTypeOptions);
-      console.log('[거래수정] 기존 models_types_id:', models_types_id);
-      // models_types_id가 옵션에 없고 model/model_type이 있을 때 options에서 찾아 세팅
-      const found = modelTypeOptions.find(mt => mt.id === models_types_id);
-      if (!found && transaction.model && transaction.model_type && modelTypeOptions.length > 0) {
-        const byName = modelTypeOptions.find(
-          mt => mt.model === transaction.model && mt.type === transaction.model_type
-        );
-        models_types_id = byName?.id || '';
-        console.log('[거래수정] model/model_type로 재탐색:', byName);
-      }
-      // 그래도 없으면 빈값
-      if (models_types_id && !modelTypeOptions.find(mt => mt.id === models_types_id)) {
-        models_types_id = '';
-        console.log('[거래수정] 옵션에 없는 models_types_id, 빈값으로 세팅');
-      }
-      setFormData(prev => ({
-        ...prev,
-        customer_id: transaction.customer_id || '',
-        type: transaction.type || '',
-        amount: transaction.amount?.toString() || '',
-        status: transaction.status || 'unpaid',
-        description: transaction.description || '',
-        date: transaction.date ? String(transaction.date).slice(0, 10) : '',
-        due_date: transaction.due_date ? String(transaction.due_date).slice(0, 10) : '',
-        proofs: [],
-        models_types_id,
-      }));
-      if (transaction.date) setCustomerSearch(allCustomers.find(c => c.id === transaction.customer_id)?.name || '');
+    if (!transaction || modelTypeOptions.length === 0) return;
+
+    // 다양한 필드에서 id 추출 시도
+    let models_types_id =
+      transaction.models_types_id ||
+      transaction.models_types?.id ||
+      '';
+
+    // model/type으로도 fallback
+    const found = modelTypeOptions.find(mt => mt.id === models_types_id);
+    if (!found && (transaction.model || transaction.models_types?.model) && (transaction.model_type || transaction.models_types?.type)) {
+      const byName = modelTypeOptions.find(
+        mt =>
+          mt.model === (transaction.model || transaction.models_types?.model) &&
+          mt.type === (transaction.model_type || transaction.models_types?.type)
+      );
+      models_types_id = byName?.id || '';
     }
+    if (models_types_id && !modelTypeOptions.find(mt => mt.id === models_types_id)) {
+      models_types_id = '';
+    }
+    setFormData(prev => ({
+      ...prev,
+      customer_id: transaction.customer_id || '',
+      type: transaction.type || '',
+      amount: transaction.amount?.toString() || '',
+      status: transaction.status || 'unpaid',
+      description: transaction.description || '',
+      date: transaction.date ? String(transaction.date).slice(0, 10) : '',
+      due_date: transaction.due_date ? String(transaction.due_date).slice(0, 10) : '',
+      proofs: [],
+      models_types_id,
+    }));
+    if (transaction.date) setCustomerSearch(allCustomers.find(c => c.id === transaction.customer_id)?.name || '');
   }, [transaction, allCustomers, modelTypeOptions]);
 
   const handleFileUpload = async (files: File[], transactionId: string) => {
@@ -314,10 +314,10 @@ export default function TransactionForm({ customers, onSuccess, transaction, ref
                 <li
                   key={c.id}
                   className="px-4 py-3 hover:bg-blue-100 cursor-pointer flex justify-between items-center"
-                  onClick={() => {
+                  onMouseDown={() => {
                     setFormData(prev => ({ ...prev, customer_id: c.id }));
                     setCustomerSearch('');
-                    inputRef.current?.blur();
+                    setTimeout(() => inputRef.current?.blur(), 0);
                   }}
                 >
                   <span className="font-bold">{c.name}</span>

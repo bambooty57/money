@@ -38,9 +38,9 @@ export async function GET(request: Request) {
     // 페이지네이션 적용된 거래 데이터
     const { data, error } = await supabase
       .from('transactions')
-      .select('*,customers(*),models_types(model,type),payments(*)')
+      .select('*,customers(*),models_types(id,model,type),payments(*)')
       .neq('status', 'deleted')
-      .order('created_at', { ascending: false })
+      .order('created_at', { ascending: true })
       .range(offset, offset + pageSize - 1);
       
     if (error) throw error;
