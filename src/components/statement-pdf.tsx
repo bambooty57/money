@@ -300,7 +300,7 @@ export function StatementPDFTable({ transactions = [], customer, supplier, title
             <View style={{ flexDirection: 'row', marginTop: 15, justifyContent: 'center' }}>
               <Text style={{ fontSize: 11, color: '#666', letterSpacing: 8 }}>
                 {/* '0 0'만 삭제, '월 일'은 남기고, 서명 끝에 (서명) 추가 */}
-                2025년   월   일   고객 서명: _______________________ (서명)
+                2025년   월   일   고객 성명: _______________________ (서명)
               </Text>
             </View>
           </View>
