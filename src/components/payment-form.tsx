@@ -154,6 +154,9 @@ export default function PaymentForm({ transactionId, payment, onSuccess }: Payme
             🗑️ 삭제
           </Button>
         )}
+        <Button type="button" onClick={() => { if (onSuccess) onSuccess(); }} disabled={loading} className="text-2xl px-8 py-4 rounded-lg shadow-lg bg-gray-400 hover:bg-gray-500 text-white font-bold transition-colors duration-200">
+          취소하기
+        </Button>
       </div>
     </form>
   );

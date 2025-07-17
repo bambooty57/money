@@ -73,7 +73,7 @@ export default function SmsSender({ selectedCustomer, onSuccess }: SmsSenderProp
   // console.log('templateOptions:', templateOptions);
 
   return (
-    <div className="bg-white rounded-xl shadow-lg p-8 space-y-8">
+    <div className="bg-white rounded-xl shadow-lg p-8 space-y-8 max-w-3xl w-full mx-auto max-h-[90vh] overflow-y-auto">
       {/* 수신자 선택 섹션 */}
       <div>
         <label className="block text-xl font-bold text-gray-800 mb-4">📱 수신자 선택</label>

@@ -78,6 +78,8 @@ interface Transaction {
   models_types?: { model?: string; type?: string };
 }
 
+import SmsSender from '@/components/sms-sender';
+
 export default function StatementPage() {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [selectedCustomer, setSelectedCustomer] = useState<string>("");
@@ -105,6 +107,7 @@ export default function StatementPage() {
   // 삭제 확인 모달 상태 추가
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
+  const [smsModalOpen, setSmsModalOpen] = useState(false);
 
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -334,6 +337,14 @@ export default function StatementPage() {
           </div>
           <Button onClick={handleExcelDownload} className="bg-green-600 text-white px-4 py-2 rounded-lg text-lg font-bold">엑셀 다운로드</Button>
           <Button onClick={handlePdfPrint} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-lg font-bold">프린트</Button>
+          {selectedCustomer && customerData && (
+            <Button
+              onClick={() => setSmsModalOpen(true)}
+              className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-lg font-bold ml-2"
+            >
+              문자보내기
+            </Button>
+          )}
         </div>
         <div className="mb-8 border-b pb-4 flex flex-col md:flex-row md:items-end md:justify-between gap-4">
           <div>
@@ -365,9 +376,15 @@ export default function StatementPage() {
                     <TableCell className="px-4 py-8 bg-red-50 font-semibold w-24 text-center">{tx.created_at?.slice(0, 10) || ""}</TableCell>
                     <TableCell className="px-4 py-8 bg-red-50 font-semibold w-32 text-center">{tx.type || ""}</TableCell>
                     <TableCell className="px-4 py-8 bg-red-50 font-semibold w-40 text-center">{tx.model || tx.models_types?.model || ''}{(tx.model || tx.models_types?.model) && (tx.model_type || tx.models_types?.type) ? '/' : ''}{tx.model_type || tx.models_types?.type || ''}</TableCell>
-                    <TableCell className="text-right px-4 py-8 bg-red-50 font-semibold w-32">{tx.amount?.toLocaleString() || ""}</TableCell>
-                    <TableCell className="text-right px-4 py-8 bg-red-50 font-semibold w-32 pl-32">{tx.paid_amount?.toLocaleString() || ""}</TableCell>
-                    <TableCell className="text-right px-4 py-8 bg-red-50 font-semibold w-32">{tx.unpaid_amount?.toLocaleString() || ""}</TableCell>
+                    <TableCell className="text-right px-4 py-8 bg-red-50 font-semibold w-32">
+                      <span className="text-red-600">{tx.amount?.toLocaleString() || ""}</span>
+                    </TableCell>
+                    <TableCell className="text-right px-4 py-8 bg-red-50 font-semibold w-32 pl-32">
+                      <span className="text-blue-600">{tx.paid_amount?.toLocaleString() || ""}</span>
+                    </TableCell>
+                    <TableCell className="text-right px-4 py-8 bg-red-50 font-semibold w-32">
+                      <span className="text-yellow-600">{tx.unpaid_amount?.toLocaleString() || ""}</span>
+                    </TableCell>
                     <TableCell className="px-4 py-8 bg-red-50 font-semibold w-56 text-center">{tx.description || tx.notes || tx.note || ""}</TableCell>
                     <TableCell className="text-center flex flex-row gap-2 justify-center items-center bg-red-50">
                       <Button onClick={() => { setEditTransaction(tx); setTransactionFormOpen(true); }} className="bg-purple-600 text-white px-4 py-2 rounded-lg text-lg font-bold">✏️ 수정</Button>
@@ -445,6 +462,25 @@ export default function StatementPage() {
           </div>
         </div>
       </Dialog>
+      {/* 문자보내기 모달 */}
+      {smsModalOpen && (
+        <Dialog open={smsModalOpen} onClose={() => setSmsModalOpen(false)} className="fixed z-50 inset-0 flex items-center justify-center">
+          <div className="fixed inset-0 bg-black bg-opacity-30" aria-hidden="true" />
+          <div className="relative bg-white rounded-xl shadow-xl p-6 max-w-2xl w-full mx-auto">
+            <SmsSender
+              selectedCustomer={{
+                ...customerData,
+                total_unpaid: summary?.total_unpaid || summary?.supplier?.total_unpaid || 0,
+                transaction_count: summary?.transaction_count || summary?.supplier?.transaction_count || 0,
+              }}
+              onSuccess={() => setSmsModalOpen(false)}
+            />
+            <div className="flex justify-end mt-4">
+              <Button onClick={() => setSmsModalOpen(false)} className="bg-gray-400 text-white px-4 py-2 rounded-lg font-bold">닫기</Button>
+            </div>
+          </div>
+        </Dialog>
+      )}
     </div>
   );
 } 

@@ -314,10 +314,10 @@ export default function TransactionForm({ customers, onSuccess, transaction, ref
                 <li
                   key={c.id}
                   className="px-4 py-3 hover:bg-blue-100 cursor-pointer flex justify-between items-center"
-                  onMouseDown={() => {
+                  onMouseDown={e => {
+                    e.preventDefault(); // blur 방지
                     setFormData(prev => ({ ...prev, customer_id: c.id }));
                     setCustomerSearch('');
-                    setTimeout(() => inputRef.current?.blur(), 0);
                   }}
                 >
                   <span className="font-bold">{c.name}</span>
@@ -477,18 +477,14 @@ export default function TransactionForm({ customers, onSuccess, transaction, ref
         >
           {loading ? '처리중...' : (transaction ? (<><span>📝</span> 수정하기</>) : (<><span>➕</span> 등록하기</>))}
         </Button>
-        {transaction && (
-          <Button
-            type="button"
-            className="w-full max-w-xs text-2xl px-8 py-4 flex items-center gap-2 rounded-lg shadow-lg bg-gray-400 hover:bg-gray-500 text-white font-bold transition-colors duration-200 ml-4"
-            onClick={() => {
-              if (onSuccess) onSuccess();
-            }}
-            title="수정 취소"
-          >
-            취소하기
-          </Button>
-        )}
+        <Button
+          type="button"
+          className="w-full max-w-xs text-2xl px-8 py-4 flex items-center gap-2 rounded-lg shadow-lg bg-gray-400 hover:bg-gray-500 text-white font-bold transition-colors duration-200 ml-4"
+          onClick={() => { if (onSuccess) onSuccess(); }}
+          title="취소하기"
+        >
+          취소하기
+        </Button>
       </div>
     </form>
   );
