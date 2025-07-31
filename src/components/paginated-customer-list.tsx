@@ -208,6 +208,13 @@ function PaginatedCustomerListInner({
       return;
     }
 
+    // 최소 2자 이상 입력해야 검색 실행
+    if (searchTerm.trim().length < 2) {
+      setFilteredCustomers([]);
+      setIsDropdownOpen(false);
+      return;
+    }
+
     const normalizedSearch = searchTerm.toLowerCase().trim();
     
     const results = data?.data?.filter(c => {
@@ -393,11 +400,14 @@ function PaginatedCustomerListInner({
   useEffect(() => {
     const timer = setTimeout(() => {
       if (searchInputValue !== searchTerm) {
-        // 검색 시 첫 페이지로 이동
-        const params = new URLSearchParams(searchParams.toString());
-        params.set('search', searchInputValue);
-        params.set('page', '1');
-        router.push(`?${params.toString()}`);
+        // 최소 2자 이상 입력해야 검색 실행 (1자 입력 시 검색 중단)
+        if (searchInputValue.trim().length >= 2 || searchInputValue.trim().length === 0) {
+          // 검색 시 첫 페이지로 이동
+          const params = new URLSearchParams(searchParams.toString());
+          params.set('search', searchInputValue);
+          params.set('page', '1');
+          router.push(`?${params.toString()}`);
+        }
       }
     }, 300); // 300ms 디바운싱
 
@@ -490,7 +500,7 @@ function PaginatedCustomerListInner({
               <Input
                 ref={inputRef}
                 type="text"
-                placeholder="고객명/전화번호/주소/회사명으로 검색"
+                placeholder="고객명/전화번호/주소/회사명으로 검색 (2자 이상 입력)"
                 value={searchInputValue}
                 onChange={(e) => {
                   setSearchInputValue(e.target.value);
@@ -549,8 +559,11 @@ function PaginatedCustomerListInner({
                       </li>
                     );
                   })}
-                  {filteredCustomers.length === 0 && searchInputValue.trim().length > 0 && (
+                  {filteredCustomers.length === 0 && searchInputValue.trim().length >= 2 && (
                     <li className="px-4 py-3 text-gray-500 text-lg">검색 결과 없음</li>
+                  )}
+                  {searchInputValue.trim().length === 1 && (
+                    <li className="px-4 py-3 text-gray-500 text-lg">2자 이상 입력해주세요</li>
                   )}
                 </ul>
               )}
