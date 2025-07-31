@@ -50,7 +50,10 @@ interface SearchHistory {
 }
 
 type Transaction = Database['public']['Tables']['transactions']['Row'];
-type Customer = Database['public']['Tables']['customers']['Row'];
+type Customer = Database['public']['Tables']['customers']['Row'] & {
+  total_unpaid?: number;
+  transaction_count?: number;
+};
 
 interface TransactionWithCustomer {
   id: string;
@@ -254,7 +257,7 @@ export function TransactionList() {
     }
   }, [isDropdownOpen, filteredCustomers, selectedIndex]);
 
-  // 고객 선택 처리
+  // 고객 선택 처리 - 개선된 버전
   const handleCustomerSelect = useCallback(async (customer: Customer) => {
     setFilteredCustomers([]);
     setIsDropdownOpen(false);
@@ -449,13 +452,13 @@ export function TransactionList() {
         <div className="flex flex-col lg:flex-row gap-6 justify-between items-center">
           <div className="flex-1 max-w-2xl">
             <label className="block text-xl font-bold text-gray-700 mb-3">
-              🔍 전체 고객 검색
+              🔍 고객 검색 및 거래 조회
             </label>
             <div className="relative">
               <Input
                 ref={inputRef}
                 type="text"
-                placeholder="고객명/전화번호/주소/회사명으로 검색"
+                placeholder="고객명/전화번호/주소/회사명으로 검색 후 선택하세요"
                 value={searchInputValue}
                 onChange={(e) => {
                   const value = e.target.value;
@@ -464,71 +467,123 @@ export function TransactionList() {
                   handleSearchInput(value);
                 }}
                 onKeyDown={handleKeyDown}
+                onFocus={() => {
+                  if (searchInputValue.trim().length >= 1 && filteredCustomers.length > 0) {
+                    setIsDropdownOpen(true);
+                  }
+                }}
                 className="w-full px-6 py-4 pr-32 text-lg border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200"
               />
-              <button
-                onClick={handleRefresh}
-                disabled={refreshing}
-                className="absolute right-2 top-1/2 transform -translate-y-1/2 px-3 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors duration-200 text-sm font-semibold shadow-sm border border-green-600"
-                title="고객 목록 새로고침"
-              >
-                {refreshing ? (
-                  <span className="flex items-center gap-1 whitespace-nowrap">
-                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
-                    새로고침
-                  </span>
-                ) : (
-                  <span className="flex items-center gap-1 whitespace-nowrap">
-                    🔄 새로고침
-                  </span>
-                )}
-              </button>
+              <div className="absolute right-2 top-1/2 transform -translate-y-1/2 flex gap-2">
+                <button
+                  onClick={handleRefresh}
+                  disabled={refreshing}
+                  className="px-3 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors duration-200 text-sm font-semibold shadow-sm border border-green-600"
+                  title="고객 목록 새로고침"
+                >
+                  {refreshing ? (
+                    <span className="flex items-center gap-1 whitespace-nowrap">
+                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                      새로고침
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-1 whitespace-nowrap">
+                      🔄 새로고침
+                    </span>
+                  )}
+                </button>
+              </div>
               {isDropdownOpen && (
-                <ul className="absolute left-0 right-0 bg-white border rounded shadow-lg z-10 mt-1 max-h-72 overflow-y-auto text-lg">
+                <ul className="absolute left-0 right-0 bg-white border-2 border-blue-200 rounded-lg shadow-xl z-10 mt-1 max-h-80 overflow-y-auto text-lg">
                   {filteredCustomers.map((c, index) => {
                     const history = searchHistory.find(h => h.customerId === c.id);
                     return (
                       <li
                         key={c.id}
-                        className={`px-4 py-3 hover:bg-blue-100 cursor-pointer ${selectedIndex === index ? 'bg-blue-100 font-bold' : ''}`}
+                        className={`px-4 py-4 hover:bg-blue-100 cursor-pointer border-b border-gray-100 last:border-b-0 ${selectedIndex === index ? 'bg-blue-100 font-bold' : ''}`}
                         onClick={() => handleCustomerSelect(c)}
                         onMouseEnter={() => setSelectedIndex(index)}
                         onMouseLeave={() => setSelectedIndex(-1)}
                       >
                         <div className="flex justify-between items-start">
                           <div className="flex-1">
-                            <div className="flex items-center gap-2">
-                              <span className="font-bold">{c.name}</span>
+                            <div className="flex items-center gap-2 mb-2">
+                              <span className="font-bold text-lg text-blue-800">{c.name}</span>
                               {history && (
-                                <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">
+                                <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">
                                   🔍 {history.searchCount}회
                                 </span>
                               )}
+                              {c.total_unpaid && c.total_unpaid > 0 && (
+                                <span className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded-full">
+                                  💰 미수금
+                                </span>
+                              )}
                             </div>
-                            <div className="text-gray-500 text-base mt-1">
-                              {c.mobile && <span className="mr-3">📱 {c.mobile}</span>}
-                              {c.phone && <span className="mr-3">📞 {c.phone}</span>}
-                              {c.address && <span className="mr-3">📍 {c.address}</span>}
-                              {c.business_name && <span className="text-sm">🏢 {c.business_name}</span>}
+                            <div className="text-gray-600 text-base space-y-1">
+                              {c.mobile && <div className="flex items-center gap-2">📱 {c.mobile}</div>}
+                              {c.phone && <div className="flex items-center gap-2">📞 {c.phone}</div>}
+                              {c.address && <div className="flex items-center gap-2">📍 {c.address}</div>}
+                              {c.business_name && <div className="flex items-center gap-2">🏢 {c.business_name}</div>}
+                              <div className="flex items-center gap-4 mt-2 text-sm">
+                                <span className="text-purple-600">거래: {c.transaction_count ?? 0}건</span>
+                                <span className="text-red-600">미수금: {c.total_unpaid?.toLocaleString() ?? '0'}원</span>
+                              </div>
                             </div>
+                          </div>
+                          <div className="text-right text-sm text-gray-500">
+                            <div>클릭하여 선택</div>
+                            <div className="text-xs">Enter 키로도 선택 가능</div>
                           </div>
                         </div>
                       </li>
                     );
                   })}
-                  {filteredCustomers.length === 0 && searchInputValue.trim().length > 0 && (
-                    <li className="px-4 py-3 text-gray-500 text-lg">
-                      <div className="flex items-center gap-2">
-                        <span>🔍</span>
-                        <span>검색 결과 없음</span>
-                      </div>
-                      <div className="text-sm text-gray-400 mt-1">
-                        다른 검색어를 입력해보세요
-                      </div>
+                  {filteredCustomers.length === 0 && searchInputValue.trim().length >= 1 && (
+                    <li className="px-4 py-4 text-gray-500 text-lg text-center">
+                      <div className="mb-2">🔍 검색 결과가 없습니다</div>
+                      <div className="text-sm text-gray-400">다른 검색어를 입력해보세요</div>
+                    </li>
+                  )}
+                  {searchInputValue.trim().length === 0 && (
+                    <li className="px-4 py-4 text-gray-500 text-lg text-center">
+                      <div className="mb-2">💡 검색어를 입력하세요</div>
+                      <div className="text-sm text-gray-400">고객명, 전화번호, 주소, 회사명으로 검색 가능</div>
                     </li>
                   )}
                 </ul>
               )}
+            </div>
+            {searchTerm && (
+              <div className="mt-4 p-4 bg-green-50 border-2 border-green-200 rounded-lg">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-lg font-bold text-green-800">
+                      ✅ 선택된 고객: {searchTerm}
+                    </div>
+                    <div className="text-sm text-green-600">
+                      해당 고객의 거래 내역을 조회 중입니다
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setSearchInputValue('');
+                      setSearchTerm('');
+                      setPage(1);
+                      handleRefresh();
+                    }}
+                    className="px-3 py-1 bg-red-500 text-white rounded text-sm hover:bg-red-600 transition-colors"
+                  >
+                    검색 초기화
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+          <div className="text-center">
+            <div className="text-lg font-semibold text-gray-600 mb-2">📊 전체 고객 수</div>
+            <div className="text-3xl font-bold text-blue-600">
+              {totalCustomerCount.toLocaleString()}명
             </div>
           </div>
         </div>
@@ -611,12 +666,24 @@ export function TransactionList() {
         <Table className="table-fixed w-full text-lg border-collapse bg-white rounded-lg shadow-lg">
           <TableHeader className="bg-gray-100">
             <TableRow className="h-16">
-              <TableHead className="border-2 border-gray-300 px-4 py-4 font-bold text-gray-800 w-32 min-w-[120px] max-w-[160px] text-center whitespace-nowrap overflow-hidden text-ellipsis">고객명</TableHead>
-              <TableHead className="border-2 border-gray-300 px-4 py-4 font-bold text-gray-800 w-24 min-w-[80px] max-w-[100px] text-center whitespace-nowrap overflow-hidden text-ellipsis">거래건수</TableHead>
-              <TableHead className="border-2 border-gray-300 px-4 py-4 font-bold text-gray-800 w-32 min-w-[120px] max-w-[160px] text-right whitespace-nowrap overflow-hidden text-ellipsis">총 매출액</TableHead>
-              <TableHead className="border-2 border-gray-300 px-4 py-4 font-bold text-gray-800 w-32 min-w-[120px] max-w-[160px] text-right whitespace-nowrap overflow-hidden text-ellipsis">입금액</TableHead>
-              <TableHead className="border-2 border-gray-300 px-4 py-4 font-bold text-gray-800 w-32 min-w-[120px] max-w-[160px] text-right whitespace-nowrap overflow-hidden text-ellipsis">미수금</TableHead>
-              <TableHead className="border-2 border-gray-300 px-4 py-4 font-bold text-gray-800 w-24 min-w-[80px] max-w-[100px] text-center whitespace-nowrap overflow-hidden text-ellipsis">입금%</TableHead>
+              <TableHead className="border-2 border-gray-300 px-4 py-4 font-bold text-gray-800 w-32 min-w-[120px] max-w-[160px] text-center whitespace-nowrap overflow-hidden text-ellipsis">
+                {searchTerm ? '고객명 (검색결과)' : '고객명'}
+              </TableHead>
+              <TableHead className="border-2 border-gray-300 px-4 py-4 font-bold text-gray-800 w-24 min-w-[80px] max-w-[100px] text-center whitespace-nowrap overflow-hidden text-ellipsis">
+                {searchTerm ? '거래건수' : '거래건수'}
+              </TableHead>
+              <TableHead className="border-2 border-gray-300 px-4 py-4 font-bold text-gray-800 w-32 min-w-[120px] max-w-[160px] text-right whitespace-nowrap overflow-hidden text-ellipsis">
+                {searchTerm ? '거래금액' : '총 매출액'}
+              </TableHead>
+              <TableHead className="border-2 border-gray-300 px-4 py-4 font-bold text-gray-800 w-32 min-w-[120px] max-w-[160px] text-right whitespace-nowrap overflow-hidden text-ellipsis">
+                {searchTerm ? '입금액' : '입금액'}
+              </TableHead>
+              <TableHead className="border-2 border-gray-300 px-4 py-4 font-bold text-gray-800 w-32 min-w-[120px] max-w-[160px] text-right whitespace-nowrap overflow-hidden text-ellipsis">
+                {searchTerm ? '미수금' : '미수금'}
+              </TableHead>
+              <TableHead className="border-2 border-gray-300 px-4 py-4 font-bold text-gray-800 w-24 min-w-[80px] max-w-[100px] text-center whitespace-nowrap overflow-hidden text-ellipsis">
+                {searchTerm ? '입금%' : '입금%'}
+              </TableHead>
               <TableHead className="border-2 border-gray-300 px-4 py-4 font-bold text-gray-800 w-16 min-w-[60px] max-w-[60px] text-center whitespace-nowrap overflow-hidden text-ellipsis">삭제</TableHead>
             </TableRow>
           </TableHeader>
@@ -628,24 +695,109 @@ export function TransactionList() {
                   <TableCell colSpan={7} className="border-2 border-gray-300 px-4 py-8 text-center text-lg text-gray-500">
                     <div className="flex items-center justify-center gap-3">
                       <div className="animate-spin rounded-full h-6 w-6 border-2 border-blue-500 border-t-transparent"></div>
-                      <span>검색 중...</span>
+                                             <span>&quot;{searchTerm}&quot; 고객의 거래 내역을 불러오는 중...</span>
                     </div>
                   </TableCell>
                 </TableRow>
               ) : data?.data && data.data.length > 0 ? (
-                data.data.map((transaction: TransactionWithCustomer, i: number) => {
-                  const customer = transaction.customers;
-                  if (!customer) return null;
-                  
+                <>
+                  <TableRow className="bg-blue-50">
+                    <TableCell colSpan={7} className="border-2 border-gray-300 px-4 py-3 text-center text-lg font-bold text-blue-800">
+                      🔍 &quot;{searchTerm}&quot; 고객의 거래 내역 ({data.data.length}건)
+                    </TableCell>
+                  </TableRow>
+                  {data.data.map((transaction: TransactionWithCustomer, i: number) => {
+                    const customer = transaction.customers;
+                    if (!customer) return null;
+                    
+                    return (
+                      <TableRow key={transaction.id} className="hover:bg-blue-50 cursor-pointer border-b border-gray-200 h-16">
+                        <TableCell className="border-2 border-gray-300 px-4 py-4 whitespace-nowrap text-base text-blue-700 underline font-medium w-32 min-w-[120px] max-w-[160px] text-center overflow-hidden text-ellipsis" onClick={() => router.push(`/customers/${customer.id}/transactions`)}>{customer.name}</TableCell>
+                        <TableCell className="border-2 border-gray-300 px-4 py-4 whitespace-nowrap text-base text-gray-900 w-24 min-w-[80px] max-w-[100px] text-center overflow-hidden text-ellipsis">1건</TableCell>
+                        <TableCell className="border-2 border-gray-300 px-4 py-4 whitespace-nowrap text-base text-gray-900 font-semibold w-32 min-w-[120px] max-w-[160px] text-right overflow-hidden text-ellipsis">{transaction.amount?.toLocaleString()}원</TableCell>
+                        <TableCell className="border-2 border-gray-300 px-4 py-4 whitespace-nowrap text-base text-green-700 font-semibold w-32 min-w-[120px] max-w-[160px] text-right overflow-hidden text-ellipsis">{transaction.payment_amount?.toLocaleString()}원</TableCell>
+                        <TableCell className="border-2 border-gray-300 px-4 py-4 whitespace-nowrap text-base text-gray-900 font-semibold w-32 min-w-[120px] max-w-[160px] text-right overflow-hidden text-ellipsis">{((transaction.amount || 0) - (transaction.payment_amount || 0)).toLocaleString()}원</TableCell>
+                        <TableCell className="border-2 border-gray-300 px-4 py-4 whitespace-nowrap text-base text-gray-900 font-semibold w-24 min-w-[80px] max-w-[100px] text-center overflow-hidden text-ellipsis">
+                          {transaction.amount && transaction.payment_amount ? Math.round((transaction.payment_amount / transaction.amount) * 100) : 0}%
+                        </TableCell>
+                        <TableCell className="border-2 border-gray-300 px-4 py-4 w-16 min-w-[60px] max-w-[60px] text-center overflow-hidden text-ellipsis">
+                          <button
+                            className="text-red-600 hover:text-red-900 text-lg p-1 hover:bg-red-50 rounded transition-colors"
+                            title="거래 삭제"
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              if (!window.confirm('정말로 이 거래를 삭제하시겠습니까?')) return;
+                              try {
+                                const { data: { session } } = await supabase.auth.getSession();
+                                const token = session?.access_token;
+                                if (!token) {
+                                  alert('인증이 필요합니다. 다시 로그인해주세요.');
+                                  return;
+                                }
+                                const res = await fetch(`/api/transactions?id=${transaction.id}`, { 
+                                  method: 'DELETE',
+                                  headers: {
+                                    'Authorization': `Bearer ${token}`
+                                  }
+                                });
+                                if (res.ok) {
+                                  setTimeout(() => window.location.reload(), 700);
+                                  alert('삭제되었습니다.');
+                                } else {
+                                  const errorText = await res.text();
+                                  alert('삭제 실패: ' + errorText);
+                                }
+                              } catch (error) {
+                                console.error('거래 삭제 중 오류:', error);
+                                alert('거래 삭제 중 오류가 발생했습니다.');
+                              }
+                            }}
+                          >🗑️</button>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </>
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={7} className="border-2 border-gray-300 px-4 py-8 text-center text-lg text-gray-500">
+                    <div className="mb-2">🔍 &quot;{searchTerm}&quot; 고객의 거래 내역이 없습니다.</div>
+                    <div className="text-base text-gray-400 mb-4">해당 고객의 거래 기록이 없습니다.</div>
+                    <button
+                      onClick={() => {
+                        setSearchInputValue('');
+                        setSearchTerm('');
+                        setPage(1);
+                        handleRefresh();
+                      }}
+                      className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors duration-200 text-base font-semibold"
+                    >
+                      🔄 전체 고객 목록으로 돌아가기
+                    </button>
+                  </TableCell>
+                </TableRow>
+              )
+            ) : (
+              // 검색어가 없을 때는 전체 고객 목록 표시 (요약 데이터 사용)
+              <>
+                <TableRow className="bg-gray-50">
+                  <TableCell colSpan={7} className="border-2 border-gray-300 px-4 py-3 text-center text-lg font-bold text-gray-800">
+                    📊 전체 고객 거래 요약 ({totalCustomerCount}명)
+                  </TableCell>
+                </TableRow>
+                {customers.map((c, i) => {
+                  const summary = summaries[customers.findIndex(x => x.id === c.id)] || {};
+                  // transaction_count를 우선 사용, 없으면 기존 방식
+                  const transactionCount = summary.transaction_count || 0;
                   return (
-                    <TableRow key={transaction.id} className="hover:bg-blue-50 cursor-pointer border-b border-gray-200 h-16">
-                      <TableCell className="border-2 border-gray-300 px-4 py-4 whitespace-nowrap text-base text-blue-700 underline font-medium w-32 min-w-[120px] max-w-[160px] text-center overflow-hidden text-ellipsis" onClick={() => router.push(`/customers/${customer.id}/transactions`)}>{customer.name}</TableCell>
-                      <TableCell className="border-2 border-gray-300 px-4 py-4 whitespace-nowrap text-base text-gray-900 w-24 min-w-[80px] max-w-[100px] text-center overflow-hidden text-ellipsis">1건</TableCell>
-                      <TableCell className="border-2 border-gray-300 px-4 py-4 whitespace-nowrap text-base text-gray-900 font-semibold w-32 min-w-[120px] max-w-[160px] text-right overflow-hidden text-ellipsis">{transaction.amount?.toLocaleString()}원</TableCell>
-                      <TableCell className="border-2 border-gray-300 px-4 py-4 whitespace-nowrap text-base text-green-700 font-semibold w-32 min-w-[120px] max-w-[160px] text-right overflow-hidden text-ellipsis">{transaction.payment_amount?.toLocaleString()}원</TableCell>
-                      <TableCell className="border-2 border-gray-300 px-4 py-4 whitespace-nowrap text-base text-gray-900 font-semibold w-32 min-w-[120px] max-w-[160px] text-right overflow-hidden text-ellipsis">{((transaction.amount || 0) - (transaction.payment_amount || 0)).toLocaleString()}원</TableCell>
+                    <TableRow key={c.id} className="hover:bg-blue-50 cursor-pointer border-b border-gray-200 h-16">
+                      <TableCell className="border-2 border-gray-300 px-4 py-4 whitespace-nowrap text-base text-blue-700 underline font-medium w-32 min-w-[120px] max-w-[160px] text-center overflow-hidden text-ellipsis" onClick={() => router.push(`/customers/${c.id}/transactions`)}>{c.name}</TableCell>
+                      <TableCell className="border-2 border-gray-300 px-4 py-4 whitespace-nowrap text-base text-gray-900 w-24 min-w-[80px] max-w-[100px] text-center overflow-hidden text-ellipsis">{transactionCount}건</TableCell>
+                      <TableCell className="border-2 border-gray-300 px-4 py-4 whitespace-nowrap text-base text-gray-900 font-semibold w-32 min-w-[120px] max-w-[160px] text-right overflow-hidden text-ellipsis">{(summary.total_amount || 0).toLocaleString()}원</TableCell>
+                      <TableCell className="border-2 border-gray-300 px-4 py-4 whitespace-nowrap text-base text-green-700 font-semibold w-32 min-w-[120px] max-w-[160px] text-right overflow-hidden text-ellipsis">{(summary.total_paid || 0).toLocaleString()}원</TableCell>
+                      <TableCell className="border-2 border-gray-300 px-4 py-4 whitespace-nowrap text-base text-gray-900 font-semibold w-32 min-w-[120px] max-w-[160px] text-right overflow-hidden text-ellipsis">{(summary.total_unpaid || 0).toLocaleString()}원</TableCell>
                       <TableCell className="border-2 border-gray-300 px-4 py-4 whitespace-nowrap text-base text-gray-900 font-semibold w-24 min-w-[80px] max-w-[100px] text-center overflow-hidden text-ellipsis">
-                        {transaction.amount && transaction.payment_amount ? Math.round((transaction.payment_amount / transaction.amount) * 100) : 0}%
+                        {summary.total_ratio || 0}%
                       </TableCell>
                       <TableCell className="border-2 border-gray-300 px-4 py-4 w-16 min-w-[60px] max-w-[60px] text-center overflow-hidden text-ellipsis">
                         <button
@@ -661,7 +813,7 @@ export function TransactionList() {
                                 alert('인증이 필요합니다. 다시 로그인해주세요.');
                                 return;
                               }
-                              const res = await fetch(`/api/transactions?id=${transaction.id}`, { 
+                              const res = await fetch(`/api/transactions?id=${summary.transactions?.[0]?.id}`, { 
                                 method: 'DELETE',
                                 headers: {
                                   'Authorization': `Bearer ${token}`
@@ -683,69 +835,8 @@ export function TransactionList() {
                       </TableCell>
                     </TableRow>
                   );
-                })
-              ) : (
-                <TableRow>
-                  <TableCell colSpan={7} className="border-2 border-gray-300 px-4 py-8 text-center text-lg text-gray-500">
-                    🔍 검색 결과가 없습니다.
-                    <br />
-                    <span className="text-base">다른 검색어를 입력해보세요.</span>
-                  </TableCell>
-                </TableRow>
-              )
-            ) : (
-              // 검색어가 없을 때는 전체 고객 목록 표시 (요약 데이터 사용)
-              customers.map((c, i) => {
-                const summary = summaries[customers.findIndex(x => x.id === c.id)] || {};
-                // transaction_count를 우선 사용, 없으면 기존 방식
-                const transactionCount = summary.transaction_count || 0;
-                return (
-                  <TableRow key={c.id} className="hover:bg-blue-50 cursor-pointer border-b border-gray-200 h-16">
-                    <TableCell className="border-2 border-gray-300 px-4 py-4 whitespace-nowrap text-base text-blue-700 underline font-medium w-32 min-w-[120px] max-w-[160px] text-center overflow-hidden text-ellipsis" onClick={() => router.push(`/customers/${c.id}/transactions`)}>{c.name}</TableCell>
-                    <TableCell className="border-2 border-gray-300 px-4 py-4 whitespace-nowrap text-base text-gray-900 w-24 min-w-[80px] max-w-[100px] text-center overflow-hidden text-ellipsis">{transactionCount}건</TableCell>
-                    <TableCell className="border-2 border-gray-300 px-4 py-4 whitespace-nowrap text-base text-gray-900 font-semibold w-32 min-w-[120px] max-w-[160px] text-right overflow-hidden text-ellipsis">{(summary.total_amount || 0).toLocaleString()}원</TableCell>
-                    <TableCell className="border-2 border-gray-300 px-4 py-4 whitespace-nowrap text-base text-green-700 font-semibold w-32 min-w-[120px] max-w-[160px] text-right overflow-hidden text-ellipsis">{(summary.total_paid || 0).toLocaleString()}원</TableCell>
-                    <TableCell className="border-2 border-gray-300 px-4 py-4 whitespace-nowrap text-base text-gray-900 font-semibold w-32 min-w-[120px] max-w-[160px] text-right overflow-hidden text-ellipsis">{(summary.total_unpaid || 0).toLocaleString()}원</TableCell>
-                    <TableCell className="border-2 border-gray-300 px-4 py-4 whitespace-nowrap text-base text-gray-900 font-semibold w-24 min-w-[80px] max-w-[100px] text-center overflow-hidden text-ellipsis">
-                      {summary.total_ratio || 0}%
-                    </TableCell>
-                    <TableCell className="border-2 border-gray-300 px-4 py-4 w-16 min-w-[60px] max-w-[60px] text-center overflow-hidden text-ellipsis">
-                      <button
-                        className="text-red-600 hover:text-red-900 text-lg p-1 hover:bg-red-50 rounded transition-colors"
-                        title="거래 삭제"
-                        onClick={async (e) => {
-                          e.stopPropagation();
-                          if (!window.confirm('정말로 이 거래를 삭제하시겠습니까?')) return;
-                          try {
-                            const { data: { session } } = await supabase.auth.getSession();
-                            const token = session?.access_token;
-                            if (!token) {
-                              alert('인증이 필요합니다. 다시 로그인해주세요.');
-                              return;
-                            }
-                            const res = await fetch(`/api/transactions?id=${summary.transactions?.[0]?.id}`, { 
-                              method: 'DELETE',
-                              headers: {
-                                'Authorization': `Bearer ${token}`
-                              }
-                            });
-                            if (res.ok) {
-                              setTimeout(() => window.location.reload(), 700);
-                              alert('삭제되었습니다.');
-                            } else {
-                              const errorText = await res.text();
-                              alert('삭제 실패: ' + errorText);
-                            }
-                          } catch (error) {
-                            console.error('거래 삭제 중 오류:', error);
-                            alert('거래 삭제 중 오류가 발생했습니다.');
-                          }
-                        }}
-                      >🗑️</button>
-                    </TableCell>
-                  </TableRow>
-                );
-              })
+                })}
+              </>
             )}
           </TableBody>
         </Table>

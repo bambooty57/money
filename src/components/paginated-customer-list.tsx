@@ -93,34 +93,201 @@ function CustomerDetailModal({ customer, open, onClose }: { customer: any, open:
   }, [open, customer]);
 
   if (!customer) return null;
+  
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent>
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{customer.name} 상세정보</DialogTitle>
+          <DialogTitle className="text-2xl font-bold text-blue-800 flex items-center gap-3">
+            👤 {customer.name} 상세정보
+          </DialogTitle>
         </DialogHeader>
-        <div className="space-y-2">
-          <div><b>이름:</b> {customer.name}</div>
-          <div><b>연락처:</b> {customer.mobile || customer.phone || '-'}</div>
-          <div><b>주소:</b> {customer.address_road || customer.address_jibun || '-'}</div>
-          <div><b>미수금:</b> {customer.total_unpaid?.toLocaleString() ?? '0'}원</div>
-          <div><b>거래건수:</b> {customer.transaction_count ?? 0}건</div>
-          <div><b>사진:</b> {customer.photos && customer.photos.length > 0 ? (
-            <div className="flex space-x-1 mt-1">{customer.photos.map((photo: any, idx: number) => (
-              <img key={idx} src={photo.url} alt="고객사진" className="w-12 h-12 rounded object-cover border" />
-            ))}</div>
-          ) : '-'}
+        <div className="space-y-6">
+          {/* 기본 정보 */}
+          <div className="bg-blue-50 p-6 rounded-lg border-2 border-blue-200">
+            <h3 className="text-xl font-bold text-blue-800 mb-4 flex items-center gap-2">
+              📋 기본 정보
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <span className="text-sm font-semibold text-blue-700 block mb-1">고객명</span>
+                <span className="text-lg font-bold text-blue-800">{customer.name}</span>
+              </div>
+              <div>
+                <span className="text-sm font-semibold text-blue-700 block mb-1">고객유형</span>
+                <span className="text-lg font-semibold text-blue-800">
+                  {Array.isArray(customer.customer_type_multi) && customer.customer_type_multi.length > 0 ? 
+                    customer.customer_type_multi.join(', ') : 
+                    customer.customer_type || '-'
+                  }
+                </span>
+              </div>
+              {customer.business_name && (
+                <div>
+                  <span className="text-sm font-semibold text-blue-700 block mb-1">사업자명</span>
+                  <span className="text-lg font-semibold text-blue-800">{customer.business_name}</span>
+                </div>
+              )}
+              {customer.representative_name && (
+                <div>
+                  <span className="text-sm font-semibold text-blue-700 block mb-1">대표자명</span>
+                  <span className="text-lg font-semibold text-blue-800">{customer.representative_name}</span>
+                </div>
+              )}
+            </div>
           </div>
-          <div><b>발송 메시지 내역:</b></div>
-          {loading ? <div>로딩중...</div> : (
-            <ul className="text-xs max-h-40 overflow-y-auto space-y-1">
-              {smsMessages.length === 0 ? <li className="text-gray-400">내역 없음</li> : smsMessages.map((msg, i) => (
-                <li key={i}>
-                  <span className="font-mono">[{msg.sent_at?.slice(0,16).replace('T',' ')}]</span> {msg.content}
-                </li>
-              ))}
-            </ul>
+
+          {/* 연락처 정보 */}
+          <div className="bg-indigo-50 p-6 rounded-lg border-2 border-indigo-200">
+            <h3 className="text-xl font-bold text-indigo-800 mb-4 flex items-center gap-2">
+              📞 연락처 정보
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {customer.mobile && (
+                <div>
+                  <span className="text-sm font-semibold text-indigo-700 block mb-1">휴대폰</span>
+                  <a
+                    href={`tel:${customer.mobile.replace(/[^0-9]/g, '')}`}
+                    className="text-lg text-indigo-600 underline hover:text-indigo-800 font-medium"
+                  >
+                    {customer.mobile}
+                  </a>
+                </div>
+              )}
+              {customer.phone && (
+                <div>
+                  <span className="text-sm font-semibold text-indigo-700 block mb-1">일반전화</span>
+                  <a
+                    href={`tel:${customer.phone.replace(/[^0-9]/g, '')}`}
+                    className="text-lg text-indigo-600 underline hover:text-indigo-800 font-medium"
+                  >
+                    {customer.phone}
+                  </a>
+                </div>
+              )}
+              {customer.fax && (
+                <div>
+                  <span className="text-sm font-semibold text-indigo-700 block mb-1">팩스</span>
+                  <span className="text-lg text-indigo-800">{customer.fax}</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* 주소 정보 */}
+          <div className="bg-green-50 p-6 rounded-lg border-2 border-green-200">
+            <h3 className="text-xl font-bold text-green-800 mb-4 flex items-center gap-2">
+              🏠 주소 정보
+            </h3>
+            <div className="space-y-3">
+              {customer.address_road && (
+                <div>
+                  <span className="text-sm font-semibold text-green-700 block mb-1">도로명주소</span>
+                  <button
+                    onClick={() => openKakaoMap(customer.address_road!)}
+                    className="text-lg text-green-600 underline hover:text-green-800 font-medium text-left block"
+                    style={{ cursor: 'pointer', background: 'none', border: 'none', padding: 0 }}
+                    title="카카오맵에서 보기"
+                  >
+                    {customer.address_road}
+                  </button>
+                </div>
+              )}
+              {customer.address_jibun && (
+                <div>
+                  <span className="text-sm font-semibold text-green-700 block mb-1">지번주소</span>
+                  <button
+                    onClick={() => openKakaoMap(customer.address_jibun!)}
+                    className="text-lg text-green-600 underline hover:text-green-800 font-medium text-left block"
+                    style={{ cursor: 'pointer', background: 'none', border: 'none', padding: 0 }}
+                    title="카카오맵에서 보기"
+                  >
+                    {customer.address_jibun}
+                  </button>
+                </div>
+              )}
+              {customer.zipcode && (
+                <div>
+                  <span className="text-sm font-semibold text-green-700 block mb-1">우편번호</span>
+                  <span className="text-lg text-green-800">{customer.zipcode}</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* 거래 정보 */}
+          <div className="bg-purple-50 p-6 rounded-lg border-2 border-purple-200">
+            <h3 className="text-xl font-bold text-purple-800 mb-4 flex items-center gap-2">
+              💼 거래 정보
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <span className="text-sm font-semibold text-purple-700 block mb-1">거래건수</span>
+                <span className="text-2xl font-bold text-purple-800">{customer.transaction_count ?? 0}건</span>
+              </div>
+              <div>
+                <span className="text-sm font-semibold text-purple-700 block mb-1">미수금</span>
+                <span className={`text-2xl font-bold ${customer.total_unpaid && customer.total_unpaid > 0 ? 'text-red-600' : 'text-gray-400'}`}>
+                  {customer.total_unpaid?.toLocaleString() ?? '0'}원
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* 사진 정보 */}
+          {customer.photos && customer.photos.length > 0 && (
+            <div className="bg-gray-50 p-6 rounded-lg border-2 border-gray-200">
+              <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+                📷 고객 사진
+              </h3>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {customer.photos.map((photo: any, idx: number) => (
+                  <img
+                    key={idx}
+                    src={photo.url}
+                    alt="고객사진"
+                    className="w-full h-32 rounded-lg object-cover cursor-pointer hover:opacity-80 border-2 border-gray-300 shadow-sm"
+                    onClick={() => window.open(photo.url, '_blank')}
+                  />
+                ))}
+              </div>
+            </div>
           )}
+
+          {/* SMS 발송 내역 */}
+          <div className="bg-yellow-50 p-6 rounded-lg border-2 border-yellow-200">
+            <h3 className="text-xl font-bold text-yellow-800 mb-4 flex items-center gap-2">
+              📱 SMS 발송 내역
+            </h3>
+            {loading ? (
+              <div className="text-center py-4">
+                <div className="animate-spin rounded-full h-8 w-8 border-2 border-yellow-600 border-t-transparent mx-auto mb-2"></div>
+                <div className="text-yellow-600">발송 내역을 불러오는 중...</div>
+              </div>
+            ) : (
+              <div className="max-h-60 overflow-y-auto">
+                {smsMessages.length === 0 ? (
+                  <div className="text-center py-4 text-gray-500">발송 내역이 없습니다</div>
+                ) : (
+                  <ul className="space-y-2">
+                    {smsMessages.map((msg, i) => (
+                      <li key={i} className="bg-white p-3 rounded border border-yellow-200">
+                        <div className="flex justify-between items-start mb-2">
+                          <span className="text-sm font-semibold text-yellow-700">
+                            {msg.sent_at?.slice(0, 16).replace('T', ' ')}
+                          </span>
+                          <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-1 rounded">
+                            발송됨
+                          </span>
+                        </div>
+                        <div className="text-gray-800">{msg.content}</div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </DialogContent>
     </Dialog>
@@ -208,8 +375,8 @@ function PaginatedCustomerListInner({
       return;
     }
 
-    // 최소 2자 이상 입력해야 검색 실행
-    if (searchTerm.trim().length < 2) {
+    // 최소 1자 이상 입력하면 검색 실행 (더 빠른 반응)
+    if (searchTerm.trim().length < 1) {
       setFilteredCustomers([]);
       setIsDropdownOpen(false);
       return;
@@ -251,7 +418,7 @@ function PaginatedCustomerListInner({
       return a.name.localeCompare(b.name);
     });
 
-    setFilteredCustomers(sortedResults.slice(0, 20));
+    setFilteredCustomers(sortedResults.slice(0, 10)); // 검색 결과를 10개로 제한
     setIsDropdownOpen(sortedResults.length > 0);
     setSelectedIndex(-1);
   }, [data, searchHistory]);
@@ -262,8 +429,9 @@ function PaginatedCustomerListInner({
     [performSearch]
   );
 
-  // 검색 입력 처리
+  // 검색 입력 처리 - 개선된 버전
   const handleSearchInput = useCallback((value: string) => {
+    setSearchInputValue(value);
     debouncedSearch(value);
   }, [debouncedSearch]);
 
@@ -296,7 +464,7 @@ function PaginatedCustomerListInner({
     }
   }, [isDropdownOpen, filteredCustomers, selectedIndex]);
 
-  // 고객 선택 처리
+  // 고객 선택 처리 - 개선된 버전
   const handleCustomerSelect = useCallback((customer: Customer) => {
     setSelectedCustomer(customer);
     setFilteredCustomers([]);
@@ -305,6 +473,9 @@ function PaginatedCustomerListInner({
     inputRef.current?.blur();
     saveSearchHistory(customer);
     onSelectCustomer?.(customer);
+    
+    // 선택된 고객 정보를 모달로 표시
+    setDetailModalOpen(true);
   }, [saveSearchHistory, onSelectCustomer]);
 
   // 데이터 페칭 함수
@@ -499,93 +670,142 @@ function PaginatedCustomerListInner({
         <div className="flex flex-col lg:flex-row gap-6 justify-between items-center">
           <div className="flex-1 max-w-2xl">
             <label className="block text-xl font-bold text-gray-700 mb-3">
-              🔍 전체 고객 검색
+              🔍 고객 검색 및 선택
             </label>
             <div className="relative">
-                             <Input
-                 ref={inputRef}
-                 type="text"
-                 placeholder="고객명/전화번호/주소/회사명으로 검색 (2자 이상 입력 후 Enter)"
-                 value={searchInputValue}
-                 onChange={(e) => {
-                   setSearchInputValue(e.target.value);
-                   handleSearchInput(e.target.value);
-                 }}
-                 onKeyDown={(e) => {
-                   handleSearchKeyDown(e);
-                   handleKeyDown(e);
-                 }}
-                 className="w-full px-6 py-4 pr-32 text-lg border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200"
-               />
-                             <div className="absolute right-2 top-1/2 transform -translate-y-1/2 flex gap-2">
-                 <button
-                   onClick={executeSearch}
-                   disabled={searchInputValue.trim().length < 2 && searchInputValue.trim().length > 0}
-                   className="px-3 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors duration-200 text-sm font-semibold shadow-sm border border-blue-600"
-                   title="검색 실행"
-                 >
-                   🔍 검색
-                 </button>
-                 <button
-                   onClick={handleRefresh}
-                   disabled={refreshing}
-                   className="px-3 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors duration-200 text-sm font-semibold shadow-sm border border-green-600"
-                   title="고객 목록 새로고침"
-                 >
-                   {refreshing ? (
-                     <span className="flex items-center gap-1 whitespace-nowrap">
-                       <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
-                       새로고침
-                     </span>
-                   ) : (
-                     <span className="flex items-center gap-1 whitespace-nowrap">
-                       🔄 새로고침
-                     </span>
-                   )}
-                 </button>
-               </div>
+              <Input
+                ref={inputRef}
+                type="text"
+                placeholder="고객명/전화번호/주소/회사명으로 검색 후 선택하세요"
+                value={searchInputValue}
+                onChange={(e) => {
+                  setSearchInputValue(e.target.value);
+                  handleSearchInput(e.target.value);
+                }}
+                onKeyDown={(e) => {
+                  handleSearchKeyDown(e);
+                  handleKeyDown(e);
+                }}
+                onFocus={() => {
+                  if (searchInputValue.trim().length >= 1 && filteredCustomers.length > 0) {
+                    setIsDropdownOpen(true);
+                  }
+                }}
+                className="w-full px-6 py-4 pr-32 text-lg border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200"
+              />
+              <div className="absolute right-2 top-1/2 transform -translate-y-1/2 flex gap-2">
+                <button
+                  onClick={executeSearch}
+                  disabled={searchInputValue.trim().length < 1}
+                  className="px-3 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors duration-200 text-sm font-semibold shadow-sm border border-blue-600"
+                  title="검색 실행"
+                >
+                  🔍 검색
+                </button>
+                <button
+                  onClick={handleRefresh}
+                  disabled={refreshing}
+                  className="px-3 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors duration-200 text-sm font-semibold shadow-sm border border-green-600"
+                  title="고객 목록 새로고침"
+                >
+                  {refreshing ? (
+                    <span className="flex items-center gap-1 whitespace-nowrap">
+                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                      새로고침
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-1 whitespace-nowrap">
+                      🔄 새로고침
+                    </span>
+                  )}
+                </button>
+              </div>
               {isDropdownOpen && (
-                <ul className="absolute left-0 right-0 bg-white border rounded shadow-lg z-10 mt-1 max-h-72 overflow-y-auto text-lg">
+                <ul className="absolute left-0 right-0 bg-white border-2 border-blue-200 rounded-lg shadow-xl z-10 mt-1 max-h-80 overflow-y-auto text-lg">
                   {filteredCustomers.map((c, index) => {
                     const history = searchHistory.find(h => h.customerId === c.id);
                     return (
                       <li
                         key={c.id}
-                        className={`px-4 py-3 hover:bg-blue-100 cursor-pointer ${selectedIndex === index ? 'bg-blue-100 font-bold' : ''}`}
+                        className={`px-4 py-4 hover:bg-blue-100 cursor-pointer border-b border-gray-100 last:border-b-0 ${selectedIndex === index ? 'bg-blue-100 font-bold' : ''}`}
                         onClick={() => handleCustomerSelect(c)}
                         onMouseEnter={() => setSelectedIndex(index)}
                         onMouseLeave={() => setSelectedIndex(-1)}
                       >
                         <div className="flex justify-between items-start">
                           <div className="flex-1">
-                            <div className="flex items-center gap-2">
-                              <span className="font-bold">{c.name}</span>
+                            <div className="flex items-center gap-2 mb-2">
+                              <span className="font-bold text-lg text-blue-800">{c.name}</span>
                               {history && (
-                                <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">
+                                <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">
                                   🔍 {history.searchCount}회
                                 </span>
                               )}
+                              {c.total_unpaid && c.total_unpaid > 0 && (
+                                <span className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded-full">
+                                  💰 미수금
+                                </span>
+                              )}
                             </div>
-                            <div className="text-gray-500 text-base mt-1">
-                              {c.mobile && <span className="mr-3">📱 {c.mobile}</span>}
-                              {c.phone && <span className="mr-3">📞 {c.phone}</span>}
-                              {c.address && <span className="mr-3">📍 {c.address}</span>}
-                              {c.business_name && <span className="text-sm">🏢 {c.business_name}</span>}
+                            <div className="text-gray-600 text-base space-y-1">
+                              {c.mobile && <div className="flex items-center gap-2">📱 {c.mobile}</div>}
+                              {c.phone && <div className="flex items-center gap-2">📞 {c.phone}</div>}
+                              {c.address && <div className="flex items-center gap-2">📍 {c.address}</div>}
+                              {c.business_name && <div className="flex items-center gap-2">🏢 {c.business_name}</div>}
+                              <div className="flex items-center gap-4 mt-2 text-sm">
+                                <span className="text-purple-600">거래: {c.transaction_count ?? 0}건</span>
+                                <span className="text-red-600">미수금: {c.total_unpaid?.toLocaleString() ?? '0'}원</span>
+                              </div>
                             </div>
+                          </div>
+                          <div className="text-right text-sm text-gray-500">
+                            <div>클릭하여 선택</div>
+                            <div className="text-xs">Enter 키로도 선택 가능</div>
                           </div>
                         </div>
                       </li>
                     );
                   })}
-                  {filteredCustomers.length === 0 && searchInputValue.trim().length >= 2 && (
-                    <li className="px-4 py-3 text-gray-500 text-lg">검색 결과 없음</li>
+                  {filteredCustomers.length === 0 && searchInputValue.trim().length >= 1 && (
+                    <li className="px-4 py-4 text-gray-500 text-lg text-center">
+                      <div className="mb-2">🔍 검색 결과가 없습니다</div>
+                      <div className="text-sm text-gray-400">다른 검색어를 입력해보세요</div>
+                    </li>
                   )}
-                  {searchInputValue.trim().length === 1 && (
-                    <li className="px-4 py-3 text-gray-500 text-lg">2자 이상 입력해주세요</li>
+                  {searchInputValue.trim().length === 0 && (
+                    <li className="px-4 py-4 text-gray-500 text-lg text-center">
+                      <div className="mb-2">💡 검색어를 입력하세요</div>
+                      <div className="text-sm text-gray-400">고객명, 전화번호, 주소, 회사명으로 검색 가능</div>
+                    </li>
                   )}
                 </ul>
               )}
             </div>
+            {selectedCustomer && (
+              <div className="mt-4 p-4 bg-green-50 border-2 border-green-200 rounded-lg">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-lg font-bold text-green-800">
+                      ✅ 선택된 고객: {selectedCustomer.name}
+                    </div>
+                    <div className="text-sm text-green-600">
+                      {selectedCustomer.mobile && `📱 ${selectedCustomer.mobile}`}
+                      {selectedCustomer.phone && ` 📞 ${selectedCustomer.phone}`}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setSelectedCustomer(null);
+                      setSearchInputValue('');
+                      onSelectCustomer?.(null);
+                    }}
+                    className="px-3 py-1 bg-red-500 text-white rounded text-sm hover:bg-red-600 transition-colors"
+                  >
+                    선택 해제
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
           <div className="text-center">
             <div className="text-lg font-semibold text-gray-600 mb-2">📊 전체 고객 수</div>
@@ -929,6 +1149,15 @@ function PaginatedCustomerListInner({
             </div>
           </div>
         </div>
+      )}
+
+      {/* 고객 상세 모달 */}
+      {selectedCustomer && (
+        <CustomerDetailModal
+          customer={selectedCustomer}
+          open={detailModalOpen}
+          onClose={() => setDetailModalOpen(false)}
+        />
       )}
     </div>
   );
