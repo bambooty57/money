@@ -47,13 +47,19 @@ export function useTransactionsRealtime({
 
   useEffect(() => {
     let retryTimeout: NodeJS.Timeout;
+    let channel: any;
     
     // 실시간 연결 설정 시도
     const setupRealtimeConnection = async () => {
       try {
         setConnectionStatus('connecting');
         
-        const channel = supabase
+        // 기존 채널 제거
+        if (channel) {
+          supabase.removeChannel(channel);
+        }
+        
+        channel = supabase
           .channel('transactions-changes')
           .on(
             'postgres_changes',
@@ -90,10 +96,11 @@ export function useTransactionsRealtime({
               
               // 재시도 로직 (최대 3번)
               if (retryCount < 3) {
-                console.log(`🔄 Retrying connection in ${(retryCount + 1) * 5} seconds...`);
+                const retryDelay = Math.min((retryCount + 1) * 5000, 15000); // 최대 15초
+                console.log(`🔄 Retrying connection in ${retryDelay / 1000} seconds...`);
                 retryTimeout = setTimeout(() => {
                   setRetryCount(prev => prev + 1);
-                }, (retryCount + 1) * 5000); // 5초, 10초, 15초 후 재시도
+                }, retryDelay);
               }
             }
           });
@@ -104,7 +111,9 @@ export function useTransactionsRealtime({
           setConnectionStatus('disconnected');
           if (retryTimeout) clearTimeout(retryTimeout);
           if (refreshTimeout.current) clearTimeout(refreshTimeout.current);
-          supabase.removeChannel(channel);
+          if (channel) {
+            supabase.removeChannel(channel);
+          }
         };
       } catch (error) {
         console.error('❌ Failed to setup realtime connection:', error);
@@ -112,6 +121,9 @@ export function useTransactionsRealtime({
         return () => {
           if (retryTimeout) clearTimeout(retryTimeout);
           if (refreshTimeout.current) clearTimeout(refreshTimeout.current);
+          if (channel) {
+            supabase.removeChannel(channel);
+          }
         };
       }
     };

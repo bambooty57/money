@@ -76,33 +76,49 @@ export async function GET(request: Request) {
     if (search.trim()) {
       const searchTerm = search.trim();
       
-      // 먼저 검색어와 일치하는 고객 ID들을 찾기
-      const { data: customerIds, error: customerError } = await supabase
-        .from('customers')
-        .select('id')
-        .or(`name.ilike.%${searchTerm}%,mobile.ilike.%${searchTerm}%,business_name.ilike.%${searchTerm}%`);
-      
-      if (customerError) {
-        console.error('Customer search error:', customerError);
-        // 고객 검색 실패 시 빈 결과 반환
-        return NextResponse.json({
-          data: [],
-          pagination: {
-            page,
-            pageSize,
-            total: 0,
-            totalPages: 0,
-            hasNext: false,
-            hasPrev: false,
-          }
-        });
-      }
-      
-      const customerIdList = (customerIds || []).map(c => c.id);
-      if (customerIdList.length > 0) {
-        query = query.in('customer_id', customerIdList);
-      } else {
-        // 검색 결과가 없으면 빈 결과 반환
+      try {
+        // 먼저 검색어와 일치하는 고객 ID들을 찾기
+        const { data: customerIds, error: customerError } = await supabase
+          .from('customers')
+          .select('id')
+          .or(`name.ilike.%${searchTerm}%,mobile.ilike.%${searchTerm}%,business_name.ilike.%${searchTerm}%`);
+        
+        if (customerError) {
+          console.error('Customer search error:', customerError);
+          // 고객 검색 실패 시 빈 결과 반환
+          return NextResponse.json({
+            data: [],
+            pagination: {
+              page,
+              pageSize,
+              total: 0,
+              totalPages: 0,
+              hasNext: false,
+              hasPrev: false,
+            }
+          });
+        }
+        
+        const customerIdList = (customerIds || []).map(c => c.id);
+        if (customerIdList.length > 0) {
+          query = query.in('customer_id', customerIdList);
+        } else {
+          // 검색 결과가 없으면 빈 결과 반환
+          return NextResponse.json({
+            data: [],
+            pagination: {
+              page,
+              pageSize,
+              total: 0,
+              totalPages: 0,
+              hasNext: false,
+              hasPrev: false,
+            }
+          });
+        }
+      } catch (error) {
+        console.error('Search error:', error);
+        // 검색 중 오류 발생 시 빈 결과 반환
         return NextResponse.json({
           data: [],
           pagination: {

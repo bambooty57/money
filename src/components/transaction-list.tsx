@@ -247,6 +247,16 @@ export function TransactionList() {
     setSearchInputValue(value);
     setSearchTerm(value);
     setPage(1);
+    
+    // URL 파라미터 업데이트
+    const params = new URLSearchParams(window.location.search);
+    if (value.trim()) {
+      params.set('search', value);
+    } else {
+      params.delete('search');
+    }
+    params.set('page', '1');
+    window.history.replaceState(null, '', `?${params.toString()}`);
   }, [performSearch]);
 
   // 키보드 네비게이션
