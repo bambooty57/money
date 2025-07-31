@@ -197,7 +197,7 @@ export function TransactionList() {
     });
   }, []);
 
-  // 개선된 검색 함수 - 확장된 검색 필드
+  // 간단하고 확실한 검색 함수
   const performSearch = useCallback((searchTerm: string) => {
     if (searchTerm.trim().length === 0) {
       setFilteredCustomers([]);
@@ -207,45 +207,15 @@ export function TransactionList() {
 
     const normalizedSearch = searchTerm.toLowerCase().trim();
     
-    // 즉시 로컬에서 필터링
-    const results = customers.filter(c => {
-      // 기본 검색 필드
-      const nameMatch = c.name?.toLowerCase().includes(normalizedSearch);
-      const mobileMatch = c.mobile?.replace(/-/g, '').includes(normalizedSearch.replace(/-/g, ''));
-      
-      // 확장된 검색 필드
-      const addressMatch = c.address?.toLowerCase().includes(normalizedSearch);
-      const businessNameMatch = c.business_name?.toLowerCase().includes(normalizedSearch);
-      const representativeNameMatch = c.representative_name?.toLowerCase().includes(normalizedSearch);
-      const phoneMatch = c.phone?.replace(/-/g, '').includes(normalizedSearch.replace(/-/g, ''));
-      
-      return nameMatch || mobileMatch || addressMatch || businessNameMatch || representativeNameMatch || phoneMatch;
-    });
+    // 고객명으로만 검색 (간단하게)
+    const results = customers.filter(c => 
+      c.name?.toLowerCase().includes(normalizedSearch)
+    );
 
-    // 검색 히스토리 기반 정렬
-    const sortedResults = results.sort((a, b) => {
-      const aHistory = searchHistory.find(h => h.customerId === a.id);
-      const bHistory = searchHistory.find(h => h.customerId === b.id);
-      
-      // 검색 히스토리가 있는 고객을 우선 표시
-      if (aHistory && !bHistory) return -1;
-      if (!aHistory && bHistory) return 1;
-      if (aHistory && bHistory) {
-        // 검색 횟수로 정렬, 같으면 최근 검색순
-        if (aHistory.searchCount !== bHistory.searchCount) {
-          return bHistory.searchCount - aHistory.searchCount;
-        }
-        return bHistory.lastSearched.getTime() - aHistory.lastSearched.getTime();
-      }
-      
-      // 히스토리가 없는 경우 이름순
-      return a.name.localeCompare(b.name);
-    });
-
-    setFilteredCustomers(sortedResults.slice(0, 20));
-    setIsDropdownOpen(sortedResults.length > 0);
+    setFilteredCustomers(results.slice(0, 10));
+    setIsDropdownOpen(results.length > 0);
     setSelectedIndex(-1);
-  }, [customers, searchHistory]);
+  }, [customers]);
 
   // 디바운싱된 검색 함수 - 시간 단축
   const debouncedSearch = useMemo(
@@ -303,18 +273,17 @@ export function TransactionList() {
     }
   }, [isDropdownOpen, filteredCustomers, selectedIndex]);
 
-  // 고객 선택 처리 - 개선된 버전
+  // 간단한 고객 선택 처리
   const handleCustomerSelect = useCallback(async (customer: Customer) => {
     setFilteredCustomers([]);
     setIsDropdownOpen(false);
     setSelectedIndex(-1);
     inputRef.current?.blur();
-    saveSearchHistory(customer);
     
-    // 고객 선택 시 즉시 검색어 설정
+    // 선택한 고객명을 입력란에 설정
     setSearchInputValue(customer.name);
     setSearchTerm(customer.name);
-    setPage(1); // 검색 시 첫 페이지로
+    setPage(1);
     
     // URL 파라미터 업데이트
     const params = new URLSearchParams(window.location.search);
@@ -322,42 +291,27 @@ export function TransactionList() {
     params.set('page', '1');
     window.history.replaceState(null, '', `?${params.toString()}`);
     
-    // 즉시 해당 고객의 거래 데이터를 가져오기
+    // 해당 고객의 거래 데이터만 가져오기
     try {
       setLoading(true);
       setError(null);
       
-      const [customersResponse, transactionsResponse, summariesResponse] = await Promise.all([
-        fetch('/api/customers?page=1&pageSize=1000'),
-        fetch(`/api/transactions?page=1&pageSize=${pageSize}&search=${encodeURIComponent(customer.name)}`),
-        fetch('/api/transactions/summary')
-      ]);
-
-      const [customersData, transactionsData, summariesData] = await Promise.all([
-        customersResponse.json(),
-        transactionsResponse.json(),
-        summariesResponse.json()
-      ]);
-
-      if (customersResponse.ok) {
-        setCustomers(customersData.data || []);
+      const response = await fetch(`/api/transactions?search=${encodeURIComponent(customer.name)}&page=1&pageSize=${pageSize}`);
+      
+      if (!response.ok) {
+        throw new Error('거래 데이터를 불러오는데 실패했습니다.');
       }
-
-      if (transactionsResponse.ok) {
-        setData(transactionsData);
-      }
-
-      if (summariesResponse.ok) {
-        setSummaries(summariesData.data || []);
-        setGlobalSummary(summariesData.global || {});
-      }
+      
+      const data = await response.json();
+      setData(data);
+      
     } catch (error) {
       console.error('고객 선택 후 데이터 로딩 실패:', error);
       setError('데이터를 불러올 수 없습니다.');
     } finally {
       setLoading(false);
     }
-  }, [saveSearchHistory, pageSize]);
+  }, [pageSize]);
 
   // page가 바뀌면 URL도 동기화
   useEffect(() => {
@@ -375,88 +329,50 @@ export function TransactionList() {
     router.refresh();
   }, [urlRefreshKey]);
 
-  // 🚀 성능 최적화: 스마트 데이터 로딩
+  // 간단한 데이터 로딩
   const fetchDataCallback = useCallback(async () => {
     setLoading(true);
     setError(null);
     
     try {
-      // 검색어가 있으면 거래 데이터만 로딩, 없으면 요약 데이터 로딩
-      if (searchTerm) {
-        // 검색 시: 거래 데이터만 로딩
-        const transactionsResponse = await fetch(`/api/transactions?search=${encodeURIComponent(searchTerm)}&page=${page}&pageSize=15`);
-        
-        if (!transactionsResponse.ok) {
-          const errorData = await transactionsResponse.json().catch(() => ({}));
-          throw new Error(errorData.error || '거래 데이터를 불러오는데 실패했습니다.');
-        }
-        
-        const transactionsData = await transactionsResponse.json();
-        setData(transactionsData);
-        // 검색 시에도 고객 목록은 유지 (드롭다운 검색을 위해)
-        if (customers.length === 0) {
-          const customersResponse = await fetch('/api/customers?page=1&pageSize=1000');
-          if (customersResponse.ok) {
-            const customersData = await customersResponse.json();
-            setCustomers(customersData.data || []);
-          }
-        }
-        setSummaries([]); // 검색 시 요약 데이터는 비움
-      } else {
-        // 일반 시: 고객 데이터와 요약 데이터만 로딩 (거래 데이터는 필요시에만)
-        const [customersResponse, summariesResponse] = await Promise.all([
-          fetch('/api/customers?page=1&pageSize=1000'),
-          fetch('/api/transactions/summary')
-        ]);
-
-        if (!customersResponse.ok) {
-          const errorData = await customersResponse.json().catch(() => ({}));
-          throw new Error(errorData.error || '고객 데이터를 불러오는데 실패했습니다.');
-        }
-        if (!summariesResponse.ok) {
-          const errorData = await summariesResponse.json().catch(() => ({}));
-          throw new Error(errorData.error || '거래 요약 데이터를 불러오는데 실패했습니다.');
-        }
-
+      // 고객 데이터 로드 (검색용)
+      const customersResponse = await fetch('/api/customers?page=1&pageSize=1000');
+      if (customersResponse.ok) {
         const customersData = await customersResponse.json();
-        const summariesData = await summariesResponse.json();
-
         setCustomers(customersData.data || []);
-        setSummaries(summariesData.data || []);
-        setGlobalSummary(summariesData.global || null);
-        setData(null); // 일반 시에는 거래 데이터 비움
+      }
+      
+      // 검색어가 있으면 해당 고객의 거래 데이터 로드
+      if (searchTerm) {
+        const transactionsResponse = await fetch(`/api/transactions?search=${encodeURIComponent(searchTerm)}&page=${page}&pageSize=${pageSize}`);
+        if (transactionsResponse.ok) {
+          const transactionsData = await transactionsResponse.json();
+          setData(transactionsData);
+        }
+      } else {
+        // 검색어가 없으면 요약 데이터만 로드
+        const summariesResponse = await fetch('/api/transactions/summary');
+        if (summariesResponse.ok) {
+          const summariesData = await summariesResponse.json();
+          setSummaries(summariesData.data || []);
+          setGlobalSummary(summariesData.global || {});
+        }
       }
       
     } catch (err) {
       console.error('데이터 로딩 중 오류:', err);
-      if (err instanceof Error) {
-        setError(err.message);
-      } else {
-        setError('알 수 없는 오류가 발생했습니다.');
-      }
+      setError('데이터를 불러오는데 실패했습니다.');
     } finally {
       setLoading(false);
     }
-  }, [searchTerm, page, urlRefreshKey]);
+  }, [searchTerm, page, pageSize, urlRefreshKey]);
 
   // 검색어 변경 시 즉시 API 호출
   useEffect(() => {
     fetchDataCallback();
   }, [searchTerm, page, fetchDataCallback]);
 
-  // 컴포넌트 마운트 시 고객 데이터 미리 로드
-  useEffect(() => {
-    if (customers.length === 0) {
-      fetch('/api/customers?page=1&pageSize=1000')
-        .then(response => response.json())
-        .then(data => {
-          setCustomers(data.data || []);
-        })
-        .catch(error => {
-          console.error('고객 데이터 초기 로드 실패:', error);
-        });
-    }
-  }, [customers.length]);
+
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -568,43 +484,13 @@ export function TransactionList() {
                   const value = e.target.value;
                   setSearchInputValue(value);
                   
-                  // 1자 이상 입력 시 즉시 검색 실행
+                  // 1자 이상 입력 시 드롭다운 표시
                   if (value.trim().length >= 1) {
-                    // 고객 데이터가 없으면 먼저 로드
-                    if (customers.length === 0) {
-                      fetch('/api/customers?page=1&pageSize=1000')
-                        .then(response => response.json())
-                        .then(data => {
-                          setCustomers(data.data || []);
-                          // 고객 데이터 로드 후 검색 실행
-                          performSearch(value);
-                          setIsDropdownOpen(true);
-                        })
-                        .catch(error => {
-                          console.error('고객 데이터 로드 실패:', error);
-                        });
-                    } else {
-                      performSearch(value);
-                      setIsDropdownOpen(true);
-                    }
+                    performSearch(value);
                   } else {
                     setFilteredCustomers([]);
                     setIsDropdownOpen(false);
                   }
-                  
-                  // 검색어 상태 업데이트
-                  setSearchTerm(value);
-                  setPage(1);
-                  
-                  // URL 파라미터 업데이트
-                  const params = new URLSearchParams(window.location.search);
-                  if (value.trim()) {
-                    params.set('search', value);
-                  } else {
-                    params.delete('search');
-                  }
-                  params.set('page', '1');
-                  window.history.replaceState(null, '', `?${params.toString()}`);
                 }}
                 onKeyDown={handleKeyDown}
                 onFocus={() => {
