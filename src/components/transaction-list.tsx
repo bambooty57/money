@@ -82,6 +82,7 @@ interface ApiResponse {
 export function TransactionList() {
   usePaymentsRealtime(); // 실시간 반영 추가
   const [customers, setCustomers] = useState<Customer[]>([]);
+  const [data, setData] = useState<ApiResponse | null>(null);
   const [summaries, setSummaries] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
