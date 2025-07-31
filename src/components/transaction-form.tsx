@@ -258,11 +258,12 @@ export default function TransactionForm({ customers, onSuccess, transaction, ref
     setFormData(prev => ({ ...prev, type: e.target.value }));
   };
 
-  // 고객명 입력 UI 교체: 실시간 자동완성 검색
+  // 고객명 입력 UI 교체: 수동 검색 기능
   const [customerSearch, setCustomerSearch] = useState('');
   const [filteredCustomers, setFilteredCustomers] = useState<Customer[]>([]);
-  useEffect(() => {
-    if (customerSearch.length < 2) {
+  
+  const handleCustomerSearch = () => {
+    if (customerSearch.trim().length === 0) {
       setFilteredCustomers([]);
       return;
     }
@@ -272,7 +273,14 @@ export default function TransactionForm({ customers, onSuccess, transaction, ref
         (c.mobile && c.mobile.replace(/-/g, '').includes(customerSearch.replace(/-/g, '')))
       ).slice(0, 20)
     );
-  }, [customerSearch, allCustomers]);
+  };
+
+  // Enter 키로도 검색 가능하도록
+  const handleCustomerKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleCustomerSearch();
+    }
+  };
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-6 p-8 w-full max-w-3xl mx-auto">
@@ -301,14 +309,21 @@ export default function TransactionForm({ customers, onSuccess, transaction, ref
                   setFormData(prev => ({ ...prev, customer_id: '' }));
                 }
             }
+            onKeyPress={handleCustomerKeyPress}
             readOnly={!!transaction || !!defaultCustomerId}
             autoComplete="off"
             style={{ fontSize: '1.25rem' }}
             required
             title="고객명 또는 전화번호로 검색"
           />
+          <Button 
+            onClick={handleCustomerSearch}
+            className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-blue-600 text-white px-4 py-2 rounded text-lg font-bold hover:bg-blue-700"
+          >
+            🔍 검색
+          </Button>
           {/* 드롭다운은 등록 모드(신규)일 때만 표시 */}
-          {!transaction && customerSearch.length >= 2 && filteredCustomers.length > 0 && (
+          {!transaction && filteredCustomers.length > 0 && (
             <ul className="absolute left-0 right-0 bg-white border rounded shadow-lg z-10 mt-1 max-h-72 overflow-y-auto text-lg">
               {filteredCustomers.map(c => (
                 <li
@@ -318,6 +333,7 @@ export default function TransactionForm({ customers, onSuccess, transaction, ref
                     e.preventDefault(); // blur 방지
                     setFormData(prev => ({ ...prev, customer_id: c.id }));
                     setCustomerSearch('');
+                    setFilteredCustomers([]);
                   }}
                 >
                   <span className="font-bold">{c.name}</span>
@@ -326,7 +342,7 @@ export default function TransactionForm({ customers, onSuccess, transaction, ref
               ))}
             </ul>
           )}
-          {!transaction && customerSearch.length >= 2 && filteredCustomers.length === 0 && (
+          {!transaction && filteredCustomers.length === 0 && customerSearch.trim().length > 0 && (
             <div className="absolute left-0 right-0 bg-white border rounded shadow-lg z-10 mt-1 px-4 py-3 text-gray-500 text-lg">검색 결과 없음</div>
           )}
         </div>

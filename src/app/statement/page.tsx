@@ -118,9 +118,9 @@ export default function StatementPage() {
       .then((data) => setCustomers(data.data || []));
   }, []);
 
-  // 고객 선택 영역 교체
-  useEffect(() => {
-    if (search.length < 2) {
+  // 수동 검색 기능으로 변경
+  const handleSearch = () => {
+    if (search.trim().length === 0) {
       setFilteredCustomers([]);
       return;
     }
@@ -130,7 +130,14 @@ export default function StatementPage() {
         (c.mobile && c.mobile.replace(/-/g, '').includes(search.replace(/-/g, '')))
       ).slice(0, 20)
     );
-  }, [search, customers]);
+  };
+
+  // Enter 키로도 검색 가능하도록
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleSearch();
+    }
+  };
 
   // 2. 고객 선택 시 거래내역+부분합 fetch
   useEffect(() => {
@@ -307,16 +314,23 @@ export default function StatementPage() {
               placeholder="고객명/전화번호로 검색"
               value={search}
               onChange={e => setSearch(e.target.value)}
+              onKeyPress={handleKeyPress}
               autoComplete="off"
               style={{ fontSize: '1.25rem' }}
             />
-            {search.length >= 2 && filteredCustomers.length > 0 && (
+            <Button 
+              onClick={handleSearch}
+              className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-blue-600 text-white px-4 py-2 rounded text-lg font-bold hover:bg-blue-700"
+            >
+              🔍 검색
+            </Button>
+            {filteredCustomers.length > 0 && (
               <ul className="absolute left-0 right-0 bg-white border rounded shadow-lg z-10 mt-1 max-h-72 overflow-y-auto text-lg">
                 {filteredCustomers.map(c => (
                   <li
                     key={c.id}
                     className="px-4 py-3 hover:bg-blue-100 cursor-pointer flex justify-between items-center"
-                    onClick={() => { setSelectedCustomer(c.id); setSearch(''); inputRef.current?.blur(); }}
+                    onClick={() => { setSelectedCustomer(c.id); setSearch(''); setFilteredCustomers([]); inputRef.current?.blur(); }}
                   >
                     <span className="font-bold">{c.name}</span>
                     <span className="text-gray-500 text-base ml-2">{c.mobile}</span>
@@ -324,7 +338,7 @@ export default function StatementPage() {
                 ))}
               </ul>
             )}
-            {search.length >= 2 && filteredCustomers.length === 0 && (
+            {filteredCustomers.length === 0 && search.trim().length > 0 && (
               <div className="absolute left-0 right-0 bg-white border rounded shadow-lg z-10 mt-1 px-4 py-3 text-gray-500 text-lg">검색 결과 없음</div>
             )}
           </div>
