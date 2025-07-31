@@ -218,9 +218,13 @@ export function TransactionList() {
   const handleSearchInput = useCallback((value: string) => {
     // 즉시 로컬 검색 실행
     performSearch(value);
-    // 디바운싱된 검색도 실행 (API 호출용)
-    debouncedSearch(value);
-  }, [performSearch, debouncedSearch]);
+    
+    // 검색어가 변경되면 즉시 API 호출 (디바운싱 제거)
+    if (value.trim() !== searchTerm.trim()) {
+      setSearchTerm(value);
+      setPage(1);
+    }
+  }, [performSearch, searchTerm]);
 
   // 키보드 네비게이션
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
@@ -252,17 +256,54 @@ export function TransactionList() {
   }, [isDropdownOpen, filteredCustomers, selectedIndex]);
 
   // 고객 선택 처리
-  const handleCustomerSelect = useCallback((customer: Customer) => {
+  const handleCustomerSelect = useCallback(async (customer: Customer) => {
     setFilteredCustomers([]);
     setIsDropdownOpen(false);
     setSelectedIndex(-1);
     inputRef.current?.blur();
     saveSearchHistory(customer);
-    // 고객 선택 시 해당 고객의 거래만 필터링
+    
+    // 고객 선택 시 즉시 검색어 설정
     setSearchInputValue(customer.name);
     setSearchTerm(customer.name);
     setPage(1); // 검색 시 첫 페이지로
-  }, [saveSearchHistory]);
+    
+    // 즉시 해당 고객의 거래 데이터를 가져오기
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const [customersResponse, transactionsResponse, summariesResponse] = await Promise.all([
+        fetch('/api/customers?page=1&pageSize=1000'),
+        fetch(`/api/transactions?page=1&pageSize=${pageSize}&search=${encodeURIComponent(customer.name)}`),
+        fetch('/api/transactions/summary')
+      ]);
+
+      const [customersData, transactionsData, summariesData] = await Promise.all([
+        customersResponse.json(),
+        transactionsResponse.json(),
+        summariesResponse.json()
+      ]);
+
+      if (customersResponse.ok) {
+        setCustomers(customersData.data || []);
+      }
+
+      if (transactionsResponse.ok) {
+        setData(transactionsData);
+      }
+
+      if (summariesResponse.ok) {
+        setSummaries(summariesData.data || []);
+        setGlobalSummary(summariesData.global || {});
+      }
+    } catch (error) {
+      console.error('고객 선택 후 데이터 로딩 실패:', error);
+      setError('데이터를 불러올 수 없습니다.');
+    } finally {
+      setLoading(false);
+    }
+  }, [saveSearchHistory, pageSize]);
 
   // page가 바뀌면 URL도 동기화
   useEffect(() => {
@@ -280,36 +321,14 @@ export function TransactionList() {
     router.refresh();
   }, [urlRefreshKey]);
 
-  // 검색 입력 디바운싱 - 시간 단축
+  // 검색어 변경 시 즉시 API 호출
   useEffect(() => {
-    const timer = setTimeout(() => {
-      if (searchInputValue !== searchTerm) {
-        setSearchTerm(searchInputValue);
-        setPage(1); // 검색 시 첫 페이지로
-      }
-    }, 100); // 300ms에서 100ms로 단축
-
-    return () => clearTimeout(timer);
-  }, [searchInputValue, searchTerm]);
-
-  const handleRefresh = async () => {
-    setRefreshing(true);
-    try {
-      // 검색어 초기화
-      setSearchInputValue('');
-      setSearchTerm('');
-      setPage(1);
-      
-      // 데이터 새로고침
-      await fetchData();
-    } catch (error) {
-      console.error('새로고침 실패:', error);
-    } finally {
-      setRefreshing(false);
+    if (searchTerm.trim()) {
+      fetchDataCallback();
     }
-  };
+  }, [searchTerm, page, fetchDataCallback]);
 
-  async function fetchData() {
+  const fetchDataCallback = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -356,7 +375,24 @@ export function TransactionList() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [searchTerm, page, pageSize]);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      // 검색어 초기화
+      setSearchInputValue('');
+      setSearchTerm('');
+      setPage(1);
+      
+      // 데이터 새로고침
+      await fetchDataCallback();
+    } catch (error) {
+      console.error('새로고침 실패:', error);
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   const handleExcelDownload = () => {
     if (!data?.data) return;
@@ -381,8 +417,8 @@ export function TransactionList() {
 
   // 초기 데이터 로딩
   useEffect(() => {
-    fetchData();
-  }, [page, searchTerm, urlRefreshKey]);
+    fetchDataCallback();
+  }, [page, searchTerm, urlRefreshKey, fetchDataCallback]);
 
   // 집계 데이터 계산
   const totalCount = data?.pagination?.total || 0;
