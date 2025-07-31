@@ -838,7 +838,6 @@ function PaginatedCustomerListInner({
             <button
               onClick={() => {
                 setSearchInputValue('');
-                setSearchTerm('');
                 const params = new URLSearchParams(searchParams.toString());
                 params.delete('search');
                 router.push(`?${params.toString()}`);
