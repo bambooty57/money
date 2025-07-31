@@ -394,25 +394,30 @@ function PaginatedCustomerListInner({
     }
   });
 
-  // 검색 입력 디바운싱 (성능 최적화)
+  // 검색 입력 상태 관리
   const [searchInputValue, setSearchInputValue] = useState(searchTerm);
   
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (searchInputValue !== searchTerm) {
-        // 최소 2자 이상 입력해야 검색 실행 (1자 입력 시 검색 중단)
-        if (searchInputValue.trim().length >= 2 || searchInputValue.trim().length === 0) {
-          // 검색 시 첫 페이지로 이동
-          const params = new URLSearchParams(searchParams.toString());
-          params.set('search', searchInputValue);
-          params.set('page', '1');
-          router.push(`?${params.toString()}`);
-        }
+  // 수동 검색 실행 함수
+  const executeSearch = useCallback(() => {
+    if (searchInputValue !== searchTerm) {
+      // 최소 2자 이상 입력해야 검색 실행 (1자 입력 시 검색 중단)
+      if (searchInputValue.trim().length >= 2 || searchInputValue.trim().length === 0) {
+        // 검색 시 첫 페이지로 이동
+        const params = new URLSearchParams(searchParams.toString());
+        params.set('search', searchInputValue);
+        params.set('page', '1');
+        router.push(`?${params.toString()}`);
       }
-    }, 300); // 300ms 디바운싱
-
-    return () => clearTimeout(timer);
+    }
   }, [searchInputValue, searchTerm, searchParams, router]);
+
+  // Enter 키 검색 실행
+  const handleSearchKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      executeSearch();
+    }
+  }, [executeSearch]);
 
   // 정렬 핸들러
   const handleSort = (field: string) => {
@@ -497,35 +502,48 @@ function PaginatedCustomerListInner({
               🔍 전체 고객 검색
             </label>
             <div className="relative">
-              <Input
-                ref={inputRef}
-                type="text"
-                placeholder="고객명/전화번호/주소/회사명으로 검색 (2자 이상 입력)"
-                value={searchInputValue}
-                onChange={(e) => {
-                  setSearchInputValue(e.target.value);
-                  handleSearchInput(e.target.value);
-                }}
-                onKeyDown={handleKeyDown}
-                className="w-full px-6 py-4 pr-32 text-lg border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200"
-              />
-              <button
-                onClick={handleRefresh}
-                disabled={refreshing}
-                className="absolute right-2 top-1/2 transform -translate-y-1/2 px-3 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors duration-200 text-sm font-semibold shadow-sm border border-green-600"
-                title="고객 목록 새로고침"
-              >
-                {refreshing ? (
-                  <span className="flex items-center gap-1 whitespace-nowrap">
-                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
-                    새로고침
-                  </span>
-                ) : (
-                  <span className="flex items-center gap-1 whitespace-nowrap">
-                    🔄 새로고침
-                  </span>
-                )}
-              </button>
+                             <Input
+                 ref={inputRef}
+                 type="text"
+                 placeholder="고객명/전화번호/주소/회사명으로 검색 (2자 이상 입력 후 Enter)"
+                 value={searchInputValue}
+                 onChange={(e) => {
+                   setSearchInputValue(e.target.value);
+                   handleSearchInput(e.target.value);
+                 }}
+                 onKeyDown={(e) => {
+                   handleSearchKeyDown(e);
+                   handleKeyDown(e);
+                 }}
+                 className="w-full px-6 py-4 pr-32 text-lg border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200"
+               />
+                             <div className="absolute right-2 top-1/2 transform -translate-y-1/2 flex gap-2">
+                 <button
+                   onClick={executeSearch}
+                   disabled={searchInputValue.trim().length < 2 && searchInputValue.trim().length > 0}
+                   className="px-3 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors duration-200 text-sm font-semibold shadow-sm border border-blue-600"
+                   title="검색 실행"
+                 >
+                   🔍 검색
+                 </button>
+                 <button
+                   onClick={handleRefresh}
+                   disabled={refreshing}
+                   className="px-3 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors duration-200 text-sm font-semibold shadow-sm border border-green-600"
+                   title="고객 목록 새로고침"
+                 >
+                   {refreshing ? (
+                     <span className="flex items-center gap-1 whitespace-nowrap">
+                       <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                       새로고침
+                     </span>
+                   ) : (
+                     <span className="flex items-center gap-1 whitespace-nowrap">
+                       🔄 새로고침
+                     </span>
+                   )}
+                 </button>
+               </div>
               {isDropdownOpen && (
                 <ul className="absolute left-0 right-0 bg-white border rounded shadow-lg z-10 mt-1 max-h-72 overflow-y-auto text-lg">
                   {filteredCustomers.map((c, index) => {
