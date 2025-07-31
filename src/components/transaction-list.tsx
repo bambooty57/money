@@ -329,12 +329,23 @@ export function TransactionList() {
     setError(null);
     
     try {
-      // 항상 summaries 데이터만 사용
-      const summariesResponse = await fetch('/api/transactions/summary');
+      // 고객 데이터와 거래 요약 데이터를 함께 불러오기
+      const [customersResponse, summariesResponse] = await Promise.all([
+        fetch('/api/customers?page=1&pageSize=1000'),
+        fetch('/api/transactions/summary')
+      ]);
+
+      if (!customersResponse.ok) {
+        throw new Error('고객 데이터를 불러오는데 실패했습니다.');
+      }
       if (!summariesResponse.ok) {
         throw new Error('거래 요약 데이터를 불러오는데 실패했습니다.');
       }
+
+      const customersData = await customersResponse.json();
       const summariesData = await summariesResponse.json();
+
+      setCustomers(customersData.data || []);
       setSummaries(summariesData.data || []);
       setGlobalSummary(summariesData.global || null);
       
