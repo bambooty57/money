@@ -25,7 +25,7 @@ export async function GET(request: Request) {
       // 🚀 성능 최적화: 단일 쿼리로 카운트와 합계 계산
       const { count, error } = await supabase
         .from('transactions')
-        .select('id', { count: 'exact', head: true })
+        .select('*', { count: 'exact', head: true })
         .neq('status', 'deleted');
       
       if (error) {
@@ -49,7 +49,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ count: count || 0, totalAmount });
     }
     
-    // 🚀 성능 최적화: 효율적인 검색 쿼리
+    // 🚀 성능 최적화: 간단하고 안전한 쿼리
     let query = supabase
       .from('transactions')
       .select(`
@@ -68,23 +68,53 @@ export async function GET(request: Request) {
         status,
         type,
         unpaid_amount,
-        updated_at,
-        customers!inner(
-          id,
-          name,
-          phone,
-          mobile,
-          business_name,
-          representative_name,
-          address
-        )
+        updated_at
       `)
       .neq('status', 'deleted');
     
-    // 검색어가 있으면 고객명으로만 필터링 (안전한 방식)
+    // 검색어가 있으면 고객 ID로 필터링 (안전한 방식)
     if (search.trim()) {
       const searchTerm = search.trim();
-      query = query.ilike('customers.name', `%${searchTerm}%`);
+      
+      // 먼저 검색어와 일치하는 고객 ID들을 찾기
+      const { data: customerIds, error: customerError } = await supabase
+        .from('customers')
+        .select('id')
+        .or(`name.ilike.%${searchTerm}%,mobile.ilike.%${searchTerm}%,business_name.ilike.%${searchTerm}%`);
+      
+      if (customerError) {
+        console.error('Customer search error:', customerError);
+        // 고객 검색 실패 시 빈 결과 반환
+        return NextResponse.json({
+          data: [],
+          pagination: {
+            page,
+            pageSize,
+            total: 0,
+            totalPages: 0,
+            hasNext: false,
+            hasPrev: false,
+          }
+        });
+      }
+      
+      const customerIdList = (customerIds || []).map(c => c.id);
+      if (customerIdList.length > 0) {
+        query = query.in('customer_id', customerIdList);
+      } else {
+        // 검색 결과가 없으면 빈 결과 반환
+        return NextResponse.json({
+          data: [],
+          pagination: {
+            page,
+            pageSize,
+            total: 0,
+            totalPages: 0,
+            hasNext: false,
+            hasPrev: false,
+          }
+        });
+      }
     }
     
     // 전체 거래 수 카운트 (검색 조건 적용)
@@ -99,6 +129,26 @@ export async function GET(request: Request) {
     if (error) {
       console.error('Main query error:', error);
       throw new Error(`Main query failed: ${error.message}`);
+    }
+    
+    // 🚀 성능 최적화: 배치로 고객 정보 조회
+    const customerIds = [...new Set((data || []).map(tx => tx.customer_id).filter((id): id is string => id !== null))];
+    let customersMap = new Map();
+    
+    if (customerIds.length > 0) {
+      const { data: customersData, error: customersError } = await supabase
+        .from('customers')
+        .select('id, name, phone, mobile, business_name, representative_name, address')
+        .in('id', customerIds);
+      
+      if (customersError) {
+        console.error('Customers query error:', customersError);
+        // 고객 정보 조회 실패는 치명적이지 않으므로 계속 진행
+      } else {
+        customersMap = new Map(
+          (customersData || []).map(c => [c.id, c])
+        );
+      }
     }
     
     // 🚀 성능 최적화: 배치로 모델/타입 정보 조회
@@ -147,11 +197,13 @@ export async function GET(request: Request) {
     
     // 결과 데이터 구성
     const result = (data || []).map((tx: any) => {
+      const customer = customersMap.get(tx.customer_id);
       const modelType = modelsTypesMap.get(tx.models_types_id);
       const payments = paymentsMap.get(tx.id) || [];
       
       return {
         ...tx,
+        customers: customer || null,
         model: modelType?.model || tx.model || '',
         model_type: modelType?.type || tx.model_type || '',
         payments: payments,
