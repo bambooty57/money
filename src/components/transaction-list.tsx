@@ -321,13 +321,6 @@ export function TransactionList() {
     router.refresh();
   }, [urlRefreshKey]);
 
-  // 검색어 변경 시 즉시 API 호출
-  useEffect(() => {
-    if (searchTerm.trim()) {
-      fetchDataCallback();
-    }
-  }, [searchTerm, page, fetchDataCallback]);
-
   const fetchDataCallback = useCallback(async () => {
     try {
       setLoading(true);
@@ -376,6 +369,13 @@ export function TransactionList() {
       setLoading(false);
     }
   }, [searchTerm, page, pageSize]);
+
+  // 검색어 변경 시 즉시 API 호출
+  useEffect(() => {
+    if (searchTerm.trim()) {
+      fetchDataCallback();
+    }
+  }, [searchTerm, page, fetchDataCallback]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
