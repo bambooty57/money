@@ -29,11 +29,6 @@ export async function GET(request: Request) {
     const endDate = searchParams.get('endDate');
     const hasTransactions = searchParams.get('hasTransactions') === 'true';
     
-    // 스키마 체크는 임시로 비활성화
-    // if (process.env.NODE_ENV === 'development') {
-    //   await schemaChecker.checkTableSchema('customers');
-    // }
-    
     // 페이지네이션 계산
     const offset = (page - 1) * pageSize;
     
@@ -42,6 +37,7 @@ export async function GET(request: Request) {
     if (search) {
       query = query.or(`name.ilike.%${search}%,phone.ilike.%${search}%,mobile.ilike.%${search}%,business_no.ilike.%${search}%`);
     }
+    
     // customerIdsSet를 함수 스코프에 선언하여 재사용
     let customerIdsSet: string[] = [];
     if (hasTransactions) {
@@ -59,11 +55,12 @@ export async function GET(request: Request) {
         return NextResponse.json({ data: [], pagination: { total: 0, page, pageSize, totalPages: 0 } });
       }
     }
+    
     // 정렬 적용
     const ascending = sortOrder === 'asc';
     query = query.order(sortBy, { ascending });
 
-    // 2. 필터 적용 후 전체 고객 수 카운트 (supabase.from 직접 사용, head: true)
+    // 2. 필터 적용 후 전체 고객 수 카운트
     let countQuery = supabase.from('customers').select('*', { count: 'exact', head: true });
     if (search) {
       countQuery = countQuery.or(`name.ilike.%${search}%,phone.ilike.%${search}%,mobile.ilike.%${search}%,business_no.ilike.%${search}%`);
@@ -115,38 +112,81 @@ export async function GET(request: Request) {
       
       customers = customers.filter(customer => customerIdsSet.has(customer.id));
     }
-    // 사진 동기화
-    for (const customer of customers) {
-      const { data: files } = await supabase
+
+    // 🚀 성능 최적화: N+1 문제 해결
+    if (customers.length > 0) {
+      const customerIds = customers.map(c => c.id);
+      
+      // 1. 파일 정보 일괄 조회
+      const { data: allFiles } = await supabase
         .from('files')
-        .select('url')
-        .eq('customer_id', customer.id)
-        .limit(3);
-      (customer as any).photos = Array.isArray(files) ? files : [];
-
-      // 거래건수 추가
-      const { count: transaction_count } = await supabase
+        .select('url, customer_id')
+        .in('customer_id', customerIds)
+        .limit(100); // 적절한 제한
+      
+      // 2. 거래 건수 일괄 조회
+      const { data: transactionCounts } = await supabase
         .from('transactions')
-        .select('*', { count: 'exact' })
-        .eq('customer_id', customer.id);
-      (customer as any).transaction_count = transaction_count || 0;
-
-      // 총미수금(미납합계) 추가 (부분입금/여러번 입금까지 정확히 반영)
-      const { data: transactions } = await supabase
+        .select('customer_id')
+        .in('customer_id', customerIds);
+      
+      // 3. 거래 및 입금 정보 일괄 조회
+      const { data: allTransactions } = await supabase
         .from('transactions')
-        .select('id, amount, payments(amount), status')
-        .eq('customer_id', customer.id);
-      let totalUnpaid = 0;
-      (transactions || []).forEach(tx => {
-        const paid = (tx.payments || []).reduce((sum, p) => sum + (p.amount || 0), 0);
-        const unpaid = (tx.amount || 0) - paid;
-        totalUnpaid += unpaid > 0 ? unpaid : 0;
+        .select(`
+          id, 
+          customer_id, 
+          amount, 
+          status,
+          payments(amount)
+        `)
+        .in('customer_id', customerIds);
+
+      // 데이터 그룹화
+      const filesByCustomer = new Map<string, any[]>();
+      const transactionCountByCustomer = new Map<string, number>();
+      const unpaidByCustomer = new Map<string, number>();
+
+      // 파일 그룹화
+      (allFiles || []).forEach(file => {
+        if (file.customer_id && !filesByCustomer.has(file.customer_id)) {
+          filesByCustomer.set(file.customer_id, []);
+        }
+        if (file.customer_id) {
+          filesByCustomer.get(file.customer_id)!.push(file);
+        }
       });
-      (customer as any).total_unpaid = totalUnpaid;
-    }
 
-    // 런타임 검증을 임시로 완전히 제거
-    // const validatedData = validateCustomers(data || []);
+      // 거래 건수 계산
+      (transactionCounts || []).forEach(tx => {
+        if (tx.customer_id) {
+          const count = transactionCountByCustomer.get(tx.customer_id) || 0;
+          transactionCountByCustomer.set(tx.customer_id, count + 1);
+        }
+      });
+
+      // 미수금 계산
+      (allTransactions || []).forEach(tx => {
+        const paid = (tx.payments || []).reduce((sum: number, p: any) => sum + (p.amount || 0), 0);
+        const unpaid = (tx.amount || 0) - paid;
+        if (unpaid > 0 && tx.customer_id) {
+          const currentUnpaid = unpaidByCustomer.get(tx.customer_id) || 0;
+          unpaidByCustomer.set(tx.customer_id, currentUnpaid + unpaid);
+        }
+      });
+
+      // 고객 데이터에 정보 추가
+      customers.forEach(customer => {
+        // 사진 정보 추가 (최대 3개)
+        (customer as any).photos = filesByCustomer.get(customer.id)?.slice(0, 3) || [];
+        
+        // 거래 건수 추가
+        (customer as any).transaction_count = transactionCountByCustomer.get(customer.id) || 0;
+        
+        // 미수금 추가
+        (customer as any).total_unpaid = unpaidByCustomer.get(customer.id) || 0;
+      });
+    }
 
     // 페이지네이션 정보는 헤더로 이동하고 원본 배열 반환
     return NextResponse.json({

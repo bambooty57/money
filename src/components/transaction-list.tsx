@@ -26,7 +26,7 @@ import { Download, PlusCircle } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import TransactionForm from './transaction-form';
 import ModelTypeManager from './model-type-manager';
-import { usePaymentsRealtime } from '@/lib/usePaymentsRealtime';
+import { useTransactionsRealtime } from '@/lib/useTransactionsRealtime';
 import { supabase } from '@/lib/supabase';
 
 // 디바운싱 유틸리티 함수
@@ -84,7 +84,7 @@ interface ApiResponse {
 }
 
 export function TransactionList() {
-  usePaymentsRealtime(); // 실시간 반영 추가
+  useTransactionsRealtime(); // 실시간 반영 추가
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [data, setData] = useState<ApiResponse | null>(null);
   const [summaries, setSummaries] = useState<any[]>([]);
@@ -101,6 +101,9 @@ export function TransactionList() {
   const [searchTerm, setSearchTerm] = useState(searchParams.get('search') || '');
   const [searchInputValue, setSearchInputValue] = useState(searchTerm);
   const [refreshing, setRefreshing] = useState(false);
+  
+  // clear 파라미터 처리
+  const clearParam = searchParams.get('clear');
   
   // 개선된 검색 관련 상태
   const [searchHistory, setSearchHistory] = useState<SearchHistory[]>([]);
@@ -135,6 +138,23 @@ export function TransactionList() {
       }
     }
   }, []);
+
+  // clear 파라미터 처리 - 검색 상태 초기화
+  useEffect(() => {
+    if (clearParam === '1') {
+      setSearchInputValue('');
+      setSearchTerm('');
+      setPage(1);
+      setFilteredCustomers([]);
+      setIsDropdownOpen(false);
+      setSelectedIndex(-1);
+      
+      // URL에서 clear 파라미터 제거
+      const params = new URLSearchParams(window.location.search);
+      params.delete('clear');
+      window.history.replaceState(null, '', `?${params.toString()}`);
+    }
+  }, [clearParam]);
 
   // 검색 히스토리 저장
   const saveSearchHistory = useCallback((customer: Customer) => {
@@ -218,9 +238,9 @@ export function TransactionList() {
     [performSearch]
   );
 
-  // 검색 입력 처리 - 즉시 반응
+  // 🚀 성능 최적화: 스마트 검색 입력 처리
   const handleSearchInput = useCallback((value: string) => {
-    // 즉시 로컬 검색 실행
+    // 즉시 로컬 검색 실행 (고객 목록에서만)
     performSearch(value);
     
     // 검색어가 변경되면 즉시 API 호출
@@ -270,6 +290,12 @@ export function TransactionList() {
     setSearchInputValue(customer.name);
     setSearchTerm(customer.name);
     setPage(1); // 검색 시 첫 페이지로
+    
+    // URL 파라미터 업데이트
+    const params = new URLSearchParams(window.location.search);
+    params.set('search', customer.name);
+    params.set('page', '1');
+    window.history.replaceState(null, '', `?${params.toString()}`);
     
     // 즉시 해당 고객의 거래 데이터를 가져오기
     try {
@@ -324,34 +350,46 @@ export function TransactionList() {
     router.refresh();
   }, [urlRefreshKey]);
 
+  // 🚀 성능 최적화: 스마트 데이터 로딩
   const fetchDataCallback = useCallback(async () => {
     setLoading(true);
     setError(null);
     
     try {
-      // 고객 데이터와 거래 요약 데이터를 함께 불러오기
-      const [customersResponse, summariesResponse] = await Promise.all([
-        fetch('/api/customers?page=1&pageSize=1000'),
-        fetch('/api/transactions/summary')
-      ]);
-
-      if (!customersResponse.ok) {
-        throw new Error('고객 데이터를 불러오는데 실패했습니다.');
-      }
-      if (!summariesResponse.ok) {
-        throw new Error('거래 요약 데이터를 불러오는데 실패했습니다.');
-      }
-
-      const customersData = await customersResponse.json();
-      const summariesData = await summariesResponse.json();
-
-      setCustomers(customersData.data || []);
-      setSummaries(summariesData.data || []);
-      setGlobalSummary(summariesData.global || null);
-      
-      // 검색 시에는 개별 거래 데이터를 불러오지 않음
+      // 검색어가 있으면 거래 데이터만 로딩, 없으면 요약 데이터 로딩
       if (searchTerm) {
-        setData(null);
+        // 검색 시: 거래 데이터만 로딩
+        const transactionsResponse = await fetch(`/api/transactions?search=${encodeURIComponent(searchTerm)}&page=${page}&pageSize=15`);
+        
+        if (!transactionsResponse.ok) {
+          throw new Error('거래 데이터를 불러오는데 실패했습니다.');
+        }
+        
+        const transactionsData = await transactionsResponse.json();
+        setData(transactionsData);
+        setCustomers([]); // 검색 시 고객 목록은 비움
+        setSummaries([]); // 검색 시 요약 데이터는 비움
+      } else {
+        // 일반 시: 고객 데이터와 요약 데이터만 로딩 (거래 데이터는 필요시에만)
+        const [customersResponse, summariesResponse] = await Promise.all([
+          fetch('/api/customers?page=1&pageSize=1000'),
+          fetch('/api/transactions/summary')
+        ]);
+
+        if (!customersResponse.ok) {
+          throw new Error('고객 데이터를 불러오는데 실패했습니다.');
+        }
+        if (!summariesResponse.ok) {
+          throw new Error('거래 요약 데이터를 불러오는데 실패했습니다.');
+        }
+
+        const customersData = await customersResponse.json();
+        const summariesData = await summariesResponse.json();
+
+        setCustomers(customersData.data || []);
+        setSummaries(summariesData.data || []);
+        setGlobalSummary(summariesData.global || null);
+        setData(null); // 일반 시에는 거래 데이터 비움
       }
       
     } catch (err) {
@@ -360,7 +398,7 @@ export function TransactionList() {
     } finally {
       setLoading(false);
     }
-  }, [searchTerm, urlRefreshKey]);
+  }, [searchTerm, page, urlRefreshKey]);
 
   // 검색어 변경 시 즉시 API 호출
   useEffect(() => {
@@ -578,17 +616,37 @@ export function TransactionList() {
                       해당 고객의 거래 내역을 조회 중입니다
                     </div>
                   </div>
-                  <button
-                    onClick={() => {
-                      setSearchInputValue('');
-                      setSearchTerm('');
-                      setPage(1);
-                      handleRefresh();
-                    }}
-                    className="px-3 py-1 bg-red-500 text-white rounded text-sm hover:bg-red-600 transition-colors"
-                  >
-                    검색 초기화
-                  </button>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => {
+                        setSearchInputValue('');
+                        setSearchTerm('');
+                        setPage(1);
+                        handleRefresh();
+                        
+                        // URL 파라미터도 정리
+                        const params = new URLSearchParams(window.location.search);
+                        params.delete('search');
+                        params.delete('page');
+                        window.history.replaceState(null, '', `?${params.toString()}`);
+                      }}
+                      className="px-3 py-1 bg-red-500 text-white rounded text-sm hover:bg-red-600 transition-colors"
+                    >
+                      검색 초기화
+                    </button>
+                    <button
+                      onClick={() => {
+                        // 현재 검색어로 고객 상세 페이지로 이동
+                        const selectedCustomer = customers.find(c => c.name === searchTerm);
+                        if (selectedCustomer) {
+                          router.push(`/customers/${selectedCustomer.id}/transactions`);
+                        }
+                      }}
+                      className="px-3 py-1 bg-blue-500 text-white rounded text-sm hover:bg-blue-600 transition-colors"
+                    >
+                      고객 상세보기
+                    </button>
+                  </div>
                 </div>
               </div>
             )}
@@ -785,6 +843,12 @@ export function TransactionList() {
                         setSearchTerm('');
                         setPage(1);
                         handleRefresh();
+                        
+                        // URL 파라미터도 정리
+                        const params = new URLSearchParams(window.location.search);
+                        params.delete('search');
+                        params.delete('page');
+                        window.history.replaceState(null, '', `?${params.toString()}`);
                       }}
                       className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors duration-200 text-base font-semibold"
                     >

@@ -18,53 +18,61 @@ export async function GET(request: Request) {
     const search = url?.searchParams.get('search') || '';
     
     if (countOnly) {
-      const { count, error } = await supabase
+      // 🚀 성능 최적화: 단일 쿼리로 카운트와 합계 계산
+      const { data: countData, error } = await supabase
         .from('transactions')
-        .select('*', { count: 'exact' })
+        .select('amount', { count: 'exact' })
         .neq('status', 'deleted');
+      
       if (error) throw error;
-      const { data: sumData, error: sumError } = await supabase
-        .from('transactions')
-        .select('amount')
-        .neq('status', 'deleted');
-      if (sumError) throw sumError;
-      const totalAmount = (sumData || []).reduce((sum, tx) => sum + (tx.amount || 0), 0);
-      return NextResponse.json({ count: count ?? 0, totalAmount });
+      
+      const totalAmount = (countData || []).reduce((sum, tx) => sum + (tx.amount || 0), 0);
+      const count = countData?.length || 0;
+      
+      return NextResponse.json({ count, totalAmount });
     }
     
-    // 검색어가 있는 경우 고객별로 필터링
+    // 🚀 성능 최적화: 효율적인 검색 쿼리
     let query = supabase
       .from('transactions')
-      .select('*,customers(*),models_types(id,model,type),payments(*)')
+      .select(`
+        id,
+        amount,
+        balance,
+        created_at,
+        customer_id,
+        description,
+        due_date,
+        model,
+        model_type,
+        models_types_id,
+        paid_amount,
+        paid_ratio,
+        status,
+        type,
+        unpaid_amount,
+        updated_at,
+        customers!inner(
+          id,
+          name,
+          phone,
+          mobile,
+          business_name,
+          representative_name,
+          address
+        )
+      `)
       .neq('status', 'deleted');
     
-    // 검색어가 있으면 고객명으로 필터링
+    // 검색어가 있으면 고객 정보로 필터링 (INNER JOIN 사용)
     if (search.trim()) {
-      // 먼저 검색어와 일치하는 고객들을 찾기
-      const { data: matchingCustomers, error: customerError } = await supabase
-        .from('customers')
-        .select('id')
-        .or(`name.ilike.%${search}%,mobile.ilike.%${search}%,address.ilike.%${search}%,business_name.ilike.%${search}%,representative_name.ilike.%${search}%`);
-      
-      if (customerError) throw customerError;
-      
-      if (matchingCustomers && matchingCustomers.length > 0) {
-        const customerIds = matchingCustomers.map(c => c.id);
-        query = query.in('customer_id', customerIds);
-      } else {
-        // 검색 결과가 없으면 빈 결과 반환
-        return NextResponse.json({
-          data: [],
-          pagination: {
-            page,
-            pageSize,
-            total: 0,
-            totalPages: 0,
-            hasNext: false,
-            hasPrev: false,
-          }
-        });
-      }
+      query = query.or(`
+        customers.name.ilike.%${search}%,
+        customers.mobile.ilike.%${search}%,
+        customers.address.ilike.%${search}%,
+        customers.business_name.ilike.%${search}%,
+        customers.representative_name.ilike.%${search}%
+      `);
     }
     
     // 전체 거래 수 카운트 (검색 조건 적용)
@@ -77,13 +85,54 @@ export async function GET(request: Request) {
       
     if (error) throw error;
     
-    const result = (data || []).map((tx: any) => ({
-      ...tx,
-      model: tx.models_types?.model || '',
-      model_type: tx.models_types?.type || '',
-      due_date: tx.due_date,
-      status: tx.status,
-    }));
+    // 🚀 성능 최적화: 배치로 모델/타입 정보 조회
+    const transactionIds = (data || []).map(tx => tx.id);
+    let modelsTypesMap = new Map();
+    
+    if (transactionIds.length > 0) {
+      const { data: modelsTypesData } = await supabase
+        .from('models_types')
+        .select('id, model, type')
+        .in('id', (data || []).map(tx => tx.models_types_id).filter(Boolean));
+      
+      modelsTypesMap = new Map(
+        (modelsTypesData || []).map(mt => [mt.id, mt])
+      );
+    }
+    
+    // 🚀 성능 최적화: 배치로 입금 정보 조회
+    let paymentsMap = new Map();
+    
+    if (transactionIds.length > 0) {
+      const { data: paymentsData } = await supabase
+        .from('payments')
+        .select('transaction_id, amount, method, paid_at')
+        .in('transaction_id', transactionIds);
+      
+      // 거래별로 입금 정보 그룹화
+      paymentsMap = new Map();
+      (paymentsData || []).forEach(payment => {
+        if (!paymentsMap.has(payment.transaction_id)) {
+          paymentsMap.set(payment.transaction_id, []);
+        }
+        paymentsMap.get(payment.transaction_id).push(payment);
+      });
+    }
+    
+    // 결과 데이터 구성
+    const result = (data || []).map((tx: any) => {
+      const modelType = modelsTypesMap.get(tx.models_types_id);
+      const payments = paymentsMap.get(tx.id) || [];
+      
+      return {
+        ...tx,
+        model: modelType?.model || tx.model || '',
+        model_type: modelType?.type || tx.model_type || '',
+        payments: payments,
+        due_date: tx.due_date,
+        status: tx.status,
+      };
+    });
     
     return NextResponse.json({
       data: result,

@@ -16,7 +16,10 @@
     "dev:fast": "next dev --turbo --port 3000",
     "test:types": "tsc --noEmit --pretty",
     "schema:check": "node scripts/check-schema.js",
-    "seed:dummy": "node scripts/seed-dummy-data.js"
+    "seed:dummy": "node scripts/seed-dummy-data.js",
+    "db:optimize": "node scripts/optimize-indexes.js full",
+    "db:indexes:create": "node scripts/optimize-indexes.js create",
+    "db:indexes:check": "node scripts/optimize-indexes.js check"
   },
   "dependencies": {
     "@headlessui/react": "^2.2.4",

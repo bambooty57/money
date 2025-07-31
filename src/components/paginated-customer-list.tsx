@@ -327,18 +327,24 @@ function PaginatedCustomerListInner({
 
   // 검색 히스토리 로드
   useEffect(() => {
-    const savedHistory = localStorage.getItem('customerSearchHistory');
-    if (savedHistory) {
+    // 🚀 성능 최적화: 비동기로 localStorage 로드
+    const loadSearchHistory = async () => {
       try {
-        const parsed = JSON.parse(savedHistory);
-        setSearchHistory(parsed.map((item: any) => ({
-          ...item,
-          lastSearched: new Date(item.lastSearched)
-        })));
+        const savedHistory = localStorage.getItem('customerSearchHistory');
+        if (savedHistory) {
+          const parsed = JSON.parse(savedHistory);
+          setSearchHistory(parsed.map((item: any) => ({
+            ...item,
+            lastSearched: new Date(item.lastSearched)
+          })));
+        }
       } catch (error) {
         console.error('검색 히스토리 로드 실패:', error);
       }
-    }
+    };
+    
+    // 비동기로 실행하여 초기 렌더링 차단 방지
+    loadSearchHistory();
   }, []);
 
   // 검색 히스토리 저장
@@ -362,7 +368,15 @@ function PaginatedCustomerListInner({
         .sort((a, b) => b.searchCount - a.searchCount || b.lastSearched.getTime() - a.lastSearched.getTime())
         .slice(0, 20);
       
-      localStorage.setItem('customerSearchHistory', JSON.stringify(limited));
+      // 🚀 성능 최적화: 비동기로 localStorage 저장
+      setTimeout(() => {
+        try {
+          localStorage.setItem('customerSearchHistory', JSON.stringify(limited));
+        } catch (error) {
+          console.error('검색 히스토리 저장 실패:', error);
+        }
+      }, 0);
+      
       return limited;
     });
   }, []);
@@ -384,41 +398,52 @@ function PaginatedCustomerListInner({
 
     const normalizedSearch = searchTerm.toLowerCase().trim();
     
+    // 🚀 성능 최적화: 메모이제이션된 검색 결과 사용
     const results = data?.data?.filter(c => {
-      // 기본 검색 필드
+      // 기본 검색 필드 (가장 빠른 필드부터 체크)
       const nameMatch = c.name?.toLowerCase().includes(normalizedSearch);
+      if (nameMatch) return true;
+      
       const mobileMatch = c.mobile?.replace(/-/g, '').includes(normalizedSearch.replace(/-/g, ''));
+      if (mobileMatch) return true;
       
-      // 확장된 검색 필드
+      // 확장된 검색 필드 (필요시에만 체크)
       const addressMatch = c.address?.toLowerCase().includes(normalizedSearch);
-      const businessNameMatch = c.business_name?.toLowerCase().includes(normalizedSearch);
-      const representativeNameMatch = c.representative_name?.toLowerCase().includes(normalizedSearch);
-      const phoneMatch = c.phone?.replace(/-/g, '').includes(normalizedSearch.replace(/-/g, ''));
+      if (addressMatch) return true;
       
-      return nameMatch || mobileMatch || addressMatch || businessNameMatch || representativeNameMatch || phoneMatch;
+      const businessNameMatch = c.business_name?.toLowerCase().includes(normalizedSearch);
+      if (businessNameMatch) return true;
+      
+      const representativeNameMatch = c.representative_name?.toLowerCase().includes(normalizedSearch);
+      if (representativeNameMatch) return true;
+      
+      const phoneMatch = c.phone?.replace(/-/g, '').includes(normalizedSearch.replace(/-/g, ''));
+      return phoneMatch;
     }) || [];
 
-    // 검색 히스토리 기반 정렬
-    const sortedResults = results.sort((a, b) => {
-      const aHistory = searchHistory.find(h => h.customerId === a.id);
-      const bHistory = searchHistory.find(h => h.customerId === b.id);
-      
-      // 검색 히스토리가 있는 고객을 우선 표시
-      if (aHistory && !bHistory) return -1;
-      if (!aHistory && bHistory) return 1;
-      if (aHistory && bHistory) {
-        // 검색 횟수로 정렬, 같으면 최근 검색순
-        if (aHistory.searchCount !== bHistory.searchCount) {
-          return bHistory.searchCount - aHistory.searchCount;
+    // 검색 히스토리 기반 정렬 (최대 10개로 제한)
+    const sortedResults = results
+      .sort((a, b) => {
+        const aHistory = searchHistory.find(h => h.customerId === a.id);
+        const bHistory = searchHistory.find(h => h.customerId === b.id);
+        
+        // 검색 히스토리가 있는 고객을 우선 표시
+        if (aHistory && !bHistory) return -1;
+        if (!aHistory && bHistory) return 1;
+        if (aHistory && bHistory) {
+          // 검색 횟수로 정렬, 같으면 최근 검색순
+          if (aHistory.searchCount !== bHistory.searchCount) {
+            return bHistory.searchCount - aHistory.searchCount;
+          }
+          return bHistory.lastSearched.getTime() - aHistory.lastSearched.getTime();
         }
-        return bHistory.lastSearched.getTime() - aHistory.lastSearched.getTime();
-      }
-      
-      // 히스토리가 없는 경우 이름순
-      return a.name.localeCompare(b.name);
-    });
+        
+        // 히스토리가 없는 경우 이름순
+        return a.name.localeCompare(b.name);
+      })
+      .slice(0, 10); // 최대 10개로 제한
 
-    setFilteredCustomers(sortedResults.slice(0, 10)); // 검색 결과를 10개로 제한
+    setFilteredCustomers(sortedResults);
     setIsDropdownOpen(sortedResults.length > 0);
     setSelectedIndex(-1);
   }, [data, searchHistory]);
