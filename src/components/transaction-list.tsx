@@ -325,52 +325,31 @@ export function TransactionList() {
   }, [urlRefreshKey]);
 
   const fetchDataCallback = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    
     try {
-      setLoading(true);
-      setError(null);
-
-      // 항상 고객 목록과 요약 데이터를 가져오기
-      const promises = [
-        fetch('/api/customers?page=1&pageSize=1000'),
-        fetch('/api/transactions/summary')
-      ];
-
-      // 검색어가 있을 때는 해당 고객의 거래만, 없을 때는 전체 거래 데이터 가져오기
-      if (searchTerm.trim()) {
-        promises.push(fetch(`/api/transactions?page=${page}&pageSize=${pageSize}&search=${encodeURIComponent(searchTerm)}`));
+      // 항상 summaries 데이터만 사용
+      const summariesResponse = await fetch('/api/transactions/summary');
+      if (!summariesResponse.ok) {
+        throw new Error('거래 요약 데이터를 불러오는데 실패했습니다.');
       }
-
-      const responses = await Promise.all(promises);
-      const [customersResponse, summariesResponse, ...transactionResponses] = responses;
-
-      const [customersData, summariesData, ...transactionData] = await Promise.all([
-        customersResponse.json(),
-        summariesResponse.json(),
-        ...transactionResponses.map(r => r.json())
-      ]);
-
-      if (customersResponse.ok) {
-        setCustomers(customersData.data || []);
+      const summariesData = await summariesResponse.json();
+      setSummaries(summariesData.data || []);
+      setGlobalSummary(summariesData.global || null);
+      
+      // 검색 시에는 개별 거래 데이터를 불러오지 않음
+      if (searchTerm) {
+        setData(null);
       }
-
-      if (summariesResponse.ok) {
-        setSummaries(summariesData.data || []);
-        setGlobalSummary(summariesData.global || {});
-      }
-
-      // 검색어가 있을 때만 거래 데이터 설정
-      if (searchTerm.trim() && transactionData[0]) {
-        setData(transactionData[0]);
-      } else {
-        setData(null); // 검색어가 없을 때는 거래 데이터를 null로 설정
-      }
-    } catch (error) {
-      console.error('데이터 로딩 실패:', error);
-      setError('데이터를 불러올 수 없습니다.');
+      
+    } catch (err) {
+      console.error('데이터 로딩 중 오류:', err);
+      setError(err instanceof Error ? err.message : '알 수 없는 오류가 발생했습니다.');
     } finally {
       setLoading(false);
     }
-  }, [searchTerm, page, pageSize]);
+  }, [searchTerm, urlRefreshKey]);
 
   // 검색어 변경 시 즉시 API 호출
   useEffect(() => {
@@ -420,8 +399,30 @@ export function TransactionList() {
     fetchDataCallback();
   }, [page, searchTerm, urlRefreshKey, fetchDataCallback]);
 
-  // 집계 데이터 계산
-  const totalCount = data?.pagination?.total || 0;
+  // 검색 결과 필터링
+  const filteredSummaries = useMemo(() => {
+    if (!searchTerm) return summaries;
+    return summaries.filter(summary => {
+      const customer = customers.find(c => c.id === summary.customer_id);
+      return customer && customer.name.toLowerCase().includes(searchTerm.toLowerCase());
+    });
+  }, [summaries, customers, searchTerm]);
+
+  // 페이지네이션 데이터
+  const paginatedData = useMemo(() => {
+    if (searchTerm) {
+      // 검색 시: 필터링된 결과만 표시 (페이지네이션 없음)
+      return filteredSummaries;
+    } else {
+      // 평상시: 20개씩 페이지네이션
+      const startIndex = (page - 1) * pageSize;
+      const endIndex = startIndex + pageSize;
+      return summaries.slice(startIndex, endIndex);
+    }
+  }, [filteredSummaries, summaries, searchTerm, page, pageSize]);
+
+  // 전체 집계 데이터 계산
+  const totalCount = searchTerm ? filteredSummaries.length : summaries.length;
   const totalCustomerCount = customers.length;
   const totalSales = globalSummary?.total_amount || 0;
   const totalPaid = globalSummary?.total_paid || 0;
@@ -581,140 +582,7 @@ export function TransactionList() {
               </div>
             )}
             
-            {/* 선택된 고객 상세 정보 표시 */}
-            {searchTerm && data?.data && data.data.length > 0 && (
-              <div className="mt-4 bg-blue-50 border-2 border-blue-200 rounded-lg p-6">
-                {/* 고객 기본 정보 */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                  {(() => {
-                    const selectedCustomer = data.data[0]?.customers;
-                    if (!selectedCustomer) return null;
-                    
-                    return (
-                      <>
-                        <div className="bg-white rounded-lg p-4 border border-blue-300">
-                          <div className="text-sm text-gray-600 mb-1">👤 고객명</div>
-                          <div className="text-lg font-bold text-blue-800">{selectedCustomer.name}</div>
-                        </div>
-                        
-                        {selectedCustomer.mobile && (
-                          <div className="bg-white rounded-lg p-4 border border-blue-300">
-                            <div className="text-sm text-gray-600 mb-1">📱 휴대전화</div>
-                            <div className="text-lg font-semibold text-gray-800">{selectedCustomer.mobile}</div>
-                          </div>
-                        )}
-                        
-                        {selectedCustomer.phone && (
-                          <div className="bg-white rounded-lg p-4 border border-blue-300">
-                            <div className="text-sm text-gray-600 mb-1">📞 전화번호</div>
-                            <div className="text-lg font-semibold text-gray-800">{selectedCustomer.phone}</div>
-                          </div>
-                        )}
-                        
-                        {selectedCustomer.business_name && (
-                          <div className="bg-white rounded-lg p-4 border border-blue-300">
-                            <div className="text-sm text-gray-600 mb-1">🏢 회사명</div>
-                            <div className="text-lg font-semibold text-gray-800">{selectedCustomer.business_name}</div>
-                          </div>
-                        )}
-                        
-                        {selectedCustomer.representative_name && (
-                          <div className="bg-white rounded-lg p-4 border border-blue-300">
-                            <div className="text-sm text-gray-600 mb-1">👨‍💼 대표자명</div>
-                            <div className="text-lg font-semibold text-gray-800">{selectedCustomer.representative_name}</div>
-                          </div>
-                        )}
-                        
-                        {selectedCustomer.address && (
-                          <div className="bg-white rounded-lg p-4 border border-blue-300 md:col-span-2">
-                            <div className="text-sm text-gray-600 mb-1">📍 주소</div>
-                            <div className="text-lg font-semibold text-gray-800">{selectedCustomer.address}</div>
-                          </div>
-                        )}
-                        
-                        <div className="bg-white rounded-lg p-4 border border-blue-300">
-                          <div className="text-sm text-gray-600 mb-1">📅 등록일</div>
-                          <div className="text-lg font-semibold text-gray-800">
-                            {selectedCustomer.created_at ? new Date(selectedCustomer.created_at).toLocaleDateString('ko-KR') : '-'}
-                          </div>
-                        </div>
-                        
-                        <div className="bg-white rounded-lg p-4 border border-blue-300">
-                          <div className="text-sm text-gray-600 mb-1">🔄 수정일</div>
-                          <div className="text-lg font-semibold text-gray-800">
-                            {selectedCustomer.updated_at ? new Date(selectedCustomer.updated_at).toLocaleDateString('ko-KR') : '-'}
-                          </div>
-                        </div>
-                      </>
-                    );
-                  })()}
-                </div>
-                
-                {/* 선택된 고객의 거래 요약 정보 */}
-                <div className="bg-white rounded-lg p-6 border-2 border-blue-300 mb-6">
-                  <div className="text-center mb-4">
-                    <h3 className="text-xl font-bold text-blue-800">📊 {searchTerm} 고객 거래 요약</h3>
-                  </div>
-                  <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                    {(() => {
-                      // 해당 고객의 거래 데이터로 요약 계산
-                      const customerTransactions = data.data;
-                      const totalAmount = customerTransactions.reduce((sum, tx) => sum + (tx.amount || 0), 0);
-                      const totalPaid = customerTransactions.reduce((sum, tx) => {
-                        const paid = (tx.payments || []).reduce((pSum, p) => pSum + (p.amount || 0), 0);
-                        return sum + paid;
-                      }, 0);
-                      const totalUnpaid = totalAmount - totalPaid;
-                      const totalRatio = totalAmount > 0 ? Math.round((totalPaid / totalAmount) * 100) : 0;
-                      
-                      return (
-                        <>
-                          <div className="bg-blue-50 rounded-lg p-4 text-center border border-blue-200">
-                            <div className="text-sm text-gray-600 mb-1">거래건수</div>
-                            <div className="text-2xl font-bold text-blue-700">{customerTransactions.length}건</div>
-                          </div>
-                          
-                          <div className="bg-green-50 rounded-lg p-4 text-center border border-green-200">
-                            <div className="text-sm text-gray-600 mb-1">총 매출액</div>
-                            <div className="text-2xl font-bold text-green-700">{totalAmount.toLocaleString()}원</div>
-                          </div>
-                          
-                          <div className="bg-indigo-50 rounded-lg p-4 text-center border border-indigo-200">
-                            <div className="text-sm text-gray-600 mb-1">입금액</div>
-                            <div className="text-2xl font-bold text-indigo-700">{totalPaid.toLocaleString()}원</div>
-                          </div>
-                          
-                          <div className="bg-red-50 rounded-lg p-4 text-center border border-red-200">
-                            <div className="text-sm text-gray-600 mb-1">미수금</div>
-                            <div className="text-2xl font-bold text-red-700">{totalUnpaid.toLocaleString()}원</div>
-                          </div>
-                          
-                          <div className="bg-yellow-50 rounded-lg p-4 text-center border border-yellow-200">
-                            <div className="text-sm text-gray-600 mb-1">입금률</div>
-                            <div className="text-2xl font-bold text-yellow-700">{totalRatio}%</div>
-                          </div>
-                        </>
-                      );
-                    })()}
-                  </div>
-                </div>
-                
-                {/* 고객 상세 페이지 링크 */}
-                <div className="text-center">
-                  <button
-                    onClick={() => {
-                      const selectedCustomer = data.data[0]?.customers;
-                      if (selectedCustomer) {
-                        router.push(`/customers/${selectedCustomer.id}/transactions`);
-                      }
-                    }}
-                    className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200 text-lg font-semibold shadow-lg"
-                  >
-                    📋 고객 상세 페이지로 이동
-                  </button>
-                </div>
-              </div>
-            )}
+            {/* 선택된 고객 상세 정보 표시 - 제거 */}
           </div>
           <div className="text-center">
             <div className="text-lg font-semibold text-gray-600 mb-2">📊 전체 고객 수</div>
@@ -825,44 +693,44 @@ export function TransactionList() {
           </TableHeader>
           <TableBody className="bg-white divide-y divide-gray-200">
             {searchTerm ? (
-              // 검색 결과가 있을 때는 검색된 거래 데이터 표시
+              // 검색 결과가 있을 때는 검색된 고객만 표시
               loading ? (
                 <TableRow>
                   <TableCell colSpan={7} className="border-2 border-gray-300 px-4 py-8 text-center text-lg text-gray-500">
                     <div className="flex items-center justify-center gap-3">
                       <div className="animate-spin rounded-full h-6 w-6 border-2 border-blue-500 border-t-transparent"></div>
-                                             <span>&quot;{searchTerm}&quot; 고객의 거래 내역을 불러오는 중...</span>
+                      <span>&quot;{searchTerm}&quot; 고객을 검색 중...</span>
                     </div>
                   </TableCell>
                 </TableRow>
-              ) : data?.data && data.data.length > 0 ? (
+              ) : filteredSummaries.length > 0 ? (
                 <>
                   <TableRow className="bg-blue-50">
                     <TableCell colSpan={7} className="border-2 border-gray-300 px-4 py-3 text-center text-lg font-bold text-blue-800">
-                      🔍 &quot;{searchTerm}&quot; 고객의 거래 내역 ({data.data.length}건)
+                      🔍 &quot;{searchTerm}&quot; 고객 검색 결과 ({filteredSummaries.length}명)
                     </TableCell>
                   </TableRow>
-                  {data.data.map((transaction: TransactionWithCustomer, i: number) => {
-                    const customer = transaction.customers;
+                  {paginatedData.map((summary, i) => {
+                    const customer = customers.find(c => c.id === summary.customer_id);
                     if (!customer) return null;
                     
                     return (
-                      <TableRow key={transaction.id} className="hover:bg-blue-50 cursor-pointer border-b border-gray-200 h-16">
+                      <TableRow key={summary.customer_id} className="hover:bg-blue-50 cursor-pointer border-b border-gray-200 h-16">
                         <TableCell className="border-2 border-gray-300 px-4 py-4 whitespace-nowrap text-base text-blue-700 underline font-medium w-32 min-w-[120px] max-w-[160px] text-center overflow-hidden text-ellipsis" onClick={() => router.push(`/customers/${customer.id}/transactions`)}>{customer.name}</TableCell>
-                        <TableCell className="border-2 border-gray-300 px-4 py-4 whitespace-nowrap text-base text-gray-900 w-24 min-w-[80px] max-w-[100px] text-center overflow-hidden text-ellipsis">1건</TableCell>
-                        <TableCell className="border-2 border-gray-300 px-4 py-4 whitespace-nowrap text-base text-gray-900 font-semibold w-32 min-w-[120px] max-w-[160px] text-right overflow-hidden text-ellipsis">{transaction.amount?.toLocaleString()}원</TableCell>
-                        <TableCell className="border-2 border-gray-300 px-4 py-4 whitespace-nowrap text-base text-green-700 font-semibold w-32 min-w-[120px] max-w-[160px] text-right overflow-hidden text-ellipsis">{transaction.payment_amount?.toLocaleString()}원</TableCell>
-                        <TableCell className="border-2 border-gray-300 px-4 py-4 whitespace-nowrap text-base text-gray-900 font-semibold w-32 min-w-[120px] max-w-[160px] text-right overflow-hidden text-ellipsis">{((transaction.amount || 0) - (transaction.payment_amount || 0)).toLocaleString()}원</TableCell>
+                        <TableCell className="border-2 border-gray-300 px-4 py-4 whitespace-nowrap text-base text-gray-900 w-24 min-w-[80px] max-w-[100px] text-center overflow-hidden text-ellipsis">{summary.transaction_count}건</TableCell>
+                        <TableCell className="border-2 border-gray-300 px-4 py-4 whitespace-nowrap text-base text-gray-900 font-semibold w-32 min-w-[120px] max-w-[160px] text-right overflow-hidden text-ellipsis">{summary.total_amount.toLocaleString()}원</TableCell>
+                        <TableCell className="border-2 border-gray-300 px-4 py-4 whitespace-nowrap text-base text-green-700 font-semibold w-32 min-w-[120px] max-w-[160px] text-right overflow-hidden text-ellipsis">{summary.total_paid.toLocaleString()}원</TableCell>
+                        <TableCell className="border-2 border-gray-300 px-4 py-4 whitespace-nowrap text-base text-gray-900 font-semibold w-32 min-w-[120px] max-w-[160px] text-right overflow-hidden text-ellipsis">{summary.total_unpaid.toLocaleString()}원</TableCell>
                         <TableCell className="border-2 border-gray-300 px-4 py-4 whitespace-nowrap text-base text-gray-900 font-semibold w-24 min-w-[80px] max-w-[100px] text-center overflow-hidden text-ellipsis">
-                          {transaction.amount && transaction.payment_amount ? Math.round((transaction.payment_amount / transaction.amount) * 100) : 0}%
+                          {summary.total_ratio}%
                         </TableCell>
                         <TableCell className="border-2 border-gray-300 px-4 py-4 w-16 min-w-[60px] max-w-[60px] text-center overflow-hidden text-ellipsis">
                           <button
                             className="text-red-600 hover:text-red-900 text-lg p-1 hover:bg-red-50 rounded transition-colors"
-                            title="거래 삭제"
+                            title="고객 삭제"
                             onClick={async (e) => {
                               e.stopPropagation();
-                              if (!window.confirm('정말로 이 거래를 삭제하시겠습니까?')) return;
+                              if (!window.confirm('정말로 이 고객의 모든 거래를 삭제하시겠습니까?')) return;
                               try {
                                 const { data: { session } } = await supabase.auth.getSession();
                                 const token = session?.access_token;
@@ -870,7 +738,8 @@ export function TransactionList() {
                                   alert('인증이 필요합니다. 다시 로그인해주세요.');
                                   return;
                                 }
-                                const res = await fetch(`/api/transactions?id=${transaction.id}`, { 
+                                // 해당 고객의 모든 거래 삭제
+                                const res = await fetch(`/api/transactions?customer_id=${summary.customer_id}`, { 
                                   method: 'DELETE',
                                   headers: {
                                     'Authorization': `Bearer ${token}`
@@ -884,8 +753,8 @@ export function TransactionList() {
                                   alert('삭제 실패: ' + errorText);
                                 }
                               } catch (error) {
-                                console.error('거래 삭제 중 오류:', error);
-                                alert('거래 삭제 중 오류가 발생했습니다.');
+                                console.error('고객 거래 삭제 중 오류:', error);
+                                alert('고객 거래 삭제 중 오류가 발생했습니다.');
                               }
                             }}
                           >🗑️</button>
@@ -897,8 +766,8 @@ export function TransactionList() {
               ) : (
                 <TableRow>
                   <TableCell colSpan={7} className="border-2 border-gray-300 px-4 py-8 text-center text-lg text-gray-500">
-                    <div className="mb-2">🔍 &quot;{searchTerm}&quot; 고객의 거래 내역이 없습니다.</div>
-                    <div className="text-base text-gray-400 mb-4">해당 고객의 거래 기록이 없습니다.</div>
+                    <div className="mb-2">🔍 &quot;{searchTerm}&quot; 고객을 찾을 수 없습니다.</div>
+                    <div className="text-base text-gray-400 mb-4">다른 검색어를 입력해보세요.</div>
                     <button
                       onClick={() => {
                         setSearchInputValue('');
@@ -921,7 +790,7 @@ export function TransactionList() {
                     📊 전체 고객 거래 요약 ({totalCustomerCount}명)
                   </TableCell>
                 </TableRow>
-                {summaries.slice((page - 1) * pageSize, page * pageSize).map((summary, i) => {
+                {paginatedData.map((summary, i) => {
                   const customer = customers.find(c => c.id === summary.customer_id);
                   if (!customer) return null;
                   
@@ -978,13 +847,13 @@ export function TransactionList() {
           </TableBody>
         </Table>
       </div>
-      {/* 페이지네이션: 20개 단위 */}
-      {((searchTerm && (data?.pagination?.total || 0) > 0) || (!searchTerm && summaries.length > 0)) && (
+      {/* 페이지네이션: 검색 시에는 숨김, 평상시에는 20개씩 */}
+      {!searchTerm && summaries.length > 0 && (
         <div style={{ display: 'flex', justifyContent: 'center', margin: '32px 0' }}>
           <Pagination
             currentPage={page}
-            totalPages={Math.ceil((searchTerm ? (data?.pagination?.total || 0) : summaries.length) / pageSize)}
-            totalItems={searchTerm ? (data?.pagination?.total || 0) : summaries.length}
+            totalPages={Math.ceil(summaries.length / pageSize)}
+            totalItems={summaries.length}
             itemsPerPage={pageSize}
             onPageChange={(newPage) => setPage(newPage)}
           />
