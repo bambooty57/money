@@ -168,6 +168,7 @@ export function TransactionList() {
 
     const normalizedSearch = searchTerm.toLowerCase().trim();
     
+    // 즉시 로컬에서 필터링
     const results = customers.filter(c => {
       // 기본 검색 필드
       const nameMatch = c.name?.toLowerCase().includes(normalizedSearch);
@@ -207,16 +208,19 @@ export function TransactionList() {
     setSelectedIndex(-1);
   }, [customers, searchHistory]);
 
-  // 디바운싱된 검색 함수
+  // 디바운싱된 검색 함수 - 시간 단축
   const debouncedSearch = useMemo(
-    () => debounce(performSearch, 300),
+    () => debounce(performSearch, 50), // 300ms에서 50ms로 단축
     [performSearch]
   );
 
-  // 검색 입력 처리
+  // 검색 입력 처리 - 즉시 반응
   const handleSearchInput = useCallback((value: string) => {
+    // 즉시 로컬 검색 실행
+    performSearch(value);
+    // 디바운싱된 검색도 실행 (API 호출용)
     debouncedSearch(value);
-  }, [debouncedSearch]);
+  }, [performSearch, debouncedSearch]);
 
   // 키보드 네비게이션
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
@@ -276,14 +280,14 @@ export function TransactionList() {
     router.refresh();
   }, [urlRefreshKey]);
 
-  // 검색 입력 디바운싱
+  // 검색 입력 디바운싱 - 시간 단축
   useEffect(() => {
     const timer = setTimeout(() => {
       if (searchInputValue !== searchTerm) {
         setSearchTerm(searchInputValue);
         setPage(1); // 검색 시 첫 페이지로
       }
-    }, 300); // 300ms 디바운싱
+    }, 100); // 300ms에서 100ms로 단축
 
     return () => clearTimeout(timer);
   }, [searchInputValue, searchTerm]);
@@ -310,30 +314,41 @@ export function TransactionList() {
       setLoading(true);
       setError(null);
 
-      // 고객 목록과 거래 데이터를 병렬로 가져오기
-      const [customersResponse, transactionsResponse, summariesResponse] = await Promise.all([
+      // 검색어가 있을 때만 거래 데이터를 가져오고, 없을 때는 고객 목록만 가져오기
+      const promises = [
         fetch('/api/customers?page=1&pageSize=1000'),
-        fetch(`/api/transactions?page=${page}&pageSize=${pageSize}&search=${encodeURIComponent(searchTerm)}`),
         fetch('/api/transactions/summary')
-      ]);
+      ];
 
-      const [customersData, transactionsData, summariesData] = await Promise.all([
+      // 검색어가 있을 때만 거래 API 호출
+      if (searchTerm.trim()) {
+        promises.push(fetch(`/api/transactions?page=${page}&pageSize=${pageSize}&search=${encodeURIComponent(searchTerm)}`));
+      }
+
+      const responses = await Promise.all(promises);
+      const [customersResponse, summariesResponse, ...transactionResponses] = responses;
+
+      const [customersData, summariesData, ...transactionData] = await Promise.all([
         customersResponse.json(),
-        transactionsResponse.json(),
-        summariesResponse.json()
+        summariesResponse.json(),
+        ...(transactionResponses.map(r => r.json()))
       ]);
 
       if (customersResponse.ok) {
         setCustomers(customersData.data || []);
       }
 
-      if (transactionsResponse.ok) {
-        setData(transactionsData);
-      }
-
       if (summariesResponse.ok) {
         setSummaries(summariesData.data || []);
         setGlobalSummary(summariesData.global || {});
+      }
+
+      // 검색어가 있을 때만 거래 데이터 설정
+      if (searchTerm.trim() && transactionResponses[0]?.ok) {
+        setData(transactionData[0]);
+      } else if (!searchTerm.trim()) {
+        // 검색어가 없을 때는 기존 데이터 유지
+        setData(null);
       }
     } catch (error) {
       console.error('데이터 로딩 실패:', error);
@@ -377,7 +392,8 @@ export function TransactionList() {
   const totalUnpaid = globalSummary?.total_unpaid || 0;
   const totalRatio = totalSales > 0 ? Math.round((totalPaid / totalSales) * 100) : 0;
 
-  if (loading && !data) {
+  // 검색 중일 때만 로딩 표시
+  if (loading && !data && !searchTerm) {
     return (
       <div className="space-y-4">
         <div className="animate-pulse">
@@ -410,8 +426,10 @@ export function TransactionList() {
                 placeholder="고객명/전화번호/주소/회사명으로 검색"
                 value={searchInputValue}
                 onChange={(e) => {
-                  setSearchInputValue(e.target.value);
-                  handleSearchInput(e.target.value);
+                  const value = e.target.value;
+                  setSearchInputValue(value);
+                  // 즉시 검색 실행
+                  handleSearchInput(value);
                 }}
                 onKeyDown={handleKeyDown}
                 className="w-full px-6 py-4 pr-32 text-lg border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200"
@@ -467,7 +485,15 @@ export function TransactionList() {
                     );
                   })}
                   {filteredCustomers.length === 0 && searchInputValue.trim().length > 0 && (
-                    <li className="px-4 py-3 text-gray-500 text-lg">검색 결과 없음</li>
+                    <li className="px-4 py-3 text-gray-500 text-lg">
+                      <div className="flex items-center gap-2">
+                        <span>🔍</span>
+                        <span>검색 결과 없음</span>
+                      </div>
+                      <div className="text-sm text-gray-400 mt-1">
+                        다른 검색어를 입력해보세요
+                      </div>
+                    </li>
                   )}
                 </ul>
               )}
@@ -565,7 +591,16 @@ export function TransactionList() {
           <TableBody className="bg-white divide-y divide-gray-200">
             {searchTerm ? (
               // 검색 결과가 있을 때는 검색된 거래 데이터 표시
-              data?.data && data.data.length > 0 ? (
+              loading ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="border-2 border-gray-300 px-4 py-8 text-center text-lg text-gray-500">
+                    <div className="flex items-center justify-center gap-3">
+                      <div className="animate-spin rounded-full h-6 w-6 border-2 border-blue-500 border-t-transparent"></div>
+                      <span>검색 중...</span>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ) : data?.data && data.data.length > 0 ? (
                 data.data.map((transaction: TransactionWithCustomer, i: number) => {
                   const customer = transaction.customers;
                   if (!customer) return null;
