@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useMemo, useCallback } from "react";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import * as XLSX from "xlsx";
@@ -23,6 +23,27 @@ import PaymentForm from '@/components/payment-form';
 import { supabase } from '@/lib/supabase';
 import { useTransactionsRealtime } from '@/lib/useTransactionsRealtime';
 import { usePaymentsRealtime } from '@/lib/usePaymentsRealtime';
+
+// 디바운싱 유틸리티 함수
+function debounce<T extends (...args: any[]) => any>(
+  func: T,
+  wait: number
+): (...args: Parameters<T>) => void {
+  let timeout: NodeJS.Timeout;
+  return (...args: Parameters<T>) => {
+    clearTimeout(timeout);
+    timeout = setTimeout(() => func(...args), wait);
+  };
+}
+
+// 검색 히스토리 관리
+interface SearchHistory {
+  customerId: string;
+  name: string;
+  searchCount: number;
+  lastSearched: Date;
+}
+
 // 삭제 함수 직접 구현
 async function deleteTransaction(id: string, triggerRefresh: () => void) {
   if (!id) return;
@@ -40,6 +61,7 @@ async function deleteTransaction(id: string, triggerRefresh: () => void) {
     alert('삭제 실패: ' + errorText);
   }
 }
+
 async function deletePayment(id: string, triggerRefresh: () => void) {
   if (!id) return;
   const { data: sessionData } = await supabase.auth.getSession();
@@ -94,6 +116,12 @@ export default function StatementPage() {
   const { refreshKey, triggerRefresh } = useRefreshContext();
   const [search, setSearch] = useState('');
   const [filteredCustomers, setFilteredCustomers] = useState<Customer[]>([]);
+  
+  // 개선된 검색 관련 상태
+  const [searchHistory, setSearchHistory] = useState<SearchHistory[]>([]);
+  const [selectedIndex, setSelectedIndex] = useState(-1);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  
   // 1. 고객 등록 모달 상태
   const [customerFormOpen, setCustomerFormOpen] = useState(false);
   const [editCustomer, setEditCustomer] = useState<any>(null);
@@ -118,26 +146,155 @@ export default function StatementPage() {
       .then((data) => setCustomers(data.data || []));
   }, []);
 
-  // 수동 검색 기능으로 변경
-  const handleSearch = () => {
-    if (search.trim().length === 0) {
+  // 검색 히스토리 로드
+  useEffect(() => {
+    const savedHistory = localStorage.getItem('customerSearchHistory');
+    if (savedHistory) {
+      try {
+        const parsed = JSON.parse(savedHistory);
+        setSearchHistory(parsed.map((item: any) => ({
+          ...item,
+          lastSearched: new Date(item.lastSearched)
+        })));
+      } catch (error) {
+        console.error('검색 히스토리 로드 실패:', error);
+      }
+    }
+  }, []);
+
+  // 검색 히스토리 저장
+  const saveSearchHistory = useCallback((customer: Customer) => {
+    setSearchHistory(prev => {
+      const existing = prev.find(h => h.customerId === customer.id);
+      const updated = existing 
+        ? prev.map(h => h.customerId === customer.id 
+          ? { ...h, searchCount: h.searchCount + 1, lastSearched: new Date() }
+          : h
+        )
+        : [...prev, {
+          customerId: customer.id,
+          name: customer.name,
+          searchCount: 1,
+          lastSearched: new Date()
+        }];
+      
+      // 최대 20개로 제한하고 최신순으로 정렬
+      const limited = updated
+        .sort((a, b) => b.searchCount - a.searchCount || b.lastSearched.getTime() - a.lastSearched.getTime())
+        .slice(0, 20);
+      
+      localStorage.setItem('customerSearchHistory', JSON.stringify(limited));
+      return limited;
+    });
+  }, []);
+
+  // 개선된 검색 함수 - 확장된 검색 필드
+  const performSearch = useCallback((searchTerm: string) => {
+    if (searchTerm.trim().length === 0) {
       setFilteredCustomers([]);
+      setIsDropdownOpen(false);
       return;
     }
-    setFilteredCustomers(
-      customers.filter(c =>
-        c.name.includes(search) ||
-        (c.mobile && c.mobile.replace(/-/g, '').includes(search.replace(/-/g, '')))
-      ).slice(0, 20)
-    );
-  };
 
-  // Enter 키로도 검색 가능하도록
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      handleSearch();
+    const normalizedSearch = searchTerm.toLowerCase().trim();
+    
+    const results = customers.filter(c => {
+      // 기본 검색 필드
+      const nameMatch = c.name?.toLowerCase().includes(normalizedSearch);
+      const mobileMatch = c.mobile?.replace(/-/g, '').includes(normalizedSearch.replace(/-/g, ''));
+      
+      // 확장된 검색 필드
+      const addressMatch = c.address?.toLowerCase().includes(normalizedSearch);
+      const businessNameMatch = c.business_name?.toLowerCase().includes(normalizedSearch);
+      const representativeNameMatch = c.representative_name?.toLowerCase().includes(normalizedSearch);
+      const phoneMatch = c.phone?.replace(/-/g, '').includes(normalizedSearch.replace(/-/g, ''));
+      
+      return nameMatch || mobileMatch || addressMatch || businessNameMatch || representativeNameMatch || phoneMatch;
+    });
+
+    // 검색 히스토리 기반 정렬
+    const sortedResults = results.sort((a, b) => {
+      const aHistory = searchHistory.find(h => h.customerId === a.id);
+      const bHistory = searchHistory.find(h => h.customerId === b.id);
+      
+      // 검색 히스토리가 있는 고객을 우선 표시
+      if (aHistory && !bHistory) return -1;
+      if (!aHistory && bHistory) return 1;
+      if (aHistory && bHistory) {
+        // 검색 횟수로 정렬, 같으면 최근 검색순
+        if (aHistory.searchCount !== bHistory.searchCount) {
+          return bHistory.searchCount - aHistory.searchCount;
+        }
+        return bHistory.lastSearched.getTime() - aHistory.lastSearched.getTime();
+      }
+      
+      // 히스토리가 없는 경우 이름순
+      return a.name.localeCompare(b.name);
+    });
+
+    setFilteredCustomers(sortedResults.slice(0, 20));
+    setIsDropdownOpen(sortedResults.length > 0);
+    setSelectedIndex(-1);
+  }, [customers, searchHistory]);
+
+  // 디바운싱된 검색 함수
+  const debouncedSearch = useMemo(
+    () => debounce(performSearch, 300),
+    [performSearch]
+  );
+
+  // 검색 입력 처리
+  const handleSearchInput = useCallback((value: string) => {
+    setSearch(value);
+    debouncedSearch(value);
+  }, [debouncedSearch]);
+
+  // 수동 검색 버튼 클릭
+  const handleSearchButton = useCallback(() => {
+    performSearch(search);
+  }, [search, performSearch]);
+
+  // 키보드 네비게이션
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (!isDropdownOpen) return;
+
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault();
+        setSelectedIndex(prev => 
+          prev < filteredCustomers.length - 1 ? prev + 1 : prev
+        );
+        break;
+      case 'ArrowUp':
+        e.preventDefault();
+        setSelectedIndex(prev => prev > 0 ? prev - 1 : -1);
+        break;
+      case 'Enter':
+        e.preventDefault();
+        if (selectedIndex >= 0 && filteredCustomers[selectedIndex]) {
+          handleCustomerSelect(filteredCustomers[selectedIndex]);
+        } else {
+          handleSearchButton();
+        }
+        break;
+      case 'Escape':
+        e.preventDefault();
+        setIsDropdownOpen(false);
+        setSelectedIndex(-1);
+        break;
     }
-  };
+  }, [isDropdownOpen, filteredCustomers, selectedIndex, handleSearchButton]);
+
+  // 고객 선택 처리
+  const handleCustomerSelect = useCallback((customer: Customer) => {
+    setSelectedCustomer(customer.id);
+    setSearch('');
+    setFilteredCustomers([]);
+    setIsDropdownOpen(false);
+    setSelectedIndex(-1);
+    inputRef.current?.blur();
+    saveSearchHistory(customer);
+  }, [saveSearchHistory]);
 
   // 2. 고객 선택 시 거래내역+부분합 fetch
   useEffect(() => {
@@ -311,35 +468,57 @@ export default function StatementPage() {
               ref={inputRef}
               type="text"
               className="border rounded px-4 py-3 text-xl min-w-[200px] w-full focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
-              placeholder="고객명/전화번호로 검색"
+              placeholder="고객명/전화번호/주소/회사명으로 검색"
               value={search}
-              onChange={e => setSearch(e.target.value)}
-              onKeyPress={handleKeyPress}
+              onChange={e => handleSearchInput(e.target.value)}
+              onKeyPress={handleKeyDown}
+              onKeyDown={handleKeyDown}
               autoComplete="off"
               style={{ fontSize: '1.25rem' }}
             />
             <Button 
-              onClick={handleSearch}
+              onClick={handleSearchButton}
               className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-blue-600 text-white px-4 py-2 rounded text-lg font-bold hover:bg-blue-700"
             >
               🔍 검색
             </Button>
-            {filteredCustomers.length > 0 && (
+            {isDropdownOpen && (
               <ul className="absolute left-0 right-0 bg-white border rounded shadow-lg z-10 mt-1 max-h-72 overflow-y-auto text-lg">
-                {filteredCustomers.map(c => (
-                  <li
-                    key={c.id}
-                    className="px-4 py-3 hover:bg-blue-100 cursor-pointer flex justify-between items-center"
-                    onClick={() => { setSelectedCustomer(c.id); setSearch(''); setFilteredCustomers([]); inputRef.current?.blur(); }}
-                  >
-                    <span className="font-bold">{c.name}</span>
-                    <span className="text-gray-500 text-base ml-2">{c.mobile}</span>
-                  </li>
-                ))}
+                {filteredCustomers.map((c, index) => {
+                  const history = searchHistory.find(h => h.customerId === c.id);
+                  return (
+                    <li
+                      key={c.id}
+                      className={`px-4 py-3 hover:bg-blue-100 cursor-pointer ${selectedIndex === index ? 'bg-blue-100 font-bold' : ''}`}
+                      onClick={() => handleCustomerSelect(c)}
+                      onMouseEnter={() => setSelectedIndex(index)}
+                      onMouseLeave={() => setSelectedIndex(-1)}
+                    >
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold">{c.name}</span>
+                            {history && (
+                              <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">
+                                🔍 {history.searchCount}회
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-gray-500 text-base mt-1">
+                            {c.mobile && <span className="mr-3">📱 {c.mobile}</span>}
+                            {c.phone && <span className="mr-3">📞 {c.phone}</span>}
+                            {c.address && <span className="mr-3">📍 {c.address}</span>}
+                            {c.business_name && <span className="text-sm">🏢 {c.business_name}</span>}
+                          </div>
+                        </div>
+                      </div>
+                    </li>
+                  );
+                })}
+                {filteredCustomers.length === 0 && search.trim().length > 0 && (
+                  <li className="px-4 py-3 text-gray-500 text-lg">검색 결과 없음</li>
+                )}
               </ul>
-            )}
-            {filteredCustomers.length === 0 && search.trim().length > 0 && (
-              <div className="absolute left-0 right-0 bg-white border rounded shadow-lg z-10 mt-1 px-4 py-3 text-gray-500 text-lg">검색 결과 없음</div>
             )}
           </div>
           {/* 버튼 우측 정렬: flex-row-reverse */}
