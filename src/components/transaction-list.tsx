@@ -219,12 +219,11 @@ export function TransactionList() {
     // 즉시 로컬 검색 실행
     performSearch(value);
     
-    // 검색어가 변경되면 즉시 API 호출 (디바운싱 제거)
-    if (value.trim() !== searchTerm.trim()) {
-      setSearchTerm(value);
-      setPage(1);
-    }
-  }, [performSearch, searchTerm]);
+    // 검색어가 변경되면 즉시 API 호출
+    setSearchInputValue(value);
+    setSearchTerm(value);
+    setPage(1);
+  }, [performSearch]);
 
   // 키보드 네비게이션
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
@@ -326,24 +325,27 @@ export function TransactionList() {
       setLoading(true);
       setError(null);
 
-      // 검색어가 있을 때만 거래 데이터를 가져오고, 없을 때는 고객 목록만 가져오기
+      // 항상 고객 목록과 요약 데이터를 가져오기
       const promises = [
         fetch('/api/customers?page=1&pageSize=1000'),
         fetch('/api/transactions/summary')
       ];
 
-      // 검색어가 있을 때만 거래 API 호출
+      // 검색어가 있을 때는 해당 고객의 거래만, 없을 때는 전체 거래 데이터 가져오기
       if (searchTerm.trim()) {
         promises.push(fetch(`/api/transactions?page=${page}&pageSize=${pageSize}&search=${encodeURIComponent(searchTerm)}`));
+      } else {
+        // 검색어가 없을 때는 전체 거래 데이터 가져오기
+        promises.push(fetch(`/api/transactions?page=${page}&pageSize=${pageSize}`));
       }
 
       const responses = await Promise.all(promises);
-      const [customersResponse, summariesResponse, ...transactionResponses] = responses;
+      const [customersResponse, summariesResponse, transactionsResponse] = responses;
 
-      const [customersData, summariesData, ...transactionData] = await Promise.all([
+      const [customersData, summariesData, transactionsData] = await Promise.all([
         customersResponse.json(),
         summariesResponse.json(),
-        ...(transactionResponses.map(r => r.json()))
+        transactionsResponse.json()
       ]);
 
       if (customersResponse.ok) {
@@ -355,12 +357,8 @@ export function TransactionList() {
         setGlobalSummary(summariesData.global || {});
       }
 
-      // 검색어가 있을 때만 거래 데이터 설정
-      if (searchTerm.trim() && transactionResponses[0]?.ok) {
-        setData(transactionData[0]);
-      } else if (!searchTerm.trim()) {
-        // 검색어가 없을 때는 기존 데이터 유지
-        setData(null);
+      if (transactionsResponse.ok) {
+        setData(transactionsData);
       }
     } catch (error) {
       console.error('데이터 로딩 실패:', error);
@@ -372,9 +370,7 @@ export function TransactionList() {
 
   // 검색어 변경 시 즉시 API 호출
   useEffect(() => {
-    if (searchTerm.trim()) {
-      fetchDataCallback();
-    }
+    fetchDataCallback();
   }, [searchTerm, page, fetchDataCallback]);
 
   const handleRefresh = async () => {
@@ -698,7 +694,7 @@ export function TransactionList() {
                 </TableRow>
               )
             ) : (
-              // 검색어가 없을 때는 전체 고객 목록 표시
+              // 검색어가 없을 때는 전체 고객 목록 표시 (요약 데이터 사용)
               customers.map((c, i) => {
                 const summary = summaries[customers.findIndex(x => x.id === c.id)] || {};
                 // transaction_count를 우선 사용, 없으면 기존 방식
