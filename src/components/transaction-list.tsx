@@ -123,6 +123,21 @@ export function TransactionList() {
 
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // 외부 클릭 시 드롭다운 닫기
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (inputRef.current && !inputRef.current.contains(event.target as Node)) {
+        setIsDropdownOpen(false);
+        setSelectedIndex(-1);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
   // 검색 히스토리 로드
   useEffect(() => {
     const savedHistory = localStorage.getItem('customerSearchHistory');
@@ -531,12 +546,33 @@ export function TransactionList() {
                 onChange={(e) => {
                   const value = e.target.value;
                   setSearchInputValue(value);
-                  // 즉시 검색 실행
-                  handleSearchInput(value);
+                  
+                  // 1자 이상 입력 시 즉시 검색 실행
+                  if (value.trim().length >= 1) {
+                    performSearch(value);
+                    setIsDropdownOpen(true);
+                  } else {
+                    setFilteredCustomers([]);
+                    setIsDropdownOpen(false);
+                  }
+                  
+                  // 검색어 상태 업데이트
+                  setSearchTerm(value);
+                  setPage(1);
+                  
+                  // URL 파라미터 업데이트
+                  const params = new URLSearchParams(window.location.search);
+                  if (value.trim()) {
+                    params.set('search', value);
+                  } else {
+                    params.delete('search');
+                  }
+                  params.set('page', '1');
+                  window.history.replaceState(null, '', `?${params.toString()}`);
                 }}
                 onKeyDown={handleKeyDown}
                 onFocus={() => {
-                  if (searchInputValue.trim().length >= 1 && filteredCustomers.length > 0) {
+                  if (searchInputValue.trim().length >= 1) {
                     setIsDropdownOpen(true);
                   }
                 }}
@@ -561,7 +597,7 @@ export function TransactionList() {
                   )}
                 </button>
               </div>
-              {isDropdownOpen && (
+              {isDropdownOpen && searchInputValue.trim().length >= 1 && (
                 <ul className="absolute left-0 right-0 bg-white border-2 border-blue-200 rounded-lg shadow-xl z-10 mt-1 max-h-80 overflow-y-auto text-lg">
                   {filteredCustomers.map((c, index) => {
                     const history = searchHistory.find(h => h.customerId === c.id);
@@ -613,7 +649,7 @@ export function TransactionList() {
                       <div className="text-sm text-gray-400">다른 검색어를 입력해보세요</div>
                     </li>
                   )}
-                  {searchInputValue.trim().length === 0 && (
+                  {searchInputValue.trim().length === 0 && isDropdownOpen && (
                     <li className="px-4 py-4 text-gray-500 text-lg text-center">
                       <div className="mb-2">💡 검색어를 입력하세요</div>
                       <div className="text-sm text-gray-400">고객명, 전화번호, 주소, 회사명으로 검색 가능</div>
