@@ -85,6 +85,10 @@ export async function GET() {
     });
   } catch (error) {
     console.error('Error fetching transaction summary:', error);
-    return NextResponse.json({ error: 'Failed to fetch transaction summary' }, { status: 500 });
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+    return NextResponse.json({ 
+      error: '거래 요약 데이터를 불러오는데 실패했습니다.',
+      details: errorMessage 
+    }, { status: 500 });
   }
 } 

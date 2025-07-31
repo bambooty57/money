@@ -362,7 +362,8 @@ export function TransactionList() {
         const transactionsResponse = await fetch(`/api/transactions?search=${encodeURIComponent(searchTerm)}&page=${page}&pageSize=15`);
         
         if (!transactionsResponse.ok) {
-          throw new Error('거래 데이터를 불러오는데 실패했습니다.');
+          const errorData = await transactionsResponse.json().catch(() => ({}));
+          throw new Error(errorData.error || '거래 데이터를 불러오는데 실패했습니다.');
         }
         
         const transactionsData = await transactionsResponse.json();
@@ -377,10 +378,12 @@ export function TransactionList() {
         ]);
 
         if (!customersResponse.ok) {
-          throw new Error('고객 데이터를 불러오는데 실패했습니다.');
+          const errorData = await customersResponse.json().catch(() => ({}));
+          throw new Error(errorData.error || '고객 데이터를 불러오는데 실패했습니다.');
         }
         if (!summariesResponse.ok) {
-          throw new Error('거래 요약 데이터를 불러오는데 실패했습니다.');
+          const errorData = await summariesResponse.json().catch(() => ({}));
+          throw new Error(errorData.error || '거래 요약 데이터를 불러오는데 실패했습니다.');
         }
 
         const customersData = await customersResponse.json();
@@ -394,7 +397,11 @@ export function TransactionList() {
       
     } catch (err) {
       console.error('데이터 로딩 중 오류:', err);
-      setError(err instanceof Error ? err.message : '알 수 없는 오류가 발생했습니다.');
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError('알 수 없는 오류가 발생했습니다.');
+      }
     } finally {
       setLoading(false);
     }

@@ -7,29 +7,46 @@ export const revalidate = 0;
 export async function GET(request: Request) {
   try {
     const url = request instanceof Request ? new URL(request.url) : null;
-    const countOnly = url?.searchParams.get('count') === '1';
+    if (!url) {
+      return NextResponse.json({ error: 'Invalid request URL' }, { status: 400 });
+    }
+    
+    const countOnly = url.searchParams.get('count') === '1';
     
     // 페이지네이션 파라미터
-    const page = parseInt(url?.searchParams.get('page') || '1');
-    const pageSize = parseInt(url?.searchParams.get('pageSize') || '15');
+    const page = Math.max(1, parseInt(url.searchParams.get('page') || '1'));
+    const pageSize = Math.max(1, Math.min(100, parseInt(url.searchParams.get('pageSize') || '15')));
     const offset = (page - 1) * pageSize;
     
     // 검색 파라미터 추가
-    const search = url?.searchParams.get('search') || '';
+    const search = url.searchParams.get('search') || '';
     
     if (countOnly) {
       // 🚀 성능 최적화: 단일 쿼리로 카운트와 합계 계산
-      const { data: countData, error } = await supabase
+      const { count, error } = await supabase
         .from('transactions')
-        .select('amount', { count: 'exact' })
+        .select('id', { count: 'exact', head: true })
         .neq('status', 'deleted');
       
-      if (error) throw error;
+      if (error) {
+        console.error('Count query error:', error);
+        throw new Error(`Count query failed: ${error.message}`);
+      }
       
-      const totalAmount = (countData || []).reduce((sum, tx) => sum + (tx.amount || 0), 0);
-      const count = countData?.length || 0;
+      // 전체 금액 계산을 위한 별도 쿼리
+      const { data: amountData, error: amountError } = await supabase
+        .from('transactions')
+        .select('amount')
+        .neq('status', 'deleted');
       
-      return NextResponse.json({ count, totalAmount });
+      if (amountError) {
+        console.error('Amount query error:', amountError);
+        throw new Error(`Amount query failed: ${amountError.message}`);
+      }
+      
+      const totalAmount = (amountData || []).reduce((sum, tx) => sum + (tx.amount || 0), 0);
+      
+      return NextResponse.json({ count: count || 0, totalAmount });
     }
     
     // 🚀 성능 최적화: 효율적인 검색 쿼리
@@ -64,59 +81,68 @@ export async function GET(request: Request) {
       `)
       .neq('status', 'deleted');
     
-    // 검색어가 있으면 고객 정보로 필터링 (INNER JOIN 사용)
+    // 검색어가 있으면 고객명으로만 필터링 (안전한 방식)
     if (search.trim()) {
-      query = query.or(`
-        customers.name.ilike.%${search}%,
-        customers.mobile.ilike.%${search}%,
-        customers.address.ilike.%${search}%,
-        customers.business_name.ilike.%${search}%,
-        customers.representative_name.ilike.%${search}%
-      `);
+      const searchTerm = search.trim();
+      query = query.ilike('customers.name', `%${searchTerm}%`);
     }
     
     // 전체 거래 수 카운트 (검색 조건 적용)
-    const { count: totalCount } = await query;
+    const { data: countData } = await query.select('id');
+    const totalCount = countData?.length || 0;
     
     // 페이지네이션 적용된 거래 데이터
     const { data, error } = await query
       .order('created_at', { ascending: true })
       .range(offset, offset + pageSize - 1);
       
-    if (error) throw error;
+    if (error) {
+      console.error('Main query error:', error);
+      throw new Error(`Main query failed: ${error.message}`);
+    }
     
     // 🚀 성능 최적화: 배치로 모델/타입 정보 조회
     const transactionIds = (data || []).map(tx => tx.id);
     let modelsTypesMap = new Map();
     
     if (transactionIds.length > 0) {
-      const { data: modelsTypesData } = await supabase
+      const { data: modelsTypesData, error: modelsTypesError } = await supabase
         .from('models_types')
         .select('id, model, type')
         .in('id', (data || []).map(tx => tx.models_types_id).filter((id): id is string => id !== null));
       
-      modelsTypesMap = new Map(
-        (modelsTypesData || []).map(mt => [mt.id, mt])
-      );
+      if (modelsTypesError) {
+        console.error('Models types query error:', modelsTypesError);
+        // 모델/타입 조회 실패는 치명적이지 않으므로 계속 진행
+      } else {
+        modelsTypesMap = new Map(
+          (modelsTypesData || []).map(mt => [mt.id, mt])
+        );
+      }
     }
     
     // 🚀 성능 최적화: 배치로 입금 정보 조회
     let paymentsMap = new Map();
     
     if (transactionIds.length > 0) {
-      const { data: paymentsData } = await supabase
+      const { data: paymentsData, error: paymentsError } = await supabase
         .from('payments')
         .select('transaction_id, amount, method, paid_at')
         .in('transaction_id', transactionIds);
       
-      // 거래별로 입금 정보 그룹화
-      paymentsMap = new Map();
-      (paymentsData || []).forEach(payment => {
-        if (!paymentsMap.has(payment.transaction_id)) {
-          paymentsMap.set(payment.transaction_id, []);
-        }
-        paymentsMap.get(payment.transaction_id).push(payment);
-      });
+      if (paymentsError) {
+        console.error('Payments query error:', paymentsError);
+        // payments 조회 실패는 치명적이지 않으므로 계속 진행
+      } else {
+        // 거래별로 입금 정보 그룹화
+        paymentsMap = new Map();
+        (paymentsData || []).forEach(payment => {
+          if (!paymentsMap.has(payment.transaction_id)) {
+            paymentsMap.set(payment.transaction_id, []);
+          }
+          paymentsMap.get(payment.transaction_id).push(payment);
+        });
+      }
     }
     
     // 결과 데이터 구성
@@ -147,7 +173,11 @@ export async function GET(request: Request) {
     });
   } catch (error) {
     console.error('Error fetching transactions:', error);
-    return NextResponse.json({ error: 'Failed to fetch transactions' }, { status: 500 });
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+    return NextResponse.json({ 
+      error: '거래 데이터를 불러오는데 실패했습니다.',
+      details: errorMessage 
+    }, { status: 500 });
   }
 }
 
