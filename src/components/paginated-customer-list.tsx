@@ -17,6 +17,27 @@ import {
 } from './ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
 import { useCustomersRealtime } from '@/lib/useCustomersRealtime';
+import * as XLSX from 'xlsx';
+
+// 디바운싱 유틸리티 함수
+function debounce<T extends (...args: any[]) => any>(
+  func: T,
+  wait: number
+): (...args: Parameters<T>) => void {
+  let timeout: NodeJS.Timeout;
+  return (...args: Parameters<T>) => {
+    clearTimeout(timeout);
+    timeout = setTimeout(() => func(...args), wait);
+  };
+}
+
+// 검색 히스토리 관리
+interface SearchHistory {
+  customerId: string;
+  name: string;
+  searchCount: number;
+  lastSearched: Date;
+}
 
 type CustomerBase = Database['public']['Tables']['customers']['Row'];
 type Customer = CustomerBase & {
@@ -115,20 +136,171 @@ function PaginatedCustomerListInner({
 }: PaginatedCustomerListProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  
-  // 상태 관리
+  const [data, setData] = useState<ApiResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [data, setData] = useState<ApiResponse | null>(null);
-  const [searchTerm, setSearchTerm] = useState(searchParams.get('search') || '');
-  const [sortBy, setSortBy] = useState(searchParams.get('sortBy') || 'created_at');
-  const [sortOrder, setSortOrder] = useState(searchParams.get('sortOrder') || 'desc');
   const [showToast, setShowToast] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [detailModalOpen, setDetailModalOpen] = useState(false);
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   
-  // 페이지네이션 훅 사용 (3열6행 = 18개)
-  const { currentPage, pageSize } = usePagination(data?.pagination.total || 0, 18);
+  // 개선된 검색 관련 상태
+  const [searchHistory, setSearchHistory] = useState<SearchHistory[]>([]);
+  const [selectedIndex, setSelectedIndex] = useState(-1);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [filteredCustomers, setFilteredCustomers] = useState<Customer[]>([]);
+  
+  const currentPage = parseInt(searchParams.get('page') || '1');
+  const pageSize = parseInt(searchParams.get('pageSize') || '18');
+  const searchTerm = searchParams.get('search') || '';
+  const sortBy = searchParams.get('sortBy') || 'created_at';
+  const sortOrder = searchParams.get('sortOrder') || 'desc';
 
-  // 데이터 페칭 함수 (성능 최적화: useCallback 사용)
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // 검색 히스토리 로드
+  useEffect(() => {
+    const savedHistory = localStorage.getItem('customerSearchHistory');
+    if (savedHistory) {
+      try {
+        const parsed = JSON.parse(savedHistory);
+        setSearchHistory(parsed.map((item: any) => ({
+          ...item,
+          lastSearched: new Date(item.lastSearched)
+        })));
+      } catch (error) {
+        console.error('검색 히스토리 로드 실패:', error);
+      }
+    }
+  }, []);
+
+  // 검색 히스토리 저장
+  const saveSearchHistory = useCallback((customer: Customer) => {
+    setSearchHistory(prev => {
+      const existing = prev.find(h => h.customerId === customer.id);
+      const updated = existing 
+        ? prev.map(h => h.customerId === customer.id 
+          ? { ...h, searchCount: h.searchCount + 1, lastSearched: new Date() }
+          : h
+        )
+        : [...prev, {
+          customerId: customer.id,
+          name: customer.name,
+          searchCount: 1,
+          lastSearched: new Date()
+        }];
+      
+      // 최대 20개로 제한하고 최신순으로 정렬
+      const limited = updated
+        .sort((a, b) => b.searchCount - a.searchCount || b.lastSearched.getTime() - a.lastSearched.getTime())
+        .slice(0, 20);
+      
+      localStorage.setItem('customerSearchHistory', JSON.stringify(limited));
+      return limited;
+    });
+  }, []);
+
+  // 개선된 검색 함수 - 확장된 검색 필드
+  const performSearch = useCallback((searchTerm: string) => {
+    if (searchTerm.trim().length === 0) {
+      setFilteredCustomers([]);
+      setIsDropdownOpen(false);
+      return;
+    }
+
+    const normalizedSearch = searchTerm.toLowerCase().trim();
+    
+    const results = data?.data?.filter(c => {
+      // 기본 검색 필드
+      const nameMatch = c.name?.toLowerCase().includes(normalizedSearch);
+      const mobileMatch = c.mobile?.replace(/-/g, '').includes(normalizedSearch.replace(/-/g, ''));
+      
+      // 확장된 검색 필드
+      const addressMatch = c.address?.toLowerCase().includes(normalizedSearch);
+      const businessNameMatch = c.business_name?.toLowerCase().includes(normalizedSearch);
+      const representativeNameMatch = c.representative_name?.toLowerCase().includes(normalizedSearch);
+      const phoneMatch = c.phone?.replace(/-/g, '').includes(normalizedSearch.replace(/-/g, ''));
+      
+      return nameMatch || mobileMatch || addressMatch || businessNameMatch || representativeNameMatch || phoneMatch;
+    }) || [];
+
+    // 검색 히스토리 기반 정렬
+    const sortedResults = results.sort((a, b) => {
+      const aHistory = searchHistory.find(h => h.customerId === a.id);
+      const bHistory = searchHistory.find(h => h.customerId === b.id);
+      
+      // 검색 히스토리가 있는 고객을 우선 표시
+      if (aHistory && !bHistory) return -1;
+      if (!aHistory && bHistory) return 1;
+      if (aHistory && bHistory) {
+        // 검색 횟수로 정렬, 같으면 최근 검색순
+        if (aHistory.searchCount !== bHistory.searchCount) {
+          return bHistory.searchCount - aHistory.searchCount;
+        }
+        return bHistory.lastSearched.getTime() - aHistory.lastSearched.getTime();
+      }
+      
+      // 히스토리가 없는 경우 이름순
+      return a.name.localeCompare(b.name);
+    });
+
+    setFilteredCustomers(sortedResults.slice(0, 20));
+    setIsDropdownOpen(sortedResults.length > 0);
+    setSelectedIndex(-1);
+  }, [data, searchHistory]);
+
+  // 디바운싱된 검색 함수
+  const debouncedSearch = useMemo(
+    () => debounce(performSearch, 300),
+    [performSearch]
+  );
+
+  // 검색 입력 처리
+  const handleSearchInput = useCallback((value: string) => {
+    debouncedSearch(value);
+  }, [debouncedSearch]);
+
+  // 키보드 네비게이션
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (!isDropdownOpen) return;
+
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault();
+        setSelectedIndex(prev => 
+          prev < filteredCustomers.length - 1 ? prev + 1 : prev
+        );
+        break;
+      case 'ArrowUp':
+        e.preventDefault();
+        setSelectedIndex(prev => prev > 0 ? prev - 1 : -1);
+        break;
+      case 'Enter':
+        e.preventDefault();
+        if (selectedIndex >= 0 && filteredCustomers[selectedIndex]) {
+          handleCustomerSelect(filteredCustomers[selectedIndex]);
+        }
+        break;
+      case 'Escape':
+        e.preventDefault();
+        setIsDropdownOpen(false);
+        setSelectedIndex(-1);
+        break;
+    }
+  }, [isDropdownOpen, filteredCustomers, selectedIndex]);
+
+  // 고객 선택 처리
+  const handleCustomerSelect = useCallback((customer: Customer) => {
+    setSelectedCustomer(customer);
+    setFilteredCustomers([]);
+    setIsDropdownOpen(false);
+    setSelectedIndex(-1);
+    inputRef.current?.blur();
+    saveSearchHistory(customer);
+    onSelectCustomer?.(customer);
+  }, [saveSearchHistory, onSelectCustomer]);
+
+  // 데이터 페칭 함수
   const fetchCustomers = useCallback(async (isRefresh = false) => {
     if (isRefresh) {
       setRefreshing(true);
@@ -137,7 +309,7 @@ function PaginatedCustomerListInner({
     }
     
     try {
-      const params = new URLSearchParams({
+      const fetchParams = new URLSearchParams({
         page: currentPage.toString(),
         pageSize: pageSize.toString(),
         search: searchTerm,
@@ -145,7 +317,7 @@ function PaginatedCustomerListInner({
         sortOrder,
       });
 
-      const response = await fetch(`/api/customers?${params}`);
+      const response = await fetch(`/api/customers?${fetchParams}`);
       const result = await response.json();
       
       if (response.ok) {
@@ -170,10 +342,6 @@ function PaginatedCustomerListInner({
     setRefreshing(true);
     
     try {
-      // 검색 입력 필드 초기화
-      setSearchTerm('');
-      setSearchInputValue('');
-      
       // URL 파라미터에서 search 제거
       const params = new URLSearchParams(searchParams.toString());
       params.delete('search');
@@ -225,7 +393,6 @@ function PaginatedCustomerListInner({
   useEffect(() => {
     const timer = setTimeout(() => {
       if (searchInputValue !== searchTerm) {
-        setSearchTerm(searchInputValue);
         // 검색 시 첫 페이지로 이동
         const params = new URLSearchParams(searchParams.toString());
         params.set('search', searchInputValue);
@@ -240,8 +407,6 @@ function PaginatedCustomerListInner({
   // 정렬 핸들러
   const handleSort = (field: string) => {
     const newSortOrder = (sortBy === field && sortOrder === 'asc') ? 'desc' : 'asc';
-    setSortBy(field);
-    setSortOrder(newSortOrder);
     
     const params = new URLSearchParams(searchParams.toString());
     params.set('sortBy', field);
@@ -257,45 +422,39 @@ function PaginatedCustomerListInner({
     router.push(`?${params.toString()}`);
   };
 
-  // 메모이제이션된 정렬 아이콘 (성능 최적화)
-  const getSortIcon = useMemo(() => (field: string) => {
-    if (sortBy !== field) return '↕️';
-    return sortOrder === 'asc' ? '↑' : '↓';
-  }, [sortBy, sortOrder]);
-
-  const downloadRef = useRef<HTMLAnchorElement>(null);
+  // 엑셀 다운로드 핸들러
   const handleExcelDownload = async () => {
-    const res = await fetch('/api/customers/export');
-    const blob = await res.blob();
-    const url = window.URL.createObjectURL(blob);
-    if (downloadRef.current) {
-      downloadRef.current.href = url;
-      downloadRef.current.download = 'customers.xlsx';
-      downloadRef.current.click();
-      setTimeout(() => window.URL.revokeObjectURL(url), 1000);
-    }
+    if (!data?.data) return;
+    
+    const excelRows = data.data.map(customer => ({
+      '고객명': customer.name,
+      '휴대폰': customer.mobile || '',
+      '전화번호': customer.phone || '',
+      '주소': customer.address_road || customer.address_jibun || '',
+      '사업자명': customer.business_name || '',
+      '대표자명': customer.representative_name || '',
+      '사업자번호': customer.business_no || '',
+      '거래건수': customer.transaction_count || 0,
+      '미수금': customer.total_unpaid || 0,
+      '등록일': customer.created_at?.slice(0, 10) || '',
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(excelRows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, '고객목록');
+    XLSX.writeFile(wb, `고객목록_${new Date().toISOString().slice(0, 10)}.xlsx`);
   };
 
-  // 체크박스 상태 관리 (1명만 선택 가능)
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  // 체크박스 핸들러
   const handleCheck = (id: string, checked: boolean) => {
-    setSelectedIds(() => {
-      const next = new Set<string>();
-      if (checked) next.add(id); // 1명만 선택
-      return next;
-    });
-  };
-
-  // selectedIds가 바뀔 때마다 onSelectCustomer 호출
-  useEffect(() => {
-    const checked = Array.from(selectedIds);
-    if (checked.length === 1) {
-      const customer = data?.data?.find(c => c.id === checked[0]);
-      onSelectCustomer?.(customer || null);
+    const newSelectedIds = new Set(selectedIds);
+    if (checked) {
+      newSelectedIds.add(id);
     } else {
-      onSelectCustomer?.(null);
+      newSelectedIds.delete(id);
     }
-  }, [selectedIds, data, onSelectCustomer]);
+    setSelectedIds(newSelectedIds);
+  };
 
   // 체크된 고객 목록
   const checkedCustomers = data?.data?.filter(c => selectedIds.has(c.id)) || [];
@@ -329,10 +488,15 @@ function PaginatedCustomerListInner({
             </label>
             <div className="relative">
               <Input
+                ref={inputRef}
                 type="text"
-                placeholder="고객명, 전화번호, 휴대폰, 사업자번호로 전체 고객 검색..."
+                placeholder="고객명/전화번호/주소/회사명으로 검색"
                 value={searchInputValue}
-                onChange={(e) => setSearchInputValue(e.target.value)}
+                onChange={(e) => {
+                  setSearchInputValue(e.target.value);
+                  handleSearchInput(e.target.value);
+                }}
+                onKeyDown={handleKeyDown}
                 className="w-full px-6 py-4 pr-32 text-lg border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200"
               />
               <button
@@ -352,6 +516,44 @@ function PaginatedCustomerListInner({
                   </span>
                 )}
               </button>
+              {isDropdownOpen && (
+                <ul className="absolute left-0 right-0 bg-white border rounded shadow-lg z-10 mt-1 max-h-72 overflow-y-auto text-lg">
+                  {filteredCustomers.map((c, index) => {
+                    const history = searchHistory.find(h => h.customerId === c.id);
+                    return (
+                      <li
+                        key={c.id}
+                        className={`px-4 py-3 hover:bg-blue-100 cursor-pointer ${selectedIndex === index ? 'bg-blue-100 font-bold' : ''}`}
+                        onClick={() => handleCustomerSelect(c)}
+                        onMouseEnter={() => setSelectedIndex(index)}
+                        onMouseLeave={() => setSelectedIndex(-1)}
+                      >
+                        <div className="flex justify-between items-start">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              <span className="font-bold">{c.name}</span>
+                              {history && (
+                                <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">
+                                  🔍 {history.searchCount}회
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-gray-500 text-base mt-1">
+                              {c.mobile && <span className="mr-3">📱 {c.mobile}</span>}
+                              {c.phone && <span className="mr-3">📞 {c.phone}</span>}
+                              {c.address && <span className="mr-3">📍 {c.address}</span>}
+                              {c.business_name && <span className="text-sm">🏢 {c.business_name}</span>}
+                            </div>
+                          </div>
+                        </div>
+                      </li>
+                    );
+                  })}
+                  {filteredCustomers.length === 0 && searchInputValue.trim().length > 0 && (
+                    <li className="px-4 py-3 text-gray-500 text-lg">검색 결과 없음</li>
+                  )}
+                </ul>
+              )}
             </div>
           </div>
           <div className="text-center">
