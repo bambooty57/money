@@ -393,7 +393,14 @@ export function TransactionList() {
         
         const transactionsData = await transactionsResponse.json();
         setData(transactionsData);
-        setCustomers([]); // 검색 시 고객 목록은 비움
+        // 검색 시에도 고객 목록은 유지 (드롭다운 검색을 위해)
+        if (customers.length === 0) {
+          const customersResponse = await fetch('/api/customers?page=1&pageSize=1000');
+          if (customersResponse.ok) {
+            const customersData = await customersResponse.json();
+            setCustomers(customersData.data || []);
+          }
+        }
         setSummaries([]); // 검색 시 요약 데이터는 비움
       } else {
         // 일반 시: 고객 데이터와 요약 데이터만 로딩 (거래 데이터는 필요시에만)
@@ -436,6 +443,20 @@ export function TransactionList() {
   useEffect(() => {
     fetchDataCallback();
   }, [searchTerm, page, fetchDataCallback]);
+
+  // 컴포넌트 마운트 시 고객 데이터 미리 로드
+  useEffect(() => {
+    if (customers.length === 0) {
+      fetch('/api/customers?page=1&pageSize=1000')
+        .then(response => response.json())
+        .then(data => {
+          setCustomers(data.data || []);
+        })
+        .catch(error => {
+          console.error('고객 데이터 초기 로드 실패:', error);
+        });
+    }
+  }, [customers.length]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -549,8 +570,23 @@ export function TransactionList() {
                   
                   // 1자 이상 입력 시 즉시 검색 실행
                   if (value.trim().length >= 1) {
-                    performSearch(value);
-                    setIsDropdownOpen(true);
+                    // 고객 데이터가 없으면 먼저 로드
+                    if (customers.length === 0) {
+                      fetch('/api/customers?page=1&pageSize=1000')
+                        .then(response => response.json())
+                        .then(data => {
+                          setCustomers(data.data || []);
+                          // 고객 데이터 로드 후 검색 실행
+                          performSearch(value);
+                          setIsDropdownOpen(true);
+                        })
+                        .catch(error => {
+                          console.error('고객 데이터 로드 실패:', error);
+                        });
+                    } else {
+                      performSearch(value);
+                      setIsDropdownOpen(true);
+                    }
                   } else {
                     setFilteredCustomers([]);
                     setIsDropdownOpen(false);
