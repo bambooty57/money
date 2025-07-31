@@ -819,13 +819,24 @@ function PaginatedCustomerListInner({
       {/* 고객 카드 목록 (3열6행 = 18개) */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {data.data.map(customer => (
-          <div key={customer.id} className="bg-white rounded-xl shadow-lg border-2 border-gray-200 hover:shadow-xl transition-shadow duration-300 relative">
+          <div 
+            key={customer.id} 
+            className="bg-white rounded-xl shadow-lg border-2 border-gray-200 hover:shadow-xl transition-shadow duration-300 relative cursor-pointer"
+            onClick={() => {
+              // 고객 선택
+              setSelectedCustomer(customer);
+              onSelectCustomer?.(customer);
+            }}
+          >
             {/* 체크박스와 작업 버튼 */}
             <div className="absolute top-4 left-4 z-10">
               <input
                 type="checkbox"
                 checked={selectedIds.has(customer.id)}
-                onChange={e => handleCheck(customer.id, e.target.checked)}
+                onChange={e => {
+                  e.stopPropagation(); // 이벤트 전파 방지
+                  handleCheck(customer.id, e.target.checked);
+                }}
                 className="w-6 h-6 text-blue-600 rounded border-2 border-gray-300 focus:ring-2 focus:ring-blue-500"
                 title="고객 선택"
               />
@@ -834,14 +845,20 @@ function PaginatedCustomerListInner({
             {enableActions && (
               <div className="absolute top-4 right-4 z-10 flex space-x-2">
                 <button
-                  onClick={() => onEdit && onEdit(customer)}
+                  onClick={(e) => {
+                    e.stopPropagation(); // 이벤트 전파 방지
+                    if (onEdit) {
+                      onEdit(customer);
+                    }
+                  }}
                   className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors duration-200 text-base font-semibold shadow-lg"
                   title="수정"
                 >
                   ✏️ 수정
                 </button>
                 <button
-                  onClick={async () => {
+                  onClick={async (e) => {
+                    e.stopPropagation(); // 이벤트 전파 방지
                     const confirmMessage = `⚠️ 정말로 이 고객을 삭제하시겠습니까?\n\n고객명: ${customer.name}\n거래건수: ${customer.transaction_count ?? 0}건\n미수금: ${customer.total_unpaid ? customer.total_unpaid.toLocaleString() + '원' : '0원'}\n\n⚠️ 고객을 삭제하면 해당 고객의 모든 거래내역도 함께 삭제됩니다!\n이 작업은 되돌릴 수 없습니다.`;
                     
                     if (!window.confirm(confirmMessage)) return;
@@ -1060,7 +1077,10 @@ function PaginatedCustomerListInner({
                           src={photo.url}
                           alt="고객사진"
                           className="w-16 h-16 rounded-lg object-cover cursor-pointer hover:opacity-80 border-2 border-gray-300 shadow-sm"
-                          onClick={() => window.open(photo.url, '_blank')}
+                          onClick={(e) => {
+                            e.stopPropagation(); // 이벤트 전파 방지
+                            window.open(photo.url, '_blank');
+                          }}
                         />
                       ))}
                       {customer.photos.length > 4 && (
@@ -1072,6 +1092,21 @@ function PaginatedCustomerListInner({
                   ) : (
                     <span className="text-base text-gray-400">사진 없음</span>
                   )}
+                </div>
+                
+                {/* 고객 선택 버튼 */}
+                <div className="mt-4">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation(); // 이벤트 전파 방지
+                      setSelectedCustomer(customer);
+                      onSelectCustomer?.(customer);
+                    }}
+                    className="w-full px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200 text-lg font-semibold shadow-lg"
+                    title="이 고객을 SMS 발송 대상으로 선택"
+                  >
+                    ✅ 고객 선택
+                  </button>
                 </div>
               </div>
             </div>

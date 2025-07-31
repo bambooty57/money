@@ -176,14 +176,91 @@ export async function DELETE(request: Request) {
   
   const { searchParams } = new URL(request.url);
   const id = searchParams.get('id');
-  if (!id) return NextResponse.json({ error: '거래 ID가 필요합니다.' }, { status: 400 });
+  const customerId = searchParams.get('customer_id');
+  
+  if (!id && !customerId) {
+    return NextResponse.json({ error: '거래 ID 또는 고객 ID가 필요합니다.' }, { status: 400 });
+  }
 
-  // 1. files에서 해당 거래 참조 파일 먼저 삭제
-  const { error: fileError } = await authenticatedSupabase.from('files').delete().eq('transaction_id', id);
-  if (fileError) return NextResponse.json({ error: fileError.message }, { status: 500 });
-
-  // 2. 거래 삭제
-  const { error } = await authenticatedSupabase.from('transactions').delete().eq('id', id);
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ success: true });
+  try {
+    if (customerId) {
+      // 고객별 모든 거래 삭제
+      // 1. 해당 고객의 모든 거래 ID 조회
+      const { data: transactions, error: fetchError } = await authenticatedSupabase
+        .from('transactions')
+        .select('id')
+        .eq('customer_id', customerId);
+      
+      if (fetchError) return NextResponse.json({ error: fetchError.message }, { status: 500 });
+      
+      if (!transactions || transactions.length === 0) {
+        return NextResponse.json({ error: '해당 고객의 거래가 없습니다.' }, { status: 404 });
+      }
+      
+      const transactionIds = transactions.map(tx => tx.id);
+      
+      // 2. files에서 해당 거래 참조 파일 먼저 삭제
+      const { error: fileError } = await authenticatedSupabase
+        .from('files')
+        .delete()
+        .in('transaction_id', transactionIds);
+      
+      if (fileError) return NextResponse.json({ error: fileError.message }, { status: 500 });
+      
+      // 3. payments에서 해당 거래의 결제 내역 삭제
+      const { error: paymentError } = await authenticatedSupabase
+        .from('payments')
+        .delete()
+        .in('transaction_id', transactionIds);
+      
+      if (paymentError) return NextResponse.json({ error: paymentError.message }, { status: 500 });
+      
+      // 4. 거래 삭제
+      const { error } = await authenticatedSupabase
+        .from('transactions')
+        .delete()
+        .in('id', transactionIds);
+      
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+      
+      return NextResponse.json({ 
+        success: true, 
+        deletedCount: transactionIds.length 
+      });
+    } else {
+      // 단일 거래 삭제 (기존 로직)
+      if (!id) {
+        return NextResponse.json({ error: '거래 ID가 필요합니다.' }, { status: 400 });
+      }
+      
+      // 1. files에서 해당 거래 참조 파일 먼저 삭제
+      const { error: fileError } = await authenticatedSupabase
+        .from('files')
+        .delete()
+        .eq('transaction_id', id);
+      
+      if (fileError) return NextResponse.json({ error: fileError.message }, { status: 500 });
+      
+      // 2. payments에서 해당 거래의 결제 내역 삭제
+      const { error: paymentError } = await authenticatedSupabase
+        .from('payments')
+        .delete()
+        .eq('transaction_id', id);
+      
+      if (paymentError) return NextResponse.json({ error: paymentError.message }, { status: 500 });
+      
+      // 3. 거래 삭제
+      const { error } = await authenticatedSupabase
+        .from('transactions')
+        .delete()
+        .eq('id', id);
+      
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+      
+      return NextResponse.json({ success: true });
+    }
+  } catch (error) {
+    console.error('Error deleting transaction(s):', error);
+    return NextResponse.json({ error: 'Failed to delete transaction(s)' }, { status: 500 });
+  }
 } 
