@@ -322,7 +322,7 @@ export default function StatementPage() {
   // 실시간 거래/입금 구독: 선택된 고객이 있을 때만 구독
   useTransactionsRealtime({
     customerId: selectedCustomer,
-    onChange: triggerRefresh,
+    onTransactionsChange: triggerRefresh,
   });
   usePaymentsRealtime({
     customerId: selectedCustomer,

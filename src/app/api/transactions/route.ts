@@ -93,7 +93,7 @@ export async function GET(request: Request) {
       const { data: modelsTypesData } = await supabase
         .from('models_types')
         .select('id, model, type')
-        .in('id', (data || []).map(tx => tx.models_types_id).filter(Boolean));
+        .in('id', (data || []).map(tx => tx.models_types_id).filter((id): id is string => id !== null));
       
       modelsTypesMap = new Map(
         (modelsTypesData || []).map(mt => [mt.id, mt])

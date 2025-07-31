@@ -1252,7 +1252,7 @@ export default function TransactionDetailClient({ transactions, initialSelectedI
 
   // 실시간 구독: payments 테이블 변경 시 해당 고객 거래 데이터 fetch
   usePaymentsRealtime({ customerId, onPaymentsChange: fetchTransactions });
-  useTransactionsRealtime({ customerId, onChange: fetchTransactions });
+  useTransactionsRealtime({ customerId, onTransactionsChange: fetchTransactions });
 
   // refreshKey, customerId가 바뀔 때마다 fetch
   useEffect(() => {
