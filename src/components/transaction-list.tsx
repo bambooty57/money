@@ -223,7 +223,7 @@ export function TransactionList() {
     }
   }, [pageSize]);
 
-  // 간단하고 확실한 검색 함수
+  // 간단한 검색 함수 - 드롭다운용
   const performSearch = useCallback((searchTerm: string) => {
     if (searchTerm.trim().length === 0) {
       setFilteredCustomers([]);
@@ -242,6 +242,33 @@ export function TransactionList() {
     setIsDropdownOpen(results.length > 0);
     setSelectedIndex(-1);
   }, [customers]);
+
+  // 실제 검색 실행 함수 (검색 버튼용)
+  const executeSearch = useCallback((searchValue: string) => {
+    if (!searchValue.trim()) {
+      // 검색어가 없으면 전체 목록으로 복귀
+      setSearchTerm('');
+      setSearchInputValue('');
+      setIsDropdownOpen(false);
+      
+      const params = new URLSearchParams(window.location.search);
+      params.delete('search');
+      params.set('page', '1');
+      window.history.replaceState(null, '', `?${params.toString()}`);
+      return;
+    }
+    
+    // 검색 실행
+    setSearchTerm(searchValue.trim());
+    setPage(1);
+    setIsDropdownOpen(false);
+    
+    // URL 파라미터 업데이트
+    const params = new URLSearchParams(window.location.search);
+    params.set('search', searchValue.trim());
+    params.set('page', '1');
+    window.history.replaceState(null, '', `?${params.toString()}`);
+  }, []);
 
   // 키보드 네비게이션
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
@@ -264,18 +291,11 @@ export function TransactionList() {
         e.preventDefault();
         if (isDropdownOpen && selectedIndex >= 0 && filteredCustomers[selectedIndex]) {
           // 드롭다운에서 선택된 고객으로 검색
-          handleCustomerSelect(filteredCustomers[selectedIndex]);
+          executeSearch(filteredCustomers[selectedIndex].name);
+          setSearchInputValue(filteredCustomers[selectedIndex].name);
         } else if (searchInputValue.trim()) {
           // 직접 입력한 검색어로 검색 실행
-          setSearchTerm(searchInputValue.trim());
-          setPage(1);
-          setIsDropdownOpen(false);
-          
-          // URL 파라미터 업데이트
-          const params = new URLSearchParams(window.location.search);
-          params.set('search', searchInputValue.trim());
-          params.set('page', '1');
-          window.history.replaceState(null, '', `?${params.toString()}`);
+          executeSearch(searchInputValue.trim());
         }
         break;
       case 'Escape':
@@ -284,7 +304,7 @@ export function TransactionList() {
         setSelectedIndex(-1);
         break;
     }
-  }, [isDropdownOpen, filteredCustomers, selectedIndex, handleCustomerSelect, searchInputValue]);
+  }, [isDropdownOpen, filteredCustomers, selectedIndex, searchInputValue, executeSearch]);
 
   // page가 바뀌면 URL도 동기화
   useEffect(() => {
@@ -500,15 +520,10 @@ export function TransactionList() {
                   } else {
                     setFilteredCustomers([]);
                     setIsDropdownOpen(false);
-                    // 검색어 클리어 시 전체 목록으로 복귀
-                    setSearchTerm('');
-                    setPage(1);
-                    
-                    // URL 파라미터도 정리
-                    const params = new URLSearchParams(window.location.search);
-                    params.delete('search');
-                    params.set('page', '1');
-                    window.history.replaceState(null, '', `?${params.toString()}`);
+                    // 검색어 클리어 시 검색 취소
+                    if (searchTerm.trim()) {
+                      executeSearch('');
+                    }
                   }
                 }}
                 onKeyDown={handleKeyDown}
@@ -522,23 +537,23 @@ export function TransactionList() {
               <div className="absolute right-2 top-1/2 transform -translate-y-1/2 flex gap-2">
                 {searchInputValue.trim() && (
                   <button
-                    onClick={() => {
-                      // 직접 입력한 검색어로 검색 실행
-                      setSearchTerm(searchInputValue.trim());
-                      setPage(1);
-                      setIsDropdownOpen(false);
-                      
-                      // URL 파라미터 업데이트
-                      const params = new URLSearchParams(window.location.search);
-                      params.set('search', searchInputValue.trim());
-                      params.set('page', '1');
-                      window.history.replaceState(null, '', `?${params.toString()}`);
-                    }}
+                    onClick={() => executeSearch(searchInputValue.trim())}
                     className="px-3 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors duration-200 text-sm font-semibold shadow-sm border border-blue-600"
                     title="검색 실행"
                   >
                     <span className="flex items-center gap-1 whitespace-nowrap">
                       🔍 검색
+                    </span>
+                  </button>
+                )}
+                {searchTerm.trim() && (
+                  <button
+                    onClick={() => executeSearch('')}
+                    className="px-3 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors duration-200 text-sm font-semibold shadow-sm border border-gray-600"
+                    title="검색 취소"
+                  >
+                    <span className="flex items-center gap-1 whitespace-nowrap">
+                      ❌ 취소
                     </span>
                   </button>
                 )}
@@ -828,17 +843,7 @@ export function TransactionList() {
                     <div className="mb-2">🔍 &quot;{searchTerm}&quot; 고객의 거래를 찾을 수 없습니다.</div>
                     <div className="text-base text-gray-400 mb-4">다른 고객을 검색해보세요.</div>
                     <button
-                      onClick={() => {
-                        setSearchInputValue('');
-                        setSearchTerm('');
-                        setPage(1);
-                        
-                        // URL 파라미터도 정리
-                        const params = new URLSearchParams(window.location.search);
-                        params.delete('search');
-                        params.delete('page');
-                        window.history.replaceState(null, '', `?${params.toString()}`);
-                      }}
+                      onClick={() => executeSearch('')}
                       className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors duration-200 text-base font-semibold"
                     >
                       🔄 전체 고객 목록으로 돌아가기
