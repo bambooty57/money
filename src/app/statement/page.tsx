@@ -318,10 +318,17 @@ export default function StatementPage() {
     console.log('📊 StatementPage: Fetching data for customer:', selectedCustomer, 'refreshKey:', refreshKey);
     setLoading(true);
     
-    // 고객 상세 정보와 거래내역을 병렬로 가져오기 (응답이 ok일 때만 .json() 호출)
+    // 고객 상세 정보와 거래내역을 병렬로 가져오기 (캐시 무효화 포함)
+    const timestamp = Date.now();
     Promise.all([
-      fetch(`/api/customers/${selectedCustomer}`).then(async res => res.ok ? res.json() : null),
-      fetch(`/api/customers/${selectedCustomer}/summary`).then(async res => res.ok ? res.json() : { transactions: [], supplier: {} })
+      fetch(`/api/customers/${selectedCustomer}?t=${timestamp}`, { 
+        cache: 'no-store',
+        headers: { 'Cache-Control': 'no-cache' }
+      }).then(async res => res.ok ? res.json() : null),
+      fetch(`/api/customers/${selectedCustomer}/summary?t=${timestamp}`, { 
+        cache: 'no-store',
+        headers: { 'Cache-Control': 'no-cache' }
+      }).then(async res => res.ok ? res.json() : { transactions: [], supplier: {} })
     ])
     .then(([customerResponse, summaryResponse]) => {
       let customerObj = customerResponse;
@@ -341,19 +348,31 @@ export default function StatementPage() {
   useTransactionsRealtime({
     onTransactionsChange: useCallback(() => {
       console.log('🔄 StatementPage: Transaction change detected, refreshing ALL data');
-      triggerRefresh();
+      // 500ms 지연 후 갱신 (데이터베이스 반영 대기)
+      setTimeout(() => {
+        console.log('⏰ Delayed refresh after transaction change');
+        triggerRefresh();
+      }, 500);
     }, [triggerRefresh]),
   });
   usePaymentsRealtime({
     onPaymentsChange: useCallback(() => {
       console.log('💸 StatementPage: Payment change detected, refreshing ALL data');
-      triggerRefresh();
+      // 500ms 지연 후 갱신 (데이터베이스 반영 대기)
+      setTimeout(() => {
+        console.log('⏰ Delayed refresh after payment change');
+        triggerRefresh();
+      }, 500);
     }, [triggerRefresh]),
   });
   useCustomersRealtime({
     onChange: useCallback(() => {
       console.log('👤 StatementPage: Customer change detected, refreshing ALL data');
-      triggerRefresh();
+      // 500ms 지연 후 갱신 (데이터베이스 반영 대기)
+      setTimeout(() => {
+        console.log('⏰ Delayed refresh after customer change');
+        triggerRefresh();
+      }, 500);
     }, [triggerRefresh]),
   });
 
