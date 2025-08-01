@@ -67,7 +67,7 @@ export function useTransactionsRealtime({
           .on(
             'postgres_changes',
             { event: '*', schema: 'public', table: 'transactions' },
-            (payload) => {
+            (payload: any) => {
               console.log('📥 Transactions change detected:', payload.eventType, payload.new?.id || payload.old?.id);
               smartRefresh();
             }
@@ -75,7 +75,7 @@ export function useTransactionsRealtime({
           .on(
             'postgres_changes',
             { event: '*', schema: 'public', table: 'payments' },
-            (payload) => {
+            (payload: any) => {
               console.log('💸 Payments change detected:', payload.eventType, payload.new?.id || payload.old?.id);
               smartRefresh();
             }
@@ -83,7 +83,7 @@ export function useTransactionsRealtime({
           .on(
             'postgres_changes',
             { event: '*', schema: 'public', table: 'customers' },
-            (payload) => {
+            (payload: any) => {
               console.log('👤 Customers change detected:', payload.eventType, payload.new?.id || payload.old?.id);
               smartRefresh();
             }
