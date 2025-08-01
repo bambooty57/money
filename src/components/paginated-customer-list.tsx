@@ -145,10 +145,11 @@ function CustomerDetailModal({ customer, open, onClose }: { customer: any, open:
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {customer.mobile && (
                 <div>
-                  <span className="text-sm font-semibold text-indigo-700 block mb-1">휴대폰</span>
+                  <span className="text-sm font-semibold text-indigo-700 block mb-2">휴대폰</span>
                   <a
                     href={`tel:${customer.mobile.replace(/[^0-9]/g, '')}`}
-                    className="text-lg text-indigo-600 underline hover:text-indigo-800 font-medium"
+                    className="inline-block px-4 py-2 bg-indigo-100 border-2 border-indigo-300 rounded-lg text-lg font-bold text-indigo-700 hover:bg-indigo-200 hover:border-indigo-500 transition-all duration-200 shadow-md hover:shadow-lg"
+                    title="📞 터치하여 전화 걸기"
                   >
                     {customer.mobile}
                   </a>
@@ -156,10 +157,11 @@ function CustomerDetailModal({ customer, open, onClose }: { customer: any, open:
               )}
               {customer.phone && (
                 <div>
-                  <span className="text-sm font-semibold text-indigo-700 block mb-1">일반전화</span>
+                  <span className="text-sm font-semibold text-indigo-700 block mb-2">일반전화</span>
                   <a
                     href={`tel:${customer.phone.replace(/[^0-9]/g, '')}`}
-                    className="text-lg text-indigo-600 underline hover:text-indigo-800 font-medium"
+                    className="inline-block px-4 py-2 bg-indigo-100 border-2 border-indigo-300 rounded-lg text-lg font-bold text-indigo-700 hover:bg-indigo-200 hover:border-indigo-500 transition-all duration-200 shadow-md hover:shadow-lg"
+                    title="📞 터치하여 전화 걸기"
                   >
                     {customer.phone}
                   </a>
@@ -991,10 +993,11 @@ function PaginatedCustomerListInner({
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {customer.mobile && (
                     <div>
-                      <span className="text-sm font-semibold text-indigo-700 block mb-1">📱 휴대폰</span>
+                      <span className="text-sm font-semibold text-indigo-700 block mb-2">📱 휴대폰</span>
                       <a
                         href={`tel:${customer.mobile.replace(/[^0-9]/g, '')}`}
-                        className="text-lg text-indigo-600 underline hover:text-indigo-800 font-medium"
+                        className="inline-block px-3 py-2 bg-indigo-100 border-2 border-indigo-300 rounded-lg text-base font-bold text-indigo-700 hover:bg-indigo-200 hover:border-indigo-500 transition-all duration-200 shadow-sm hover:shadow-md"
+                        title="📞 터치하여 전화 걸기"
                       >
                         {customer.mobile}
                       </a>
@@ -1002,10 +1005,11 @@ function PaginatedCustomerListInner({
                   )}
                   {customer.phone && (
                     <div>
-                      <span className="text-sm font-semibold text-indigo-700 block mb-1">☎️ 일반전화</span>
+                      <span className="text-sm font-semibold text-indigo-700 block mb-2">☎️ 일반전화</span>
                       <a
                         href={`tel:${customer.phone.replace(/[^0-9]/g, '')}`}
-                        className="text-lg text-indigo-600 underline hover:text-indigo-800 font-medium"
+                        className="inline-block px-3 py-2 bg-indigo-100 border-2 border-indigo-300 rounded-lg text-base font-bold text-indigo-700 hover:bg-indigo-200 hover:border-indigo-500 transition-all duration-200 shadow-sm hover:shadow-md"
+                        title="📞 터치하여 전화 걸기"
                       >
                         {customer.phone}
                       </a>

@@ -266,44 +266,44 @@ export default function DashboardPage() {
         </div>
 
         {/* KPI 카드들 */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <div className="bg-blue-50 p-8 rounded-lg shadow-lg border-2 border-blue-200">
-            <div className="flex items-center gap-3 mb-4">
-              <span className="text-4xl">💰</span>
-              <h3 className="text-xl font-bold text-blue-700">총 미수금</h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-8">
+          <div className="bg-blue-50 p-4 md:p-8 rounded-lg shadow-lg border-2 border-blue-200">
+            <div className="flex items-center gap-2 md:gap-3 mb-3 md:mb-4">
+              <span className="text-2xl md:text-4xl">💰</span>
+              <h3 className="text-lg md:text-xl font-bold text-blue-700">총 미수금</h3>
             </div>
-            <p className="text-3xl font-bold text-blue-600">
+            <p className="text-xl md:text-3xl font-bold text-blue-600">
               {new Intl.NumberFormat('ko-KR', { style: 'currency', currency: 'KRW' }).format(data.totalUnpaid)}
             </p>
           </div>
-          <div className="bg-green-50 p-8 rounded-lg shadow-lg border-2 border-green-200">
-            <div className="flex items-center gap-3 mb-4">
-              <span className="text-4xl">👥</span>
-              <h3 className="text-xl font-bold text-green-700">상위 고객 (10명)</h3>
+          <div className="bg-green-50 p-4 md:p-8 rounded-lg shadow-lg border-2 border-green-200">
+            <div className="flex items-center gap-2 md:gap-3 mb-3 md:mb-4">
+              <span className="text-2xl md:text-4xl">👥</span>
+              <h3 className="text-lg md:text-xl font-bold text-green-700">상위 고객 (10명)</h3>
             </div>
-            <p className="text-3xl font-bold text-green-600">₩{data.topCustomers.slice(0, 10).reduce((sum, c) => sum + (c.unpaidAmount || 0), 0).toLocaleString()}</p>
+            <p className="text-xl md:text-3xl font-bold text-green-600">₩{data.topCustomers.slice(0, 10).reduce((sum, c) => sum + (c.unpaidAmount || 0), 0).toLocaleString()}</p>
           </div>
-          <div className="bg-yellow-50 p-8 rounded-lg shadow-lg border-2 border-yellow-200">
-            <div className="flex items-center gap-3 mb-4">
-              <span className="text-4xl">📅</span>
-              <h3 className="text-xl font-bold text-yellow-700">이번달 예정</h3>
+          <div className="bg-yellow-50 p-4 md:p-8 rounded-lg shadow-lg border-2 border-yellow-200">
+            <div className="flex items-center gap-2 md:gap-3 mb-3 md:mb-4">
+              <span className="text-2xl md:text-4xl">📅</span>
+              <h3 className="text-lg md:text-xl font-bold text-yellow-700">이번달 예정</h3>
             </div>
-            <p className="text-3xl font-bold text-yellow-600">{(data as any).dueThisMonth?.length || 0}건</p>
+            <p className="text-xl md:text-3xl font-bold text-yellow-600">{(data as any).dueThisMonth?.length || 0}건</p>
             {/* 총 미수금액 표시 */}
-            <p className="text-xl font-bold text-yellow-700 mt-2">
+            <p className="text-base md:text-xl font-bold text-yellow-700 mt-2">
               {((data as any).dueThisMonth && (data as any).dueThisMonth.length > 0)
                 ? '₩' + (data as any).dueThisMonth.reduce((sum: number, tx: any) => sum + (tx.unpaid_amount || 0), 0).toLocaleString()
                 : '₩0'}
             </p>
           </div>
-          <div className="bg-red-50 p-8 rounded-lg shadow-lg border-2 border-red-200">
-            <div className="flex items-center gap-3 mb-4">
-              <span className="text-4xl">⚠️</span>
-              <h3 className="text-xl font-bold text-red-700">연체 거래</h3>
+          <div className="bg-red-50 p-4 md:p-8 rounded-lg shadow-lg border-2 border-red-200">
+            <div className="flex items-center gap-2 md:gap-3 mb-3 md:mb-4">
+              <span className="text-2xl md:text-4xl">⚠️</span>
+              <h3 className="text-lg md:text-xl font-bold text-red-700">연체 거래</h3>
             </div>
-            <p className="text-3xl font-bold text-red-600">{(data as any).overdueTxs?.length || 0}건</p>
+            <p className="text-xl md:text-3xl font-bold text-red-600">{(data as any).overdueTxs?.length || 0}건</p>
             {/* 총 미수금액 표시 */}
-            <p className="text-xl font-bold text-red-700 mt-2">
+            <p className="text-base md:text-xl font-bold text-red-700 mt-2">
               {((data as any).overdueTxs && (data as any).overdueTxs.length > 0)
                 ? '₩' + (data as any).overdueTxs.reduce((sum: number, tx: any) => sum + (tx.unpaid_amount || 0), 0).toLocaleString()
                 : '₩0'}
@@ -312,13 +312,14 @@ export default function DashboardPage() {
         </div>
 
         {/* 차트 영역 */}
-        <div className="bg-white p-8 rounded-lg shadow-lg border-2 border-gray-200">
-            <h3 className="text-2xl font-bold mb-6 text-gray-800 flex items-center gap-2">
+        <div className="bg-white p-4 md:p-8 rounded-lg shadow-lg border-2 border-gray-200">
+            <h3 className="text-xl md:text-2xl font-bold mb-4 md:mb-6 text-gray-800 flex items-center gap-2">
               👑 상위 미수금 고객
             </h3>
             {/* 총 미수금액 표시 */}
-            <div className="mb-4 text-2xl font-extrabold text-blue-700 flex items-center gap-2">
-              💰 총 미수금액: <span className="text-3xl text-red-600">₩{data.topCustomers.reduce((sum, c) => sum + (c.unpaidAmount || 0), 0).toLocaleString()}</span>
+            <div className="mb-4 text-lg md:text-2xl font-extrabold text-blue-700 flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
+              <span>💰 총 미수금액:</span>
+              <span className="text-xl md:text-3xl text-red-600">₩{data.topCustomers.reduce((sum, c) => sum + (c.unpaidAmount || 0), 0).toLocaleString()}</span>
             </div>
             <Bar
               data={{
@@ -369,27 +370,27 @@ export default function DashboardPage() {
           </div>
 
         {/* 상위 고객 상세 테이블 */}
-        <div className="bg-white p-8 rounded-lg shadow-lg border-2 border-gray-200 mb-8">
-          <h3 className="text-2xl font-bold mb-6 text-gray-800 flex items-center gap-2">
+        <div className="bg-white p-4 md:p-8 rounded-lg shadow-lg border-2 border-gray-200 mb-8">
+          <h3 className="text-xl md:text-2xl font-bold mb-4 md:mb-6 text-gray-800 flex items-center gap-2">
             📋 상위 고객 상세 정보
           </h3>
-          <div className="overflow-x-auto">
-            <table className="w-full text-lg border-collapse">
+          <div className="overflow-x-auto -mx-4 md:mx-0">
+            <table className="w-full text-sm md:text-lg border-collapse min-w-[800px]">
               <thead>
                 <tr className="bg-blue-100 border-b-2 border-blue-200">
-                  <th className="border border-gray-300 px-6 py-4 font-bold text-gray-800">👤 이름</th>
-                  <th className="border border-gray-300 px-6 py-4 font-bold text-gray-800">🏷️ 고객유형</th>
-                  <th className="border border-gray-300 px-6 py-4 font-bold text-gray-800">📍 주소</th>
-                  <th className="border border-gray-300 px-6 py-4 font-bold text-gray-800">📷 사진</th>
-                  <th className="border border-gray-300 px-6 py-4 font-bold text-gray-800">💰 미수금액</th>
+                  <th className="border border-gray-300 px-2 md:px-6 py-2 md:py-4 font-bold text-gray-800">👤 이름</th>
+                  <th className="border border-gray-300 px-2 md:px-6 py-2 md:py-4 font-bold text-gray-800">🏷️ 고객유형</th>
+                  <th className="border border-gray-300 px-2 md:px-6 py-2 md:py-4 font-bold text-gray-800">📍 주소</th>
+                  <th className="border border-gray-300 px-2 md:px-6 py-2 md:py-4 font-bold text-gray-800">📷 사진</th>
+                  <th className="border border-gray-300 px-2 md:px-6 py-2 md:py-4 font-bold text-gray-800">💰 미수금액</th>
                 </tr>
               </thead>
               <tbody>
                 {data.topCustomers.map((customer: any) => (
                   <tr key={customer.id} className="hover:bg-blue-50 border-b border-gray-200">
-                    <td className="border border-gray-300 px-6 py-4 font-semibold">{customer.name}</td>
-                    <td className="border border-gray-300 px-6 py-4">{Array.isArray(customer.customer_type_multi) && customer.customer_type_multi.length > 0 ? customer.customer_type_multi.join(', ') : customer.customer_type || '-'}</td>
-                    <td className="border border-gray-300 px-6 py-4">
+                    <td className="border border-gray-300 px-2 md:px-6 py-2 md:py-4 font-semibold">{customer.name}</td>
+                    <td className="border border-gray-300 px-2 md:px-6 py-2 md:py-4">{Array.isArray(customer.customer_type_multi) && customer.customer_type_multi.length > 0 ? customer.customer_type_multi.join(', ') : customer.customer_type || '-'}</td>
+                    <td className="border border-gray-300 px-2 md:px-6 py-2 md:py-4">
                       <div className="space-y-1">
                         {customer.address_road && (
                           <div>
@@ -430,9 +431,9 @@ export default function DashboardPage() {
                         )}
                       </div>
                     </td>
-                    <td className="border border-gray-300 px-6 py-4">
+                    <td className="border border-gray-300 px-2 md:px-6 py-2 md:py-4">
                       {customer.photos && customer.photos.length > 0 ? (
-                        <div className="flex space-x-2">
+                        <div className="flex space-x-1 md:space-x-2">
                           {customer.photos.slice(0, 3).map((photo: any, idx: number) => (
                             <button
                               key={idx}
@@ -448,21 +449,21 @@ export default function DashboardPage() {
                               <img
                                 src={photo.url}
                                 alt="고객사진"
-                                className="w-12 h-12 rounded-lg object-cover border-2 border-gray-300 cursor-pointer hover:border-blue-400 hover:shadow-lg transition-all duration-200"
+                                className="w-8 md:w-12 h-8 md:h-12 rounded-lg object-cover border-2 border-gray-300 cursor-pointer hover:border-blue-400 hover:shadow-lg transition-all duration-200"
                               />
                             </button>
                           ))}
                           {customer.photos.length > 3 && (
-                            <div className="w-12 h-12 rounded-lg border-2 border-gray-300 bg-gray-100 flex items-center justify-center">
+                            <div className="w-8 md:w-12 h-8 md:h-12 rounded-lg border-2 border-gray-300 bg-gray-100 flex items-center justify-center">
                               <span className="text-xs text-gray-600 font-bold">+{customer.photos.length - 3}</span>
                             </div>
                           )}
                         </div>
                       ) : (
-                        <span className="text-gray-400 text-lg">-</span>
+                        <span className="text-gray-400 text-sm md:text-lg">-</span>
                       )}
                     </td>
-                    <td className="border border-gray-300 px-6 py-4 text-right font-bold text-red-600 text-xl">{customer.unpaidAmount.toLocaleString()}원</td>
+                    <td className="border border-gray-300 px-2 md:px-6 py-2 md:py-4 text-right font-bold text-red-600 text-base md:text-xl">{customer.unpaidAmount.toLocaleString()}원</td>
                   </tr>
                 ))}
               </tbody>

@@ -59,14 +59,16 @@ export default function CustomersPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       <ScrollToTop />
-      <div className="max-w-screen-2xl mx-auto px-8 py-8">
-        <div className="flex justify-between items-center mb-8">
-          <h1 className="text-3xl md:text-4xl font-bold text-gray-800 flex items-center gap-3">
+      <div className="max-w-screen-2xl mx-auto px-4 md:px-8 py-4 md:py-8">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 md:mb-8">
+          <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold text-gray-800 flex items-center gap-3">
             👥 고객 관리
           </h1>
-          <div className="flex space-x-4">
-            <Button onClick={handleNew} size="lg" className="text-xl px-8 py-4 bg-blue-600 hover:bg-blue-700 rounded-lg shadow-lg flex items-center gap-2">
-              <PlusCircle className="mr-2 h-6 w-6" /> 신규 고객 추가
+          <div className="flex space-x-2 md:space-x-4 w-full sm:w-auto">
+            <Button onClick={handleNew} size="lg" className="text-base md:text-xl px-4 md:px-8 py-3 md:py-4 bg-blue-600 hover:bg-blue-700 rounded-lg shadow-lg flex items-center gap-2 flex-1 sm:flex-none">
+              <PlusCircle className="mr-1 md:mr-2 h-5 md:h-6 w-5 md:w-6" />
+              <span className="hidden sm:inline">신규 고객 추가</span>
+              <span className="sm:hidden">추가</span>
             </Button>
           </div>
         </div>

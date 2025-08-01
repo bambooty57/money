@@ -6,7 +6,7 @@ import type { Database } from '@/types/database';
 import { smsTemplates } from '@/types/sms';
 import type { SmsTemplateCategory, SmsTemplateKey } from '@/types/sms';
 import clsx from 'clsx';
-import { Copy } from 'lucide-react';
+import { Copy, MessageSquare } from 'lucide-react';
 
 interface SmsSenderProps {
   selectedCustomer?: Customer | null;
@@ -65,6 +65,23 @@ export default function SmsSender({ selectedCustomer, onSuccess }: SmsSenderProp
     setTimeout(() => setCopied(false), 1500);
   };
 
+  const handleSms = () => {
+    if (!message || !selectedCustomer) return;
+    
+    // 전화번호 추출 (mobile 우선, 없으면 phone)
+    const phoneNumber = selectedCustomer.mobile || selectedCustomer.phone;
+    if (!phoneNumber) return;
+    
+    // 전화번호에서 숫자만 추출
+    const cleanNumber = phoneNumber.replace(/[^0-9]/g, '');
+    
+    // SMS URL scheme 생성
+    const smsUrl = `sms:${cleanNumber}?body=${encodeURIComponent(message)}`;
+    
+    // SMS 앱 열기
+    window.location.href = smsUrl;
+  };
+
   // 카테고리별 템플릿 목록
   const templateOptions = category ? Object.entries(smsTemplates[category as SmsTemplateCategory]) : [];
   // 디버깅용
@@ -79,13 +96,36 @@ export default function SmsSender({ selectedCustomer, onSuccess }: SmsSenderProp
         <label className="block text-xl font-bold text-gray-800 mb-4">📱 수신자 선택</label>
         <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-6">
           {selectedCustomer ? (
-            <div className="flex items-center space-x-4">
-              <div className="w-4 h-4 bg-green-500 rounded-full"></div>
-              <div>
-                <div className="text-lg font-semibold text-gray-800">{selectedCustomer.name}</div>
-                <div className="text-base text-gray-600">
-                  📞 {selectedCustomer.mobile || selectedCustomer.phone || '연락처 없음'} | 
-                  💰 미수금: {selectedCustomer.total_unpaid?.toLocaleString() || '0'}원
+            <div className="flex items-start space-x-4">
+              <div className="w-6 h-6 bg-green-500 rounded-full mt-1"></div>
+              <div className="flex-1">
+                <div className="text-xl font-bold text-gray-800 mb-2">{selectedCustomer.name}</div>
+                <div className="space-y-2">
+                  {/* 전화번호 영역 */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg font-semibold text-gray-700">📞</span>
+                    {selectedCustomer.mobile || selectedCustomer.phone ? (
+                      <a
+                        href={`tel:${(selectedCustomer.mobile || selectedCustomer.phone)?.replace(/[^0-9]/g, '')}`}
+                        className="inline-block px-4 py-2 bg-blue-100 border-2 border-blue-300 rounded-lg text-lg font-bold text-blue-700 hover:bg-blue-200 hover:border-blue-500 transition-all duration-200 shadow-md hover:shadow-lg"
+                        title="📞 터치하여 전화 걸기"
+                      >
+                        {selectedCustomer.mobile || selectedCustomer.phone}
+                      </a>
+                    ) : (
+                      <span className="px-4 py-2 bg-gray-100 border-2 border-gray-300 rounded-lg text-lg font-medium text-gray-400">
+                        연락처 없음
+                      </span>
+                    )}
+                  </div>
+                  
+                  {/* 미수금 영역 */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg font-semibold text-gray-700">💰</span>
+                    <span className="text-lg font-semibold text-gray-700">
+                      미수금: {selectedCustomer.total_unpaid?.toLocaleString() || '0'}원
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -151,7 +191,7 @@ export default function SmsSender({ selectedCustomer, onSuccess }: SmsSenderProp
           ))}
         </div>
       </div>
-      {/* 메시지 입력 및 복사 */}
+      {/* 메시지 입력 및 액션 버튼 */}
       <div>
         <label className="block text-xl font-bold text-gray-800 mb-4">✉️ 메시지 내용</label>
         <div className="relative">
@@ -159,17 +199,43 @@ export default function SmsSender({ selectedCustomer, onSuccess }: SmsSenderProp
             value={message}
             onChange={e => setMessage(e.target.value)}
             rows={8}
-            className="block w-full rounded-xl border-2 border-gray-300 shadow-lg focus:border-blue-500 focus:ring-blue-500 pr-16 p-4 text-lg leading-relaxed resize-none"
+            className="block w-full rounded-xl border-2 border-gray-300 shadow-lg focus:border-blue-500 focus:ring-blue-500 pr-32 p-4 text-lg leading-relaxed resize-none"
             placeholder="메시지 내용을 입력하거나 위에서 템플릿을 선택하세요..."
           />
-          <button
-            type="button"
-            onClick={handleCopy}
-            className="absolute top-4 right-4 p-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors shadow-md"
-            title="메시지 복사"
-          >
-            <Copy size={20} />
-          </button>
+          
+          {/* 액션 버튼들 */}
+          <div className="absolute top-4 right-4 flex gap-2">
+            {/* 복사 버튼 */}
+            <button
+              type="button"
+              onClick={handleCopy}
+              className="p-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors shadow-md"
+              title="메시지 복사"
+            >
+              <Copy size={20} />
+            </button>
+            
+            {/* 문자보내기 버튼 */}
+            <button
+              type="button"
+              onClick={handleSms}
+              disabled={!message || !selectedCustomer || !(selectedCustomer.mobile || selectedCustomer.phone)}
+              className={clsx(
+                "p-3 rounded-lg transition-colors shadow-md",
+                !message || !selectedCustomer || !(selectedCustomer.mobile || selectedCustomer.phone)
+                  ? "bg-gray-400 text-gray-200 cursor-not-allowed"
+                  : "bg-green-500 text-white hover:bg-green-600"
+              )}
+              title={
+                !selectedCustomer ? "고객을 선택하세요" :
+                !(selectedCustomer.mobile || selectedCustomer.phone) ? "고객의 전화번호가 없습니다" :
+                !message ? "메시지를 입력하세요" :
+                "문자 보내기"
+              }
+            >
+              <MessageSquare size={20} />
+            </button>
+          </div>
         </div>
         {copied && (
           <div className="bg-green-50 border-2 border-green-200 rounded-lg p-3 mt-3">
