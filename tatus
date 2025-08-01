@@ -1,0 +1,159 @@
+[1mdiff --git a/src/components/transaction-list.tsx b/src/components/transaction-list.tsx[m
+[1mindex 003627b..052ef51 100644[m
+[1m--- a/src/components/transaction-list.tsx[m
+[1m+++ b/src/components/transaction-list.tsx[m
+[36m@@ -223,7 +223,7 @@[m [mexport function TransactionList() {[m
+     }[m
+   }, [pageSize]);[m
+ [m
+[31m-  // 간단하고 확실한 검색 함수[m
+[32m+[m[32m  // 간단한 검색 함수 - 드롭다운용[m
+   const performSearch = useCallback((searchTerm: string) => {[m
+     if (searchTerm.trim().length === 0) {[m
+       setFilteredCustomers([]);[m
+[36m@@ -243,6 +243,33 @@[m [mexport function TransactionList() {[m
+     setSelectedIndex(-1);[m
+   }, [customers]);[m
+ [m
+[32m+[m[32m  // 실제 검색 실행 함수 (검색 버튼용)[m
+[32m+[m[32m  const executeSearch = useCallback((searchValue: string) => {[m
+[32m+[m[32m    if (!searchValue.trim()) {[m
+[32m+[m[32m      // 검색어가 없으면 전체 목록으로 복귀[m
+[32m+[m[32m      setSearchTerm('');[m
+[32m+[m[32m      setSearchInputValue('');[m
+[32m+[m[32m      setIsDropdownOpen(false);[m
+[32m+[m[41m      [m
+[32m+[m[32m      const params = new URLSearchParams(window.location.search);[m
+[32m+[m[32m      params.delete('search');[m
+[32m+[m[32m      params.set('page', '1');[m
+[32m+[m[32m      window.history.replaceState(null, '', `?${params.toString()}`);[m
+[32m+[m[32m      return;[m
+[32m+[m[32m    }[m
+[32m+[m[41m    [m
+[32m+[m[32m    // 검색 실행[m
+[32m+[m[32m    setSearchTerm(searchValue.trim());[m
+[32m+[m[32m    setPage(1);[m
+[32m+[m[32m    setIsDropdownOpen(false);[m
+[32m+[m[41m    [m
+[32m+[m[32m    // URL 파라미터 업데이트[m
+[32m+[m[32m    const params = new URLSearchParams(window.location.search);[m
+[32m+[m[32m    params.set('search', searchValue.trim());[m
+[32m+[m[32m    params.set('page', '1');[m
+[32m+[m[32m    window.history.replaceState(null, '', `?${params.toString()}`);[m
+[32m+[m[32m  }, []);[m
+[32m+[m
+   // 키보드 네비게이션[m
+   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {[m
+     switch (e.key) {[m
+[36m@@ -264,18 +291,11 @@[m [mexport function TransactionList() {[m
+         e.preventDefault();[m
+         if (isDropdownOpen && selectedIndex >= 0 && filteredCustomers[selectedIndex]) {[m
+           // 드롭다운에서 선택된 고객으로 검색[m
+[31m-          handleCustomerSelect(filteredCustomers[selectedIndex]);[m
+[32m+[m[32m          executeSearch(filteredCustomers[selectedIndex].name);[m
+[32m+[m[32m          setSearchInputValue(filteredCustomers[selectedIndex].name);[m
+         } else if (searchInputValue.trim()) {[m
+           // 직접 입력한 검색어로 검색 실행[m
+[31m-          setSearchTerm(searchInputValue.trim());[m
+[31m-          setPage(1);[m
+[31m-          setIsDropdownOpen(false);[m
+[31m-          [m
+[31m-          // URL 파라미터 업데이트[m
+[31m-          const params = new URLSearchParams(window.location.search);[m
+[31m-          params.set('search', searchInputValue.trim());[m
+[31m-          params.set('page', '1');[m
+[31m-          window.history.replaceState(null, '', `?${params.toString()}`);[m
+[32m+[m[32m          executeSearch(searchInputValue.trim());[m
+         }[m
+         break;[m
+       case 'Escape':[m
+[36m@@ -284,7 +304,7 @@[m [mexport function TransactionList() {[m
+         setSelectedIndex(-1);[m
+         break;[m
+     }[m
+[31m-  }, [isDropdownOpen, filteredCustomers, selectedIndex, handleCustomerSelect, searchInputValue]);[m
+[32m+[m[32m  }, [isDropdownOpen, filteredCustomers, selectedIndex, searchInputValue, executeSearch]);[m
+ [m
+   // page가 바뀌면 URL도 동기화[m
+   useEffect(() => {[m
+[36m@@ -409,8 +429,48 @@[m [mexport function TransactionList() {[m
+     }[m
+   }, [summaries, searchTerm, page, pageSize]);[m
+ [m
+[32m+[m[32m  // 검색된 고객별 요약 데이터 계산[m
+[32m+[m[32m  const searchedCustomerSummaries = useMemo(() => {[m
+[32m+[m[32m    if (!searchTerm.trim() || !data?.data) {[m
+[32m+[m[32m      return [];[m
+[32m+[m[32m    }[m
+[32m+[m
+[32m+[m[32m    // 검색된 거래에서 고객별로 그룹화[m
+[32m+[m[32m    const customerGroups = data.data.reduce((groups: { [key: string]: (typeof data.data)[0][] }, transaction) => {[m
+[32m+[m[32m      const customerId = transaction.customers?.id;[m
+[32m+[m[32m      if (customerId) {[m
+[32m+[m[32m        if (!groups[customerId]) {[m
+[32m+[m[32m          groups[customerId] = [];[m
+[32m+[m[32m        }[m
+[32m+[m[32m        groups[customerId].push(transaction);[m
+[32m+[m[32m      }[m
+[32m+[m[32m      return groups;[m
+[32m+[m[32m    }, {});[m
+[32m+[m
+[32m+[m[32m    // 고객별 요약 정보 생성[m
+[32m+[m[32m    return Object.entries(customerGroups).map(([customerId, transactions]) => {[m
+[32m+[m[32m      const customer = transactions[0]?.customers;[m
+[32m+[m[32m      const totalAmount = transactions.reduce((sum, t) => sum + (t.amount || 0), 0);[m
+[32m+[m[32m      const totalPaid = transactions.reduce((sum, t) => sum + (t.payment_amount || 0), 0);[m
+[32m+[m[32m      const totalUnpaid = totalAmount - totalPaid;[m
+[32m+[m[32m      const paymentRatio = totalAmount > 0 ? Math.round((totalPaid / totalAmount) * 100) : 0;[m
+[32m+[m
+[32m+[m[32m      return {[m
+[32m+[m[32m        customer_id: customerId,[m
+[32m+[m[32m        customer_name: customer?.name || '고객정보 없음',[m
+[32m+[m[32m        customer_mobile: customer?.mobile || '',[m
+[32m+[m[32m        transaction_count: transactions.length,[m
+[32m+[m[32m        total_amount: totalAmount,[m
+[32m+[m[32m        total_paid: totalPaid,[m
+[32m+[m[32m        total_unpaid: totalUnpaid,[m
+[32m+[m[32m        payment_ratio: paymentRatio,[m
+[32m+[m[32m        customers: customer[m
+[32m+[m[32m      };[m
+[32m+[m[32m    });[m
+[32m+[m[32m  }, [searchTerm, data]);[m
+[32m+[m
+   // 전체 집계 데이터 계산[m
+[31m-  const totalCount = searchTerm.trim() ? (data?.data?.length || 0) : summaries.length;[m
+[32m+[m[32m  const totalCount = searchTerm.trim() ? searchedCustomerSummaries.length : summaries.length;[m
+   const totalCustomerCount = customers.length;[m
+   const totalSales = globalSummary?.total_amount || 0;[m
+   const totalPaid = globalSummary?.total_paid || 0;[m
+[36m@@ -460,15 +520,10 @@[m [mexport function TransactionList() {[m
+                   } else {[m
+                     setFilteredCustomers([]);[m
+                     setIsDropdownOpen(false);[m
+[31m-                    // 검색어 클리어 시 전체 목록으로 복귀[m
+[31m-                    setSearchTerm('');[m
+[31m-                    setPage(1);[m
+[31m-                    [m
+[31m-                    // URL 파라미터도 정리[m
+[31m-                    const params = new URLSearchParams(window.location.search);[m
+[31m-                    params.delete('search');[m
+[31m-                    params.set('page', '1');[m
+[31m-                    window.history.replaceState(null, '', `?${params.toString()}`);[m
+[32m+[m[32m                    // 검색어 클리어 시 검색 취소[m
+[32m+[m[32m                    if (searchTerm.trim()) {[m
+[32m+[m[32m                      executeSearch('');[m
+[32m+[m[32m                    }[m
+                   }[m
+                 }}[m
+                 onKeyDown={handleKeyDown}[m
+[36m@@ -482,18 +537,7 @@[m [mexport function TransactionList() {[m
+               <div className="absolute right-2 top-1/2 transform -translate-y-1/2 flex gap-2">[m
+                 {searchInputValue.trim() && ([m
+                   <button[m
+[31m-                    onClick={() => {[m
+[31m-                      // 직접 입력한 검색어로 검색 실행[m
+[31m-                      setSearchTerm(searchInputValue.trim());[m
+[31m-                      setPage(1);[m
+[31m-                      setIsDropdownOpen(false);[m
+[31m-                      [m
+[
