@@ -118,6 +118,7 @@ export function useTransactionsRealtime({
           }
         };
       } catch (error) {
+        console.error('❌ Realtime connection setup error:', error);
         setConnectionStatus('disconnected');
         return () => {
           if (retryTimeout) clearTimeout(retryTimeout);
@@ -138,4 +139,4 @@ export function useTransactionsRealtime({
 
   // 연결 상태 반환 (디버깅용)
   return { connectionStatus, retryCount };
-} 
+}

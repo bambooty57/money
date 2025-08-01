@@ -23,6 +23,7 @@ import PaymentForm from '@/components/payment-form';
 import { supabase } from '@/lib/supabase';
 import { useTransactionsRealtime } from '@/lib/useTransactionsRealtime';
 import { usePaymentsRealtime } from '@/lib/usePaymentsRealtime';
+import { useCustomersRealtime } from '@/lib/useCustomersRealtime';
 
 // 디바운싱 유틸리티 함수
 function debounce<T extends (...args: any[]) => any>(
@@ -137,12 +138,16 @@ export default function StatementPage() {
 
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // 1. 고객 목록 불러오기
+  // 1. 고객 목록 불러오기 (refreshKey 변경 시에도 갱신)
   useEffect(() => {
+    console.log('👥 StatementPage: Fetching customers list, refreshKey:', refreshKey);
     fetch("/api/customers?page=1&pageSize=100")
       .then((res) => res.json())
-      .then((data) => setCustomers(data.data || []));
-  }, []);
+      .then((data) => {
+        console.log('✅ StatementPage: Customers updated, count:', data.data?.length || 0);
+        setCustomers(data.data || []);
+      });
+  }, [refreshKey]);
 
   // 검색 히스토리 로드
   useEffect(() => {
@@ -322,20 +327,24 @@ export default function StatementPage() {
     .finally(() => setLoading(false));
   }, [selectedCustomer, customers, refreshKey]);
 
-  // 실시간 거래/입금 구독: 선택된 고객이 있을 때만 구독
+  // 실시간 거래/입금/고객 구독: 전체 변경 감지
   useTransactionsRealtime({
-    customerId: selectedCustomer,
     onTransactionsChange: useCallback(() => {
-      console.log('🔄 StatementPage: Transaction change detected, refreshing data for customer:', selectedCustomer);
+      console.log('🔄 StatementPage: Transaction change detected, refreshing ALL data');
       triggerRefresh();
-    }, [selectedCustomer, triggerRefresh]),
+    }, [triggerRefresh]),
   });
   usePaymentsRealtime({
-    customerId: selectedCustomer,
     onPaymentsChange: useCallback(() => {
-      console.log('💸 StatementPage: Payment change detected, refreshing data for customer:', selectedCustomer);
+      console.log('💸 StatementPage: Payment change detected, refreshing ALL data');
       triggerRefresh();
-    }, [selectedCustomer, triggerRefresh]),
+    }, [triggerRefresh]),
+  });
+  useCustomersRealtime({
+    onChange: useCallback(() => {
+      console.log('👤 StatementPage: Customer change detected, refreshing ALL data');
+      triggerRefresh();
+    }, [triggerRefresh]),
   });
 
   // 3. 엑셀 다운로드
