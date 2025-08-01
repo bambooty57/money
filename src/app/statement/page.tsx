@@ -390,21 +390,20 @@ export default function StatementPage() {
     <div className="min-h-screen bg-gray-50">
       <ScrollToTop />
       {/* PDF 미리보기/다운로드 모달 */}
-      <Dialog open={pdfModalOpen} onClose={() => setPdfModalOpen(false)} className="fixed z-50 inset-0 flex items-center justify-center">
-        <div className="fixed inset-0 bg-black bg-opacity-30" aria-hidden="true" />
-        <div className="relative bg-white rounded-xl shadow-xl p-6 max-w-6xl w-full mx-auto h-[90vh] flex flex-col">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-2xl font-bold">PDF 미리보기</h2>
-            <div className="flex gap-2">
-              <PDFDownloadLink
-                document={<StatementPDFTable transactions={transactions as any[]} customer={customerData} supplier={summary?.supplier as any} title="거래명세서" printDate={new Date().toLocaleDateString()} />}
-                fileName={`${customerName || '거래명세서'}.pdf`}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700"
-              >
-                {({ loading }) => loading ? 'PDF 생성 중...' : 'PDF 다운로드'}
-              </PDFDownloadLink>
-              <button onClick={() => setPdfModalOpen(false)} className="px-4 py-2 bg-gray-300 rounded-lg font-bold hover:bg-gray-400">닫기</button>
-            </div>
+      <Dialog open={pdfModalOpen} onOpenChange={setPdfModalOpen}>
+        <DialogContent className="max-w-6xl h-[90vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold">PDF 미리보기</DialogTitle>
+          </DialogHeader>
+          <div className="flex gap-2 mb-4">
+            <PDFDownloadLink
+              document={<StatementPDFTable transactions={transactions as any[]} customer={customerData} supplier={summary?.supplier as any} title="거래명세서" printDate={new Date().toLocaleDateString()} />}
+              fileName={`${customerName || '거래명세서'}.pdf`}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700"
+            >
+              {({ loading }) => loading ? 'PDF 생성 중...' : 'PDF 다운로드'}
+            </PDFDownloadLink>
+            <button onClick={() => setPdfModalOpen(false)} className="px-4 py-2 bg-gray-300 rounded-lg font-bold hover:bg-gray-400">닫기</button>
           </div>
           <div className="flex-1 border rounded-lg overflow-hidden">
             {selectedCustomer && transactions.length > 0 ? (
@@ -450,7 +449,7 @@ export default function StatementPage() {
               </div>
             )}
           </div>
-        </div>
+        </DialogContent>
       </Dialog>
       {/* CustomerForm 모달 */}
       {customerFormOpen && (
