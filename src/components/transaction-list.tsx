@@ -409,8 +409,48 @@ export function TransactionList() {
     }
   }, [summaries, searchTerm, page, pageSize]);
 
+  // 검색된 고객별 요약 데이터 계산
+  const searchedCustomerSummaries = useMemo(() => {
+    if (!searchTerm.trim() || !data?.data) {
+      return [];
+    }
+
+    // 검색된 거래에서 고객별로 그룹화
+    const customerGroups = data.data.reduce((groups: { [key: string]: (typeof data.data)[0][] }, transaction) => {
+      const customerId = transaction.customers?.id;
+      if (customerId) {
+        if (!groups[customerId]) {
+          groups[customerId] = [];
+        }
+        groups[customerId].push(transaction);
+      }
+      return groups;
+    }, {});
+
+    // 고객별 요약 정보 생성
+    return Object.entries(customerGroups).map(([customerId, transactions]) => {
+      const customer = transactions[0]?.customers;
+      const totalAmount = transactions.reduce((sum, t) => sum + (t.amount || 0), 0);
+      const totalPaid = transactions.reduce((sum, t) => sum + (t.payment_amount || 0), 0);
+      const totalUnpaid = totalAmount - totalPaid;
+      const paymentRatio = totalAmount > 0 ? Math.round((totalPaid / totalAmount) * 100) : 0;
+
+      return {
+        customer_id: customerId,
+        customer_name: customer?.name || '고객정보 없음',
+        customer_mobile: customer?.mobile || '',
+        transaction_count: transactions.length,
+        total_amount: totalAmount,
+        total_paid: totalPaid,
+        total_unpaid: totalUnpaid,
+        payment_ratio: paymentRatio,
+        customers: customer
+      };
+    });
+  }, [searchTerm, data]);
+
   // 전체 집계 데이터 계산
-  const totalCount = searchTerm.trim() ? (data?.data?.length || 0) : summaries.length;
+  const totalCount = searchTerm.trim() ? searchedCustomerSummaries.length : summaries.length;
   const totalCustomerCount = customers.length;
   const totalSales = globalSummary?.total_amount || 0;
   const totalPaid = globalSummary?.total_paid || 0;
@@ -749,69 +789,35 @@ export function TransactionList() {
                     </div>
                   </TableCell>
                 </TableRow>
-              ) : data && data.data && data.data.length > 0 ? (
+              ) : searchedCustomerSummaries.length > 0 ? (
                 <>
                   <TableRow className="bg-blue-50">
                     <TableCell colSpan={7} className="border-2 border-gray-300 px-4 py-3 text-center text-lg font-bold text-blue-800">
-                      🔍 &quot;{searchTerm}&quot; 고객의 거래 내역 ({data.data.length}건)
+                      🔍 &quot;{searchTerm}&quot; 고객 검색 결과 ({searchedCustomerSummaries.length}명)
                     </TableCell>
                   </TableRow>
-                  {data.data.map((transaction) => (
-                    <TableRow key={transaction.id} className="hover:bg-blue-50 cursor-pointer border-b border-gray-200 h-16">
-                      <TableCell className="border-2 border-gray-300 px-4 py-4 whitespace-nowrap text-base text-blue-700 underline font-medium w-32 min-w-[120px] max-w-[160px] text-center overflow-hidden text-ellipsis" onClick={() => router.push(`/customers/${transaction.customers?.id || ''}/transactions`)}>
-                        {transaction.customers?.name || '고객정보 없음'}
+                  {searchedCustomerSummaries.map((summary) => (
+                    <TableRow key={summary.customer_id} className="hover:bg-blue-50 cursor-pointer border-b border-gray-200 h-16">
+                      <TableCell className="border-2 border-gray-300 px-4 py-4 whitespace-nowrap text-base text-blue-700 underline font-medium w-32 min-w-[120px] max-w-[160px] text-center overflow-hidden text-ellipsis" onClick={() => router.push(`/customers/${summary.customer_id}/transactions`)}>
+                        {summary.customer_name}
                       </TableCell>
                       <TableCell className="border-2 border-gray-300 px-4 py-4 whitespace-nowrap text-base text-gray-900 w-24 min-w-[80px] max-w-[100px] text-center overflow-hidden text-ellipsis">
-                        1건
+                        {summary.transaction_count}건
                       </TableCell>
                       <TableCell className="border-2 border-gray-300 px-4 py-4 whitespace-nowrap text-base text-gray-900 font-semibold w-32 min-w-[120px] max-w-[160px] text-right overflow-hidden text-ellipsis">
-                        {(transaction.amount || 0).toLocaleString()}원
+                        {summary.total_amount.toLocaleString()}원
                       </TableCell>
                       <TableCell className="border-2 border-gray-300 px-4 py-4 whitespace-nowrap text-base text-green-700 font-semibold w-32 min-w-[120px] max-w-[160px] text-right overflow-hidden text-ellipsis">
-                        {(transaction.payment_amount || 0).toLocaleString()}원
+                        {summary.total_paid.toLocaleString()}원
                       </TableCell>
                       <TableCell className="border-2 border-gray-300 px-4 py-4 whitespace-nowrap text-base text-gray-900 font-semibold w-32 min-w-[120px] max-w-[160px] text-right overflow-hidden text-ellipsis">
-                        {((transaction.amount || 0) - (transaction.payment_amount || 0)).toLocaleString()}원
+                        {summary.total_unpaid.toLocaleString()}원
                       </TableCell>
                       <TableCell className="border-2 border-gray-300 px-4 py-4 whitespace-nowrap text-base text-gray-900 font-semibold w-24 min-w-[80px] max-w-[100px] text-center overflow-hidden text-ellipsis">
-                        {(transaction.amount || 0) > 0 ? Math.round(((transaction.payment_amount || 0) / (transaction.amount || 0)) * 100) : 0}%
+                        {summary.payment_ratio}%
                       </TableCell>
                       <TableCell className="border-2 border-gray-300 px-4 py-4 w-16 min-w-[60px] max-w-[60px] text-center overflow-hidden text-ellipsis">
-                        <button
-                          className="text-red-600 hover:text-red-900 text-lg p-1 hover:bg-red-50 rounded transition-colors"
-                          title="거래 삭제"
-                          onClick={async (e) => {
-                            e.stopPropagation();
-                            if (!window.confirm('정말로 이 거래를 삭제하시겠습니까?')) return;
-                            try {
-                              const { data: { session } } = await supabase.auth.getSession();
-                              const token = session?.access_token;
-                              if (!token) {
-                                alert('인증이 필요합니다. 다시 로그인해주세요.');
-                                return;
-                              }
-                              const res = await fetch(`/api/transactions/${transaction.id}`, { 
-                                method: 'DELETE',
-                                headers: {
-                                  'Authorization': `Bearer ${token}`
-                                }
-                              });
-                              if (res.ok) {
-                                // 검색 결과를 즉시 업데이트
-                                fetchDataCallback();
-                                alert('삭제되었습니다.');
-                              } else {
-                                const errorText = await res.text();
-                                alert('삭제 실패: ' + errorText);
-                              }
-                            } catch (error) {
-                              console.error('거래 삭제 중 오류:', error);
-                              alert('거래 삭제 중 오류가 발생했습니다.');
-                            }
-                          }}
-                        >
-                          🗑️
-                        </button>
+                        <span className="text-gray-400 text-sm">-</span>
                       </TableCell>
                     </TableRow>
                   ))}
