@@ -256,28 +256,31 @@ export default function StatementPage() {
 
   // 키보드 네비게이션
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
-    if (!isDropdownOpen) return;
-
     switch (e.key) {
       case 'ArrowDown':
+        if (!isDropdownOpen) return;
         e.preventDefault();
         setSelectedIndex(prev => 
           prev < filteredCustomers.length - 1 ? prev + 1 : prev
         );
         break;
       case 'ArrowUp':
+        if (!isDropdownOpen) return;
         e.preventDefault();
         setSelectedIndex(prev => prev > 0 ? prev - 1 : -1);
         break;
       case 'Enter':
         e.preventDefault();
-        if (selectedIndex >= 0 && filteredCustomers[selectedIndex]) {
+        if (isDropdownOpen && selectedIndex >= 0 && filteredCustomers[selectedIndex]) {
+          // 드롭다운에서 고객 선택
           handleCustomerSelect(filteredCustomers[selectedIndex]);
         } else {
+          // 검색 실행
           handleSearchButton();
         }
         break;
       case 'Escape':
+        if (!isDropdownOpen) return;
         e.preventDefault();
         setIsDropdownOpen(false);
         setSelectedIndex(-1);
