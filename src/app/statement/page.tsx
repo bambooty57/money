@@ -13,7 +13,7 @@ import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import { StatementPDFTable } from '@/components/statement-pdf';
 import { PDFDownloadLink } from '@react-pdf/renderer';
-import { Dialog } from '@headlessui/react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { PDFViewer } from '@react-pdf/renderer';
 import { useRefreshContext } from '@/lib/refresh-context';
 import ScrollToTop from '@/components/ui/scroll-to-top';
@@ -648,35 +648,55 @@ export default function StatementPage() {
         <TransactionForm onSuccess={() => { setTransactionFormOpen(false); triggerRefresh(); }} customers={customers} transaction={editTransaction} defaultCustomerId={!editTransaction ? selectedCustomer : undefined} />
       )}
       {/* 삭제 확인 모달 */}
-      <Dialog open={deleteModalOpen} onClose={() => setDeleteModalOpen(false)} className="fixed z-50 inset-0 flex items-center justify-center">
-        <div className="fixed inset-0 bg-black bg-opacity-30" aria-hidden="true" />
-        <div className="relative bg-white rounded-xl shadow-xl p-8 max-w-md w-full mx-auto flex flex-col items-center">
-          <h2 className="text-2xl font-bold mb-4">정말 삭제하시겠습니까?</h2>
-          <div className="flex gap-4 mt-2">
-            <Button onClick={async () => { if(deleteTargetId) { await deleteTransaction(deleteTargetId, triggerRefresh); setDeleteModalOpen(false); setDeleteTargetId(null); }}} className="bg-red-600 text-white px-6 py-3 rounded-lg text-xl font-bold">삭제</Button>
-            <Button onClick={() => { setDeleteModalOpen(false); setDeleteTargetId(null); }} className="bg-gray-400 text-white px-6 py-3 rounded-lg text-xl font-bold">취소</Button>
+      <Dialog open={deleteModalOpen} onOpenChange={setDeleteModalOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold text-center">정말 삭제하시겠습니까?</DialogTitle>
+          </DialogHeader>
+          <div className="flex gap-4 mt-6 justify-center">
+            <Button 
+              onClick={async () => { 
+                if(deleteTargetId) { 
+                  await deleteTransaction(deleteTargetId, triggerRefresh); 
+                  setDeleteModalOpen(false); 
+                  setDeleteTargetId(null); 
+                }
+              }} 
+              className="bg-red-600 text-white px-6 py-3 rounded-lg text-xl font-bold hover:bg-red-700"
+            >
+              삭제
+            </Button>
+            <Button 
+              onClick={() => { 
+                setDeleteModalOpen(false); 
+                setDeleteTargetId(null); 
+              }} 
+              className="bg-gray-400 text-white px-6 py-3 rounded-lg text-xl font-bold hover:bg-gray-500"
+            >
+              취소
+            </Button>
           </div>
-        </div>
+        </DialogContent>
       </Dialog>
       {/* 문자보내기 모달 */}
-      {smsModalOpen && (
-        <Dialog open={smsModalOpen} onClose={() => setSmsModalOpen(false)} className="fixed z-50 inset-0 flex items-center justify-center">
-          <div className="fixed inset-0 bg-black bg-opacity-30" aria-hidden="true" />
-          <div className="relative bg-white rounded-xl shadow-xl p-6 max-w-2xl w-full mx-auto">
-            <SmsSender
-              selectedCustomer={{
-                ...customerData,
-                total_unpaid: summary?.total_unpaid || summary?.supplier?.total_unpaid || 0,
-                transaction_count: summary?.transaction_count || summary?.supplier?.transaction_count || 0,
-              }}
-              onSuccess={() => setSmsModalOpen(false)}
-            />
-            <div className="flex justify-end mt-4">
-              <Button onClick={() => setSmsModalOpen(false)} className="bg-gray-400 text-white px-4 py-2 rounded-lg font-bold">닫기</Button>
-            </div>
+      <Dialog open={smsModalOpen} onOpenChange={setSmsModalOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>문자 보내기</DialogTitle>
+          </DialogHeader>
+          <SmsSender
+            selectedCustomer={{
+              ...customerData,
+              total_unpaid: summary?.total_unpaid || summary?.supplier?.total_unpaid || 0,
+              transaction_count: summary?.transaction_count || summary?.supplier?.transaction_count || 0,
+            }}
+            onSuccess={() => setSmsModalOpen(false)}
+          />
+          <div className="flex justify-end mt-4">
+            <Button onClick={() => setSmsModalOpen(false)} className="bg-gray-400 text-white px-4 py-2 rounded-lg font-bold">닫기</Button>
           </div>
-        </Dialog>
-      )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 } 
