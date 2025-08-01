@@ -107,6 +107,16 @@ export default function StatementPage() {
   const [customerName, setCustomerName] = useState<string>("");
   const [customerData, setCustomerData] = useState<any>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  
+  // 🔍 디버깅: transactions 상태 변경 추적
+  useEffect(() => {
+    console.log('🔄 transactions 상태 변경됨:', transactions.length, '개');
+  }, [transactions]);
+  
+  // 🔍 디버깅: selectedCustomer 상태 변경 추적  
+  useEffect(() => {
+    console.log('👤 selectedCustomer 상태 변경됨:', selectedCustomer);
+  }, [selectedCustomer]);
   const [summary, setSummary] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [pdfModalOpen, setPdfModalOpen] = useState(false);
@@ -320,8 +330,8 @@ export default function StatementPage() {
       }
       console.log('✅ StatementPage: Data updated - transactions:', summaryResponse.transactions?.length || 0);
       setCustomerData(customerObj);
-      setTransactions(summaryResponse.transactions || []);
-      setSummary(summaryResponse);
+      setTransactions([...summaryResponse.transactions || []]); // 새 배열로 강제 업데이트
+      setSummary({...summaryResponse}); // 새 객체로 강제 업데이트
       setCustomerName(customerObj?.name || "");
     })
     .finally(() => setLoading(false));
