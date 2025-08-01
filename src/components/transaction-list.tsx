@@ -183,7 +183,7 @@ export function TransactionList() {
     setSelectedIndex(-1);
     inputRef.current?.blur();
     
-    // 선택한 고객명을 입력란에 설정 - 확실하게 설정
+    // 선택한 고객명을 입력란에 설정
     const customerName = customer.name || '';
     
     setSearchInputValue(customerName);
@@ -201,27 +201,9 @@ export function TransactionList() {
     }
     window.history.replaceState(null, '', `?${params.toString()}`);
     
-    // 해당 고객의 거래 데이터만 가져오기
-    if (customerName.trim()) {
-      try {
-        setLoading(true);
-        setError(null);
-        const response = await fetch(`/api/transactions?search=${encodeURIComponent(customerName)}&page=1&pageSize=${pageSize}`);
-        
-        if (!response.ok) {
-          throw new Error('거래 데이터를 불러오는데 실패했습니다.');
-        }
-        
-        const data = await response.json();
-        setData(data);
-        
-      } catch {
-        setError('데이터를 불러올 수 없습니다.');
-      } finally {
-        setLoading(false);
-      }
-    }
-  }, [pageSize]);
+    // 검색 히스토리에 저장 (나중에 구현)
+    // saveSearchHistory(customer);
+  }, []);
 
   // 간단한 검색 함수 - 드롭다운용
   const performSearch = useCallback((searchTerm: string) => {
