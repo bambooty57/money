@@ -2,9 +2,8 @@
 
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Pagination, usePagination } from '@/components/ui/pagination';
+import { Pagination } from '@/components/ui/pagination';
 import type { Database } from '@/types/database';
-import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Alert } from './ui/alert';
 import {
@@ -29,17 +28,7 @@ import ModelTypeManager from './model-type-manager';
 import { useTransactionsRealtime } from '@/lib/useTransactionsRealtime';
 import { supabase } from '@/lib/supabase';
 
-// 디바운싱 유틸리티 함수
-function debounce<T extends (...args: any[]) => any>(
-  func: T,
-  wait: number
-): (...args: Parameters<T>) => void {
-  let timeout: NodeJS.Timeout;
-  return (...args: Parameters<T>) => {
-    clearTimeout(timeout);
-    timeout = setTimeout(() => func(...args), wait);
-  };
-}
+
 
 // 검색 히스토리 관리
 interface SearchHistory {
@@ -49,11 +38,25 @@ interface SearchHistory {
   lastSearched: Date;
 }
 
-type Transaction = Database['public']['Tables']['transactions']['Row'];
 type Customer = Database['public']['Tables']['customers']['Row'] & {
   total_unpaid?: number;
   transaction_count?: number;
 };
+
+interface SummaryData {
+  customer_id: string;
+  transaction_count: number;
+  total_amount: number;
+  total_paid: number;
+  total_unpaid: number;
+  total_ratio: number;
+}
+
+interface GlobalSummary {
+  total_amount: number;
+  total_paid: number;
+  total_unpaid: number;
+}
 
 interface TransactionWithCustomer {
   id: string;
@@ -87,13 +90,13 @@ export function TransactionList() {
   useTransactionsRealtime(); // 실시간 반영 추가
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [data, setData] = useState<ApiResponse | null>(null);
-  const [summaries, setSummaries] = useState<any[]>([]);
+  const [summaries, setSummaries] = useState<SummaryData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
   const [formOpen, setFormOpen] = useState(false);
   // 전체 집계 상태 추가
-  const [globalSummary, setGlobalSummary] = useState<any>(null);
+  const [globalSummary, setGlobalSummary] = useState<GlobalSummary | null>(null);
   const searchParams = useSearchParams();
   const urlRefreshKey = searchParams.get('refresh') || 0;
   const [modelTypeRefresh, setModelTypeRefresh] = useState(0);
@@ -144,7 +147,7 @@ export function TransactionList() {
     if (savedHistory) {
       try {
         const parsed = JSON.parse(savedHistory);
-        setSearchHistory(parsed.map((item: any) => ({
+        setSearchHistory(parsed.map((item: {customerId: string; name: string; searchCount: number; lastSearched: string | Date}) => ({
           ...item,
           lastSearched: new Date(item.lastSearched)
         })));
@@ -171,107 +174,7 @@ export function TransactionList() {
     }
   }, [clearParam]);
 
-  // 검색 히스토리 저장
-  const saveSearchHistory = useCallback((customer: Customer) => {
-    setSearchHistory(prev => {
-      const existing = prev.find(h => h.customerId === customer.id);
-      const updated = existing 
-        ? prev.map(h => h.customerId === customer.id 
-          ? { ...h, searchCount: h.searchCount + 1, lastSearched: new Date() }
-          : h
-        )
-        : [...prev, {
-          customerId: customer.id,
-          name: customer.name,
-          searchCount: 1,
-          lastSearched: new Date()
-        }];
-      
-      // 최대 20개로 제한하고 최신순으로 정렬
-      const limited = updated
-        .sort((a, b) => b.searchCount - a.searchCount || b.lastSearched.getTime() - a.lastSearched.getTime())
-        .slice(0, 20);
-      
-      localStorage.setItem('customerSearchHistory', JSON.stringify(limited));
-      return limited;
-    });
-  }, []);
 
-  // 간단하고 확실한 검색 함수
-  const performSearch = useCallback((searchTerm: string) => {
-    if (searchTerm.trim().length === 0) {
-      setFilteredCustomers([]);
-      setIsDropdownOpen(false);
-      return;
-    }
-
-    const normalizedSearch = searchTerm.toLowerCase().trim();
-    
-    // 고객명으로만 검색 (간단하게)
-    const results = customers.filter(c => 
-      c.name?.toLowerCase().includes(normalizedSearch)
-    );
-
-    setFilteredCustomers(results.slice(0, 10));
-    setIsDropdownOpen(results.length > 0);
-    setSelectedIndex(-1);
-  }, [customers]);
-
-  // 디바운싱된 검색 함수 - 시간 단축
-  const debouncedSearch = useMemo(
-    () => debounce(performSearch, 50), // 300ms에서 50ms로 단축
-    [performSearch]
-  );
-
-  // 🚀 성능 최적화: 스마트 검색 입력 처리
-  const handleSearchInput = useCallback((value: string) => {
-    // 즉시 로컬 검색 실행 (고객 목록에서만)
-    performSearch(value);
-    
-    // 검색어가 변경되면 즉시 API 호출
-    setSearchInputValue(value);
-    setSearchTerm(value);
-    setPage(1);
-    
-    // URL 파라미터 업데이트
-    const params = new URLSearchParams(window.location.search);
-    if (value.trim()) {
-      params.set('search', value);
-    } else {
-      params.delete('search');
-    }
-    params.set('page', '1');
-    window.history.replaceState(null, '', `?${params.toString()}`);
-  }, [performSearch]);
-
-  // 키보드 네비게이션
-  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
-    if (!isDropdownOpen) return;
-
-    switch (e.key) {
-      case 'ArrowDown':
-        e.preventDefault();
-        setSelectedIndex(prev => 
-          prev < filteredCustomers.length - 1 ? prev + 1 : prev
-        );
-        break;
-      case 'ArrowUp':
-        e.preventDefault();
-        setSelectedIndex(prev => prev > 0 ? prev - 1 : -1);
-        break;
-      case 'Enter':
-        e.preventDefault();
-        if (selectedIndex >= 0 && filteredCustomers[selectedIndex]) {
-          handleCustomerSelect(filteredCustomers[selectedIndex]);
-        }
-        break;
-      case 'Escape':
-        e.preventDefault();
-        setIsDropdownOpen(false);
-        setSelectedIndex(-1);
-        break;
-    }
-  }, [isDropdownOpen, filteredCustomers, selectedIndex]);
 
   // 간단한 고객 선택 처리
   const handleCustomerSelect = useCallback(async (customer: Customer) => {
@@ -313,6 +216,55 @@ export function TransactionList() {
     }
   }, [pageSize]);
 
+  // 간단하고 확실한 검색 함수
+  const performSearch = useCallback((searchTerm: string) => {
+    if (searchTerm.trim().length === 0) {
+      setFilteredCustomers([]);
+      setIsDropdownOpen(false);
+      return;
+    }
+
+    const normalizedSearch = searchTerm.toLowerCase().trim();
+    
+    // 고객명으로만 검색 (간단하게)
+    const results = customers.filter(c => 
+      c.name?.toLowerCase().includes(normalizedSearch)
+    );
+
+    setFilteredCustomers(results.slice(0, 10));
+    setIsDropdownOpen(results.length > 0);
+    setSelectedIndex(-1);
+  }, [customers]);
+
+  // 키보드 네비게이션
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (!isDropdownOpen) return;
+
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault();
+        setSelectedIndex(prev => 
+          prev < filteredCustomers.length - 1 ? prev + 1 : prev
+        );
+        break;
+      case 'ArrowUp':
+        e.preventDefault();
+        setSelectedIndex(prev => prev > 0 ? prev - 1 : -1);
+        break;
+      case 'Enter':
+        e.preventDefault();
+        if (selectedIndex >= 0 && filteredCustomers[selectedIndex]) {
+          handleCustomerSelect(filteredCustomers[selectedIndex]);
+        }
+        break;
+      case 'Escape':
+        e.preventDefault();
+        setIsDropdownOpen(false);
+        setSelectedIndex(-1);
+        break;
+    }
+  }, [isDropdownOpen, filteredCustomers, selectedIndex, handleCustomerSelect]);
+
   // page가 바뀌면 URL도 동기화
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -327,52 +279,64 @@ export function TransactionList() {
 
   useEffect(() => {
     router.refresh();
-  }, [urlRefreshKey]);
+  }, [router, urlRefreshKey]);
 
-  // 간단한 데이터 로딩
+  // 개선된 데이터 로딩 함수
   const fetchDataCallback = useCallback(async () => {
     setLoading(true);
     setError(null);
     
     try {
-      // 고객 데이터 로드 (검색용)
+      // 고객 데이터 로드 (검색용) - 항상 필요
       const customersResponse = await fetch('/api/customers?page=1&pageSize=1000');
       if (customersResponse.ok) {
         const customersData = await customersResponse.json();
         setCustomers(customersData.data || []);
       }
       
-      // 검색어가 있으면 해당 고객의 거래 데이터 로드
-      if (searchTerm) {
-        const transactionsResponse = await fetch(`/api/transactions?search=${encodeURIComponent(searchTerm)}&page=${page}&pageSize=${pageSize}`);
+      if (searchTerm.trim()) {
+        // 🔍 검색어가 있을 때: 해당 고객의 거래 데이터만 로드
+        const transactionsResponse = await fetch(`/api/transactions?search=${encodeURIComponent(searchTerm.trim())}&page=${page}&pageSize=${pageSize}`);
         if (transactionsResponse.ok) {
           const transactionsData = await transactionsResponse.json();
           setData(transactionsData);
+          // 검색 시에는 summaries 데이터 클리어
+          setSummaries([]);
+          setGlobalSummary(null);
+        } else {
+          // 검색 실패 시
+          setData(null);
+          setSummaries([]);
+          setGlobalSummary(null);
         }
       } else {
-        // 검색어가 없으면 요약 데이터만 로드
+        // 📊 검색어가 없을 때: 전체 요약 데이터 로드
         const summariesResponse = await fetch('/api/transactions/summary');
         if (summariesResponse.ok) {
           const summariesData = await summariesResponse.json();
           setSummaries(summariesData.data || []);
           setGlobalSummary(summariesData.global || {});
+          // 일반 모드에서는 거래 데이터 클리어
+          setData(null);
         }
       }
       
     } catch (err) {
       console.error('데이터 로딩 중 오류:', err);
       setError('데이터를 불러오는데 실패했습니다.');
+      // 오류 시 모든 데이터 클리어
+      setData(null);
+      setSummaries([]);
+      setGlobalSummary(null);
     } finally {
       setLoading(false);
     }
-  }, [searchTerm, page, pageSize, urlRefreshKey]);
+  }, [searchTerm, page, pageSize]);
 
-  // 검색어 변경 시 즉시 API 호출
+  // 🔄 데이터 로딩 트리거 (검색어, 페이지, URL 새로고침 시)
   useEffect(() => {
     fetchDataCallback();
-  }, [searchTerm, page, fetchDataCallback]);
-
-
+  }, [searchTerm, page, urlRefreshKey, fetchDataCallback]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -412,35 +376,21 @@ export function TransactionList() {
     XLSX.writeFile(wb, `거래목록_${new Date().toISOString().slice(0, 10)}.xlsx`);
   };
 
-  // 초기 데이터 로딩
-  useEffect(() => {
-    fetchDataCallback();
-  }, [page, searchTerm, urlRefreshKey, fetchDataCallback]);
-
-  // 검색 결과 필터링
-  const filteredSummaries = useMemo(() => {
-    if (!searchTerm) return summaries;
-    return summaries.filter(summary => {
-      const customer = customers.find(c => c.id === summary.customer_id);
-      return customer && customer.name.toLowerCase().includes(searchTerm.toLowerCase());
-    });
-  }, [summaries, customers, searchTerm]);
-
-  // 페이지네이션 데이터
+  // 📊 일반 모드 페이지네이션 데이터 (검색어가 없을 때만)
   const paginatedData = useMemo(() => {
-    if (searchTerm) {
-      // 검색 시: 필터링된 결과만 표시 (페이지네이션 없음)
-      return filteredSummaries;
+    if (searchTerm.trim()) {
+      // 🔍 검색 모드: 페이지네이션 없이 data.data 사용
+      return [];
     } else {
-      // 평상시: 20개씩 페이지네이션
+      // 📊 일반 모드: 20개씩 페이지네이션
       const startIndex = (page - 1) * pageSize;
       const endIndex = startIndex + pageSize;
       return summaries.slice(startIndex, endIndex);
     }
-  }, [filteredSummaries, summaries, searchTerm, page, pageSize]);
+  }, [summaries, searchTerm, page, pageSize]);
 
   // 전체 집계 데이터 계산
-  const totalCount = searchTerm ? filteredSummaries.length : summaries.length;
+  const totalCount = searchTerm.trim() ? (data?.data?.length || 0) : summaries.length;
   const totalCustomerCount = customers.length;
   const totalSales = globalSummary?.total_amount || 0;
   const totalPaid = globalSummary?.total_paid || 0;
@@ -736,8 +686,8 @@ export function TransactionList() {
             </TableRow>
           </TableHeader>
           <TableBody className="bg-white divide-y divide-gray-200">
-            {searchTerm ? (
-              // 검색 결과가 있을 때는 해당 고객의 거래만 표시
+            {/* 🔍 검색 모드: 검색어가 있을 때 */}
+            {searchTerm.trim() ? (
               loading ? (
                 <TableRow>
                   <TableCell colSpan={7} className="border-2 border-gray-300 px-4 py-8 text-center text-lg text-gray-500">
@@ -795,7 +745,8 @@ export function TransactionList() {
                                 }
                               });
                               if (res.ok) {
-                                setTimeout(() => window.location.reload(), 700);
+                                // 검색 결과를 즉시 업데이트
+                                fetchDataCallback();
                                 alert('삭제되었습니다.');
                               } else {
                                 const errorText = await res.text();
@@ -816,14 +767,13 @@ export function TransactionList() {
               ) : (
                 <TableRow>
                   <TableCell colSpan={7} className="border-2 border-gray-300 px-4 py-8 text-center text-lg text-gray-500">
-                    <div className="mb-2">🔍 &quot;{searchTerm}&quot; 고객을 찾을 수 없습니다.</div>
-                    <div className="text-base text-gray-400 mb-4">다른 검색어를 입력해보세요.</div>
+                    <div className="mb-2">🔍 &quot;{searchTerm}&quot; 고객의 거래를 찾을 수 없습니다.</div>
+                    <div className="text-base text-gray-400 mb-4">다른 고객을 검색해보세요.</div>
                     <button
                       onClick={() => {
                         setSearchInputValue('');
                         setSearchTerm('');
                         setPage(1);
-                        handleRefresh();
                         
                         // URL 파라미터도 정리
                         const params = new URLSearchParams(window.location.search);
@@ -839,14 +789,14 @@ export function TransactionList() {
                 </TableRow>
               )
             ) : (
-              // 검색어가 없을 때는 전체 고객 목록 표시 (요약 데이터 사용)
+              /* 📊 일반 모드: 검색어가 없을 때 전체 고객 요약 표시 */
               <>
                 <TableRow className="bg-gray-50">
                   <TableCell colSpan={7} className="border-2 border-gray-300 px-4 py-3 text-center text-lg font-bold text-gray-800">
                     📊 전체 고객 거래 요약 ({totalCustomerCount}명)
                   </TableCell>
                 </TableRow>
-                {paginatedData.map((summary, i) => {
+                {paginatedData.map((summary) => {
                   const customer = customers.find(c => c.id === summary.customer_id);
                   if (!customer) return null;
                   
@@ -882,7 +832,8 @@ export function TransactionList() {
                                 }
                               });
                               if (res.ok) {
-                                setTimeout(() => window.location.reload(), 700);
+                                // 전체 데이터를 즉시 업데이트
+                                fetchDataCallback();
                                 alert('삭제되었습니다.');
                               } else {
                                 const errorText = await res.text();
@@ -903,9 +854,9 @@ export function TransactionList() {
           </TableBody>
         </Table>
       </div>
-      {/* 페이지네이션: 검색 시에는 숨김, 평상시에는 20개씩 */}
-      {!searchTerm && summaries.length > 0 && (
-        <div style={{ display: 'flex', justifyContent: 'center', margin: '32px 0' }}>
+      {/* 📄 페이지네이션: 검색어가 없을 때만 표시 */}
+      {!searchTerm.trim() && summaries.length > 0 && (
+        <div className="flex justify-center my-8">
           <Pagination
             currentPage={page}
             totalPages={Math.ceil(summaries.length / pageSize)}
