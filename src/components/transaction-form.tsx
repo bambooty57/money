@@ -157,7 +157,7 @@ export default function TransactionForm({ customers, onSuccess, transaction, ref
           amount: parseFloat(formData.amount),
           status: formData.status,
           description: formData.description || null,
-          models_types_id: formData.models_types_id,
+          models_types_id: formData.models_types_id !== '' ? formData.models_types_id : null,
           due_date: formData.due_date || null,
           created_at: formData.date || undefined,
         };
@@ -373,7 +373,7 @@ export default function TransactionForm({ customers, onSuccess, transaction, ref
       </div>
       {/* 기종/형식명 */}
       <div className="bg-orange-50 rounded-lg p-8 border-2 border-orange-200 shadow-lg flex flex-col gap-2 w-full max-w-2xl mx-auto">
-        <label className="text-xl font-bold flex items-center gap-2">🚜 기종/형식명</label>
+        <label className="text-xl font-bold flex items-center gap-2">🚜 기종/형식명 <span className="text-gray-500 text-base font-normal">(선택사항)</span></label>
         <ProductModelTypeDropdown
           selectedId={String(formData.models_types_id || '')}
           onSelect={(id: string) => setFormData(prev => ({ ...prev, models_types_id: id }))}
