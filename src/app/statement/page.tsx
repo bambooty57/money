@@ -44,8 +44,8 @@ interface SearchHistory {
   lastSearched: Date;
 }
 
-// 삭제 함수 직접 구현
-async function deleteTransaction(id: string, triggerRefresh: () => void) {
+// 삭제 함수 직접 구현 (실시간 동기화에 의존)
+async function deleteTransaction(id: string) {
   if (!id) return;
   const { data: sessionData } = await supabase.auth.getSession();
   const token = sessionData?.session?.access_token;
@@ -54,7 +54,6 @@ async function deleteTransaction(id: string, triggerRefresh: () => void) {
     headers: token ? { 'Authorization': `Bearer ${token}` } : {},
   });
   if (res.ok) {
-    triggerRefresh();
     alert('삭제되었습니다.');
   } else {
     const errorText = await res.text();
@@ -62,7 +61,7 @@ async function deleteTransaction(id: string, triggerRefresh: () => void) {
   }
 }
 
-async function deletePayment(id: string, triggerRefresh: () => void) {
+async function deletePayment(id: string) {
   if (!id) return;
   const { data: sessionData } = await supabase.auth.getSession();
   const token = sessionData?.session?.access_token;
@@ -71,7 +70,6 @@ async function deletePayment(id: string, triggerRefresh: () => void) {
     headers: token ? { 'Authorization': `Bearer ${token}` } : {},
   });
   if (res.ok) {
-    triggerRefresh();
     alert('삭제되었습니다.');
   } else {
     const errorText = await res.text();
@@ -453,7 +451,7 @@ export default function StatementPage() {
       </Dialog>
       {/* CustomerForm 모달 */}
       {customerFormOpen && (
-        <CustomerForm open={customerFormOpen} setOpen={setCustomerFormOpen} onSuccess={() => { setCustomerFormOpen(false); triggerRefresh(); }} customer={editCustomer} />
+        <CustomerForm open={customerFormOpen} setOpen={setCustomerFormOpen} onSuccess={() => { setCustomerFormOpen(false); }} customer={editCustomer} />
       )}
       {/* 거래 등록 버튼 (고객 선택 시 활성화) */}
       {/* 상단(카드 바깥)의 고객등록/거래등록 버튼은 완전히 제거 */}
@@ -619,7 +617,7 @@ export default function StatementPage() {
                       {Array.isArray(tx.payments) && tx.payments.length === 1 && (
                         <>
                           <Button onClick={() => { setTargetTransactionId(tx.id); setEditPayment((tx.payments as any[])[0]); setPaymentFormOpen(true); }} className="bg-green-700 text-white px-4 py-2 rounded-lg text-lg font-bold">✏️ 입금 수정</Button>
-                          <Button onClick={async () => { if(window.confirm('정말 삭제하시겠습니까?')) { await deletePayment((tx.payments as any[])[0].id, triggerRefresh); }}} className="bg-red-700 text-white px-4 py-2 rounded-lg text-lg font-bold">🗑️ 입금 삭제</Button>
+                          <Button onClick={async () => { if(window.confirm('정말 삭제하시겠습니까?')) { await deletePayment((tx.payments as any[])[0].id); }}} className="bg-red-700 text-white px-4 py-2 rounded-lg text-lg font-bold">🗑️ 입금 삭제</Button>
                         </>
                       )}
                     </TableCell>
@@ -665,11 +663,11 @@ export default function StatementPage() {
       </Card>
       {/* PaymentForm 모달 (등록/수정) */}
       {paymentFormOpen && (
-        <PaymentForm onSuccess={() => { setPaymentFormOpen(false); triggerRefresh(); }} transactionId={targetTransactionId} payment={editPayment} />
+        <PaymentForm onSuccess={() => { setPaymentFormOpen(false); }} transactionId={targetTransactionId} payment={editPayment} />
       )}
       {/* TransactionForm 모달(등록/수정) */}
       {transactionFormOpen && (
-        <TransactionForm onSuccess={() => { setTransactionFormOpen(false); triggerRefresh(); }} customers={customers} transaction={editTransaction} defaultCustomerId={!editTransaction ? selectedCustomer : undefined} />
+        <TransactionForm onSuccess={() => { setTransactionFormOpen(false); }} customers={customers} transaction={editTransaction} defaultCustomerId={!editTransaction ? selectedCustomer : undefined} />
       )}
       {/* 삭제 확인 모달 */}
       <Dialog open={deleteModalOpen} onOpenChange={setDeleteModalOpen}>
@@ -681,7 +679,7 @@ export default function StatementPage() {
             <Button 
               onClick={async () => { 
                 if(deleteTargetId) { 
-                  await deleteTransaction(deleteTargetId, triggerRefresh); 
+                  await deleteTransaction(deleteTargetId); 
                   setDeleteModalOpen(false); 
                   setDeleteTargetId(null); 
                 }

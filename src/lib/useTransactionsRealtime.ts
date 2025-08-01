@@ -22,8 +22,9 @@ export function useTransactionsRealtime({
   const smartRefresh = useCallback(() => {
     const now = Date.now();
     
-    // 마지막 리프레시로부터 2초가 지나지 않았으면 무시
-    if (now - lastRefreshTime.current < 2000) {
+    // 마지막 리프레시로부터 1초가 지나지 않았으면 무시 (성능 최적화)
+    if (now - lastRefreshTime.current < 1000) {
+      console.log('⏳ Debounced: too frequent refresh');
       return;
     }
     
@@ -32,17 +33,19 @@ export function useTransactionsRealtime({
       clearTimeout(refreshTimeout.current);
     }
     
-    // 500ms 디바운싱
+    // 200ms 디바운싱 (더 빠른 반응)
     refreshTimeout.current = setTimeout(() => {
-      console.log('🔄 Smart refresh triggered');
+      console.log('🔄 Smart refresh triggered - Transaction realtime update');
       lastRefreshTime.current = Date.now();
       
       if (onTransactionsChange) {
+        console.log('📞 Calling onTransactionsChange callback');
         onTransactionsChange();
       } else {
+        console.log('📞 Calling triggerRefresh');
         triggerRefresh();
       }
-    }, 500);
+    }, 200);
   }, [onTransactionsChange, triggerRefresh]);
 
   useEffect(() => {
@@ -65,6 +68,7 @@ export function useTransactionsRealtime({
             'postgres_changes',
             { event: '*', schema: 'public', table: 'transactions' },
             (payload) => {
+              console.log('📥 Transactions change detected:', payload.eventType, payload.new?.id || payload.old?.id);
               smartRefresh();
             }
           )
@@ -72,6 +76,7 @@ export function useTransactionsRealtime({
             'postgres_changes',
             { event: '*', schema: 'public', table: 'payments' },
             (payload) => {
+              console.log('💸 Payments change detected:', payload.eventType, payload.new?.id || payload.old?.id);
               smartRefresh();
             }
           )
@@ -79,18 +84,23 @@ export function useTransactionsRealtime({
             'postgres_changes',
             { event: '*', schema: 'public', table: 'customers' },
             (payload) => {
+              console.log('👤 Customers change detected:', payload.eventType, payload.new?.id || payload.old?.id);
               smartRefresh();
             }
           )
           .subscribe((status) => {
+            console.log('🔗 Realtime connection status:', status);
             if (status === 'SUBSCRIBED') {
+              console.log('✅ Connected to Supabase realtime for transactions, payments, customers');
               setConnectionStatus('connected');
               setRetryCount(0); // 연결 성공 시 재시도 카운트 리셋
             } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+              console.log('❌ Realtime connection failed:', status);
               setConnectionStatus('disconnected');
               // 재시도 로직 (최대 3번)
               if (retryCount < 3) {
                 const retryDelay = Math.min((retryCount + 1) * 5000, 15000); // 최대 15초
+                console.log(`🔄 Retrying connection in ${retryDelay}ms (attempt ${retryCount + 1}/3)`);
                 retryTimeout = setTimeout(() => {
                   setRetryCount(prev => prev + 1);
                 }, retryDelay);
