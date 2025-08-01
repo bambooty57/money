@@ -300,6 +300,7 @@ export default function StatementPage() {
   // 2. 고객 선택 시 거래내역+부분합 fetch
   useEffect(() => {
     if (!selectedCustomer) return;
+    console.log('📊 StatementPage: Fetching data for customer:', selectedCustomer, 'refreshKey:', refreshKey);
     setLoading(true);
     
     // 고객 상세 정보와 거래내역을 병렬로 가져오기 (응답이 ok일 때만 .json() 호출)
@@ -312,6 +313,7 @@ export default function StatementPage() {
       if (customerResponse && typeof customerResponse === 'object' && 'data' in customerResponse) {
         customerObj = customerResponse.data;
       }
+      console.log('✅ StatementPage: Data updated - transactions:', summaryResponse.transactions?.length || 0);
       setCustomerData(customerObj);
       setTransactions(summaryResponse.transactions || []);
       setSummary(summaryResponse);
@@ -323,11 +325,17 @@ export default function StatementPage() {
   // 실시간 거래/입금 구독: 선택된 고객이 있을 때만 구독
   useTransactionsRealtime({
     customerId: selectedCustomer,
-    onTransactionsChange: triggerRefresh,
+    onTransactionsChange: useCallback(() => {
+      console.log('🔄 StatementPage: Transaction change detected, refreshing data for customer:', selectedCustomer);
+      triggerRefresh();
+    }, [selectedCustomer, triggerRefresh]),
   });
   usePaymentsRealtime({
     customerId: selectedCustomer,
-    onPaymentsChange: triggerRefresh,
+    onPaymentsChange: useCallback(() => {
+      console.log('💸 StatementPage: Payment change detected, refreshing data for customer:', selectedCustomer);
+      triggerRefresh();
+    }, [selectedCustomer, triggerRefresh]),
   });
 
   // 3. 엑셀 다운로드
