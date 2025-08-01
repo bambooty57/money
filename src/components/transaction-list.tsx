@@ -178,46 +178,65 @@ export function TransactionList() {
 
   // 간단한 고객 선택 처리
   const handleCustomerSelect = useCallback(async (customer: Customer) => {
+    console.log('🔍 고객 선택:', customer);
+    console.log('🔍 고객명:', customer.name);
+    
     setFilteredCustomers([]);
     setIsDropdownOpen(false);
     setSelectedIndex(-1);
     inputRef.current?.blur();
     
-    // 선택한 고객명을 입력란에 설정
-    setSearchInputValue(customer.name);
-    setSearchTerm(customer.name);
+    // 선택한 고객명을 입력란에 설정 - 확실하게 설정
+    const customerName = customer.name || '';
+    console.log('🔍 설정할 고객명:', customerName);
+    
+    setSearchInputValue(customerName);
+    setSearchTerm(customerName);
     setPage(1);
     
     // URL 파라미터 업데이트
     const params = new URLSearchParams(window.location.search);
-    params.set('search', customer.name);
-    params.set('page', '1');
+    if (customerName.trim()) {
+      params.set('search', customerName);
+      params.set('page', '1');
+    } else {
+      params.delete('search');
+      params.set('page', '1');
+    }
     window.history.replaceState(null, '', `?${params.toString()}`);
     
+    console.log('🔍 URL 업데이트 완료:', window.location.search);
+    
     // 해당 고객의 거래 데이터만 가져오기
-    try {
-      setLoading(true);
-      setError(null);
-      
-      const response = await fetch(`/api/transactions?search=${encodeURIComponent(customer.name)}&page=1&pageSize=${pageSize}`);
-      
-      if (!response.ok) {
-        throw new Error('거래 데이터를 불러오는데 실패했습니다.');
+    if (customerName.trim()) {
+      try {
+        setLoading(true);
+        setError(null);
+        
+        console.log('🔍 API 호출 시작:', customerName);
+        const response = await fetch(`/api/transactions?search=${encodeURIComponent(customerName)}&page=1&pageSize=${pageSize}`);
+        
+        if (!response.ok) {
+          throw new Error('거래 데이터를 불러오는데 실패했습니다.');
+        }
+        
+        const data = await response.json();
+        console.log('🔍 API 응답 데이터:', data);
+        setData(data);
+        
+      } catch (error) {
+        console.error('고객 선택 후 데이터 로딩 실패:', error);
+        setError('데이터를 불러올 수 없습니다.');
+      } finally {
+        setLoading(false);
       }
-      
-      const data = await response.json();
-      setData(data);
-      
-    } catch (error) {
-      console.error('고객 선택 후 데이터 로딩 실패:', error);
-      setError('데이터를 불러올 수 없습니다.');
-    } finally {
-      setLoading(false);
     }
   }, [pageSize]);
 
   // 간단하고 확실한 검색 함수
   const performSearch = useCallback((searchTerm: string) => {
+    console.log('🔍 performSearch 호출:', searchTerm);
+    
     if (searchTerm.trim().length === 0) {
       setFilteredCustomers([]);
       setIsDropdownOpen(false);
@@ -225,12 +244,18 @@ export function TransactionList() {
     }
 
     const normalizedSearch = searchTerm.toLowerCase().trim();
+    console.log('🔍 정규화된 검색어:', normalizedSearch);
     
     // 고객명으로만 검색 (간단하게)
-    const results = customers.filter(c => 
-      c.name?.toLowerCase().includes(normalizedSearch)
-    );
+    const results = customers.filter(c => {
+      const matches = c.name?.toLowerCase().includes(normalizedSearch);
+      if (matches) {
+        console.log('🔍 매칭된 고객:', c.name);
+      }
+      return matches;
+    });
 
+    console.log('🔍 검색 결과 수:', results.length);
     setFilteredCustomers(results.slice(0, 10));
     setIsDropdownOpen(results.length > 0);
     setSelectedIndex(-1);
@@ -238,23 +263,37 @@ export function TransactionList() {
 
   // 키보드 네비게이션
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
-    if (!isDropdownOpen) return;
-
     switch (e.key) {
       case 'ArrowDown':
-        e.preventDefault();
-        setSelectedIndex(prev => 
-          prev < filteredCustomers.length - 1 ? prev + 1 : prev
-        );
+        if (isDropdownOpen) {
+          e.preventDefault();
+          setSelectedIndex(prev => 
+            prev < filteredCustomers.length - 1 ? prev + 1 : prev
+          );
+        }
         break;
       case 'ArrowUp':
-        e.preventDefault();
-        setSelectedIndex(prev => prev > 0 ? prev - 1 : -1);
+        if (isDropdownOpen) {
+          e.preventDefault();
+          setSelectedIndex(prev => prev > 0 ? prev - 1 : -1);
+        }
         break;
       case 'Enter':
         e.preventDefault();
-        if (selectedIndex >= 0 && filteredCustomers[selectedIndex]) {
+        if (isDropdownOpen && selectedIndex >= 0 && filteredCustomers[selectedIndex]) {
+          // 드롭다운에서 선택된 고객으로 검색
           handleCustomerSelect(filteredCustomers[selectedIndex]);
+        } else if (searchInputValue.trim()) {
+          // 직접 입력한 검색어로 검색 실행
+          setSearchTerm(searchInputValue.trim());
+          setPage(1);
+          setIsDropdownOpen(false);
+          
+          // URL 파라미터 업데이트
+          const params = new URLSearchParams(window.location.search);
+          params.set('search', searchInputValue.trim());
+          params.set('page', '1');
+          window.history.replaceState(null, '', `?${params.toString()}`);
         }
         break;
       case 'Escape':
@@ -263,7 +302,7 @@ export function TransactionList() {
         setSelectedIndex(-1);
         break;
     }
-  }, [isDropdownOpen, filteredCustomers, selectedIndex, handleCustomerSelect]);
+  }, [isDropdownOpen, filteredCustomers, selectedIndex, handleCustomerSelect, searchInputValue]);
 
   // page가 바뀌면 URL도 동기화
   useEffect(() => {
@@ -432,14 +471,26 @@ export function TransactionList() {
                 value={searchInputValue}
                 onChange={(e) => {
                   const value = e.target.value;
+                  console.log('🔍 입력 필드 onChange:', value);
                   setSearchInputValue(value);
                   
                   // 1자 이상 입력 시 드롭다운 표시
                   if (value.trim().length >= 1) {
+                    console.log('🔍 performSearch 호출 전:', value);
                     performSearch(value);
                   } else {
+                    console.log('🔍 검색어 클리어');
                     setFilteredCustomers([]);
                     setIsDropdownOpen(false);
+                    // 검색어 클리어 시 전체 목록으로 복귀
+                    setSearchTerm('');
+                    setPage(1);
+                    
+                    // URL 파라미터도 정리
+                    const params = new URLSearchParams(window.location.search);
+                    params.delete('search');
+                    params.set('page', '1');
+                    window.history.replaceState(null, '', `?${params.toString()}`);
                   }
                 }}
                 onKeyDown={handleKeyDown}
@@ -451,6 +502,28 @@ export function TransactionList() {
                 className="w-full px-6 py-4 pr-32 text-lg border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200"
               />
               <div className="absolute right-2 top-1/2 transform -translate-y-1/2 flex gap-2">
+                {searchInputValue.trim() && (
+                  <button
+                    onClick={() => {
+                      // 직접 입력한 검색어로 검색 실행
+                      setSearchTerm(searchInputValue.trim());
+                      setPage(1);
+                      setIsDropdownOpen(false);
+                      
+                      // URL 파라미터 업데이트
+                      const params = new URLSearchParams(window.location.search);
+                      params.set('search', searchInputValue.trim());
+                      params.set('page', '1');
+                      window.history.replaceState(null, '', `?${params.toString()}`);
+                    }}
+                    className="px-3 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors duration-200 text-sm font-semibold shadow-sm border border-blue-600"
+                    title="검색 실행"
+                  >
+                    <span className="flex items-center gap-1 whitespace-nowrap">
+                      🔍 검색
+                    </span>
+                  </button>
+                )}
                 <button
                   onClick={handleRefresh}
                   disabled={refreshing}
@@ -472,6 +545,7 @@ export function TransactionList() {
               {isDropdownOpen && searchInputValue.trim().length >= 1 && (
                 <ul className="absolute left-0 right-0 bg-white border-2 border-blue-200 rounded-lg shadow-xl z-10 mt-1 max-h-80 overflow-y-auto text-lg">
                   {filteredCustomers.map((c, index) => {
+                    console.log('🔍 드롭다운 렌더링 고객:', c.name, c);
                     const history = searchHistory.find(h => h.customerId === c.id);
                     return (
                       <li
