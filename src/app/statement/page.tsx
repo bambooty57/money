@@ -4,17 +4,12 @@ import { useEffect, useState, useRef, useMemo, useCallback } from "react";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import * as XLSX from "xlsx";
-import { PDFDocument, rgb } from 'pdf-lib';
-import fontkit from '@pdf-lib/fontkit';
-import { generateStatementPdf } from '@/components/statement-pdf';
 import React from "react";
 import { Card } from "@/components/ui/card";
-import html2canvas from 'html2canvas';
-import jsPDF from 'jspdf';
 import { StatementPDFTable } from '@/components/statement-pdf';
 import { PDFDownloadLink } from '@react-pdf/renderer';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { PDFViewer } from '@react-pdf/renderer';
+
 import { useRefreshContext } from '@/lib/refresh-context';
 import ScrollToTop from '@/components/ui/scroll-to-top';
 import { CustomerForm } from '@/components/customer-form';
@@ -119,9 +114,6 @@ export default function StatementPage() {
   }, [selectedCustomer]);
   const [summary, setSummary] = useState<any>(null);
   const [loading, setLoading] = useState(false);
-  const [pdfModalOpen, setPdfModalOpen] = useState(false);
-  const [pdfViewMode, setPdfViewMode] = useState<'pdf' | 'table'>('pdf');
-  const [pdfError, setPdfError] = useState<string | null>(null);
   const { refreshKey, triggerRefresh } = useRefreshContext();
   const [search, setSearch] = useState('');
   const [filteredCustomers, setFilteredCustomers] = useState<Customer[]>([]);
@@ -425,76 +417,12 @@ export default function StatementPage() {
     XLSX.writeFile(wb, `${customerName || "거래명세서"}.xlsx`);
   };
 
-  // 4. PDF 미리보기/다운로드 모달 열기
-  const handlePdfPrint = () => {
-    setPdfModalOpen(true);
-  };
+
 
   return (
     <div className="min-h-screen bg-gray-50">
       <ScrollToTop />
-      {/* PDF 미리보기/다운로드 모달 */}
-      <Dialog open={pdfModalOpen} onOpenChange={setPdfModalOpen}>
-        <DialogContent className="max-w-6xl h-[90vh] flex flex-col">
-          <DialogHeader>
-            <DialogTitle className="text-2xl font-bold">PDF 미리보기</DialogTitle>
-          </DialogHeader>
-          <div className="flex gap-2 mb-4">
-            <PDFDownloadLink
-              document={<StatementPDFTable transactions={transactions as any[]} customer={customerData} supplier={summary?.supplier as any} title="거래명세서" printDate={new Date().toLocaleDateString()} />}
-              fileName={`${customerName || '거래명세서'}.pdf`}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700"
-            >
-              {({ loading }) => loading ? 'PDF 생성 중...' : 'PDF 다운로드'}
-            </PDFDownloadLink>
-            <button onClick={() => setPdfModalOpen(false)} className="px-4 py-2 bg-gray-300 rounded-lg font-bold hover:bg-gray-400">닫기</button>
-          </div>
-          <div className="flex-1 border rounded-lg overflow-hidden">
-            {selectedCustomer && transactions.length > 0 ? (
-              <div className="h-full flex flex-col">
-                <div className="flex gap-2 p-2 bg-gray-100 border-b">
-                  <button
-                    onClick={() => setPdfViewMode('pdf')}
-                    className={`px-3 py-1 rounded ${pdfViewMode === 'pdf' ? 'bg-blue-500 text-white' : 'bg-white'}`}
-                  >
-                    PDF 미리보기
-                  </button>
-                </div>
-                <div
-                  className="flex-1 pdf-print-area"
-                  style={{
-                    display: 'flex',
-                    justifyContent: 'center',
-                    alignItems: 'flex-start',
-                    background: '#fff',
-                    width: '100%',
-                    height: '100%',
-                  }}
-                >
-                  <PDFViewer
-                    width="1122px"
-                    height="793px"
-                    style={{ backgroundColor: 'white' }}
-                    showToolbar={false}
-                  >
-                    <StatementPDFTable
-                      transactions={transactions as any[]}
-                      customer={customerData}
-                      supplier={summary?.supplier as any}
-                      title="거래명세서"
-                      printDate={new Date().toLocaleDateString()}
-                    />
-                  </PDFViewer>
-                </div>
-              </div>
-            ) : (
-              <div className="flex items-center justify-center h-full text-gray-500">
-                고객을 선택하고 거래내역이 있어야 PDF를 생성할 수 있습니다.
-              </div>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
+
       {/* CustomerForm 모달 */}
       {customerFormOpen && (
         <CustomerForm open={customerFormOpen} setOpen={setCustomerFormOpen} onSuccess={() => { setCustomerFormOpen(false); }} customer={editCustomer} />
@@ -590,15 +518,6 @@ export default function StatementPage() {
             ) : (
               <Button disabled className="bg-gray-400 text-white px-4 py-2 rounded-lg text-lg font-bold cursor-not-allowed">📄 PDF 다운로드</Button>
             )}
-            
-            {/* PDF 미리보기 버튼 - 모달 열기 */}
-            <Button 
-              onClick={handlePdfPrint} 
-              disabled={!selectedCustomer || transactions.length === 0}
-              className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-lg font-bold hover:bg-indigo-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
-            >
-              👁️ PDF 미리보기
-            </Button>
             
             {selectedCustomer && customerData && (
               <Button
