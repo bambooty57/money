@@ -530,16 +530,41 @@ export default function StatementPage() {
               <Button onClick={() => { setEditTransaction(null); setTransactionFormOpen(true); }} className="bg-orange-600 text-white px-6 py-3 rounded-lg text-xl font-bold">➕ 거래 등록</Button>
             )}
           </div>
-          <Button onClick={handleExcelDownload} className="bg-green-600 text-white px-4 py-2 rounded-lg text-lg font-bold">엑셀 다운로드</Button>
-          <Button onClick={handlePdfPrint} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-lg font-bold">프린트</Button>
-          {selectedCustomer && customerData && (
-            <Button
-              onClick={() => setSmsModalOpen(true)}
-              className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-lg font-bold ml-2"
+          {/* 다운로드 및 액션 버튼들 */}
+          <div className="flex flex-wrap gap-3 items-center">
+            <Button onClick={handleExcelDownload} className="bg-green-600 text-white px-4 py-2 rounded-lg text-lg font-bold hover:bg-green-700 transition-colors">📊 엑셀 다운로드</Button>
+            
+            {/* PDF 다운로드 버튼 - 바로 다운로드 */}
+            {selectedCustomer && transactions.length > 0 ? (
+              <PDFDownloadLink
+                document={<StatementPDFTable transactions={transactions as any[]} customer={customerData} supplier={summary?.supplier as any} title="거래명세서" printDate={new Date().toLocaleDateString()} />}
+                fileName={`${customerName || '거래명세서'}.pdf`}
+                className="bg-blue-600 text-white px-4 py-2 rounded-lg text-lg font-bold hover:bg-blue-700 transition-colors"
+              >
+                {({ loading }) => loading ? '📄 PDF 생성중...' : '📄 PDF 다운로드'}
+              </PDFDownloadLink>
+            ) : (
+              <Button disabled className="bg-gray-400 text-white px-4 py-2 rounded-lg text-lg font-bold cursor-not-allowed">📄 PDF 다운로드</Button>
+            )}
+            
+            {/* PDF 미리보기 버튼 - 모달 열기 */}
+            <Button 
+              onClick={handlePdfPrint} 
+              disabled={!selectedCustomer || transactions.length === 0}
+              className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-lg font-bold hover:bg-indigo-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
             >
-              문자보내기
+              👁️ PDF 미리보기
             </Button>
-          )}
+            
+            {selectedCustomer && customerData && (
+              <Button
+                onClick={() => setSmsModalOpen(true)}
+                className="bg-purple-600 text-white px-4 py-2 rounded-lg text-lg font-bold hover:bg-purple-700 transition-colors"
+              >
+                💬 문자보내기
+              </Button>
+            )}
+          </div>
         </div>
         <div className="mb-8 border-b pb-4 flex flex-col md:flex-row md:items-end md:justify-between gap-4">
           <div>
