@@ -523,7 +523,7 @@ export function TransactionList() {
               {isDropdownOpen && searchInputValue.trim().length >= 1 && (
                 <ul className="absolute left-0 right-0 bg-white border-2 border-blue-200 rounded-lg shadow-xl z-10 mt-1 max-h-80 overflow-y-auto text-lg">
                   {filteredCustomers.map((c, index) => {
-                    console.log('🔍 드롭다운 렌더링 고객:', c.name, c);
+
                     const history = searchHistory.find(h => h.customerId === c.id);
                     return (
                       <li
@@ -765,16 +765,16 @@ export function TransactionList() {
                         1건
                       </TableCell>
                       <TableCell className="border-2 border-gray-300 px-4 py-4 whitespace-nowrap text-base text-gray-900 font-semibold w-32 min-w-[120px] max-w-[160px] text-right overflow-hidden text-ellipsis">
-                        {transaction.amount.toLocaleString()}원
+                        {(transaction.amount || 0).toLocaleString()}원
                       </TableCell>
                       <TableCell className="border-2 border-gray-300 px-4 py-4 whitespace-nowrap text-base text-green-700 font-semibold w-32 min-w-[120px] max-w-[160px] text-right overflow-hidden text-ellipsis">
-                        {transaction.payment_amount.toLocaleString()}원
+                        {(transaction.payment_amount || 0).toLocaleString()}원
                       </TableCell>
                       <TableCell className="border-2 border-gray-300 px-4 py-4 whitespace-nowrap text-base text-gray-900 font-semibold w-32 min-w-[120px] max-w-[160px] text-right overflow-hidden text-ellipsis">
-                        {(transaction.amount - transaction.payment_amount).toLocaleString()}원
+                        {((transaction.amount || 0) - (transaction.payment_amount || 0)).toLocaleString()}원
                       </TableCell>
                       <TableCell className="border-2 border-gray-300 px-4 py-4 whitespace-nowrap text-base text-gray-900 font-semibold w-24 min-w-[80px] max-w-[100px] text-center overflow-hidden text-ellipsis">
-                        {transaction.amount > 0 ? Math.round((transaction.payment_amount / transaction.amount) * 100) : 0}%
+                        {(transaction.amount || 0) > 0 ? Math.round(((transaction.payment_amount || 0) / (transaction.amount || 0)) * 100) : 0}%
                       </TableCell>
                       <TableCell className="border-2 border-gray-300 px-4 py-4 w-16 min-w-[60px] max-w-[60px] text-center overflow-hidden text-ellipsis">
                         <button
@@ -855,12 +855,12 @@ export function TransactionList() {
                   return (
                     <TableRow key={summary.customer_id} className="hover:bg-blue-50 cursor-pointer border-b border-gray-200 h-16">
                       <TableCell className="border-2 border-gray-300 px-4 py-4 whitespace-nowrap text-base text-blue-700 underline font-medium w-32 min-w-[120px] max-w-[160px] text-center overflow-hidden text-ellipsis" onClick={() => router.push(`/customers/${customer.id}/transactions`)}>{customer.name}</TableCell>
-                      <TableCell className="border-2 border-gray-300 px-4 py-4 whitespace-nowrap text-base text-gray-900 w-24 min-w-[80px] max-w-[100px] text-center overflow-hidden text-ellipsis">{summary.transaction_count}건</TableCell>
-                      <TableCell className="border-2 border-gray-300 px-4 py-4 whitespace-nowrap text-base text-gray-900 font-semibold w-32 min-w-[120px] max-w-[160px] text-right overflow-hidden text-ellipsis">{summary.total_amount.toLocaleString()}원</TableCell>
-                      <TableCell className="border-2 border-gray-300 px-4 py-4 whitespace-nowrap text-base text-green-700 font-semibold w-32 min-w-[120px] max-w-[160px] text-right overflow-hidden text-ellipsis">{summary.total_paid.toLocaleString()}원</TableCell>
-                      <TableCell className="border-2 border-gray-300 px-4 py-4 whitespace-nowrap text-base text-gray-900 font-semibold w-32 min-w-[120px] max-w-[160px] text-right overflow-hidden text-ellipsis">{summary.total_unpaid.toLocaleString()}원</TableCell>
+                      <TableCell className="border-2 border-gray-300 px-4 py-4 whitespace-nowrap text-base text-gray-900 w-24 min-w-[80px] max-w-[100px] text-center overflow-hidden text-ellipsis">{summary.transaction_count || 0}건</TableCell>
+                      <TableCell className="border-2 border-gray-300 px-4 py-4 whitespace-nowrap text-base text-gray-900 font-semibold w-32 min-w-[120px] max-w-[160px] text-right overflow-hidden text-ellipsis">{(summary.total_amount || 0).toLocaleString()}원</TableCell>
+                      <TableCell className="border-2 border-gray-300 px-4 py-4 whitespace-nowrap text-base text-green-700 font-semibold w-32 min-w-[120px] max-w-[160px] text-right overflow-hidden text-ellipsis">{(summary.total_paid || 0).toLocaleString()}원</TableCell>
+                      <TableCell className="border-2 border-gray-300 px-4 py-4 whitespace-nowrap text-base text-gray-900 font-semibold w-32 min-w-[120px] max-w-[160px] text-right overflow-hidden text-ellipsis">{(summary.total_unpaid || 0).toLocaleString()}원</TableCell>
                       <TableCell className="border-2 border-gray-300 px-4 py-4 whitespace-nowrap text-base text-gray-900 font-semibold w-24 min-w-[80px] max-w-[100px] text-center overflow-hidden text-ellipsis">
-                        {summary.total_ratio}%
+                        {summary.total_ratio || 0}%
                       </TableCell>
                       <TableCell className="border-2 border-gray-300 px-4 py-4 w-16 min-w-[60px] max-w-[60px] text-center overflow-hidden text-ellipsis">
                         <button
