@@ -295,14 +295,49 @@ export default function StatementPage() {
 
   // 고객 선택 처리
   const handleCustomerSelect = useCallback((customer: Customer) => {
-    setSelectedCustomer(customer.id);
-    setSearch('');
-    setFilteredCustomers([]);
+    console.log('🎯 고객 선택됨:', customer.name);
+    
+    // 즉시 드롭다운 닫기
     setIsDropdownOpen(false);
+    setFilteredCustomers([]);
     setSelectedIndex(-1);
+    
+    // 입력 필드 초기화 및 포커스 해제
+    setSearch('');
     inputRef.current?.blur();
-    saveSearchHistory(customer);
+    
+    // 고객 선택 (약간의 지연으로 확실한 상태 업데이트)
+    setTimeout(() => {
+      setSelectedCustomer(customer.id);
+      saveSearchHistory(customer);
+      console.log('✅ 고객 선택 완료, 드롭다운 닫힘');
+    }, 50);
   }, [saveSearchHistory]);
+
+  // 외부 클릭 시 드롭다운 자동 닫기
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (!isDropdownOpen) return;
+      
+      const target = event.target as Element;
+      const searchContainer = document.querySelector('.customer-search-container');
+      
+      // 클릭한 요소가 검색 컨테이너 내부가 아니면 드롭다운 닫기
+      if (searchContainer && !searchContainer.contains(target)) {
+        console.log('🖱️ 외부 클릭 감지: 드롭다운 닫기');
+        setIsDropdownOpen(false);
+        setFilteredCustomers([]);
+        setSelectedIndex(-1);
+      }
+    };
+
+    if (isDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => {
+        document.removeEventListener('mousedown', handleClickOutside);
+      };
+    }
+  }, [isDropdownOpen]);
 
   // 2. 고객 선택 시 거래내역+부분합 fetch
   useEffect(() => {
@@ -437,7 +472,7 @@ export default function StatementPage() {
         </h1>
         <div className="mb-6 flex flex-col md:flex-row gap-4 items-center relative">
           <label className="text-lg font-semibold text-gray-700">고객 검색:</label>
-          <div className="relative w-full max-w-xs">
+          <div className="relative w-full max-w-xs customer-search-container">
             <input
               ref={inputRef}
               type="text"
@@ -464,7 +499,11 @@ export default function StatementPage() {
                     <li
                       key={c.id}
                       className={`px-4 py-3 hover:bg-blue-100 cursor-pointer ${selectedIndex === index ? 'bg-blue-100 font-bold' : ''}`}
-                      onClick={() => handleCustomerSelect(c)}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        handleCustomerSelect(c);
+                      }}
                       onMouseEnter={() => setSelectedIndex(index)}
                       onMouseLeave={() => setSelectedIndex(-1)}
                     >
