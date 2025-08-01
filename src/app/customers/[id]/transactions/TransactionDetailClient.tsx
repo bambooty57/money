@@ -487,26 +487,7 @@ async function handlePdfExportPdfLib(selectedTx: TransactionWithDetails, filtere
 
     // 2. 고객정보 표 + 사진
     const customer = (selectedTx.customers as any) || {};
-    // 디버깅: 실제 customer 구조 출력
-    if (typeof window !== 'undefined') {
-      console.log('📋 PDF customer 전체 데이터:', customer);
-      console.log('📋 사업자번호 관련 필드들:', {
-        business_number: customer.business_number,
-        biznum: customer.biznum,
-        business_reg_no: customer.business_reg_no,
-        biz_no: customer.biz_no,
-        business_registration_number: customer.business_registration_number
-      });
-      console.log('📋 연락처 관련 필드들:', {
-        mobile: customer.mobile,
-        mobile_phone: customer.mobile_phone,
-        cell_phone: customer.cell_phone,
-        phone: customer.phone,
-        phone_number: customer.phone_number,
-        tel: customer.tel,
-        contact: customer.contact
-      });
-    }
+
     // 주요 필드 자동 매핑
     const getField = (...fields: string[]) => {
       for (const f of fields) {
@@ -773,26 +754,23 @@ async function handlePdfExportPdfLib(selectedTx: TransactionWithDetails, filtere
           // 6. URL 정리
           URL.revokeObjectURL(imageUrl);
           
-          console.log('✅ Canvas 방식으로 이미지 처리 성공!');
+
           
         } catch (canvasError) {
-          console.error('❌ Canvas 방식 실패:', canvasError);
-          
           // 백업: 기존 방식으로 재시도
-          console.log('🔄 기존 방식으로 백업 시도...');
           try {
             photoImg = await pdfDoc.embedJpg(photoBytes);
-            console.log('✅ 백업 JPEG 성공!');
+
           } catch (jpegError) {
             try {
               photoImg = await pdfDoc.embedPng(photoBytes);
-              console.log('✅ 백업 PNG 성공!');
+
             } catch (pngError) {
               const canvasMsg = canvasError instanceof Error ? canvasError.message : String(canvasError);
               const jpegMsg = jpegError instanceof Error ? jpegError.message : String(jpegError);
               const pngMsg = pngError instanceof Error ? pngError.message : String(pngError);
               
-              console.error('❌ 모든 방식 실패:', { Canvas: canvasMsg, JPEG: jpegMsg, PNG: pngMsg });
+
               throw new Error(`모든 이미지 처리 방식 실패: Canvas(${canvasMsg}), JPEG(${jpegMsg}), PNG(${pngMsg})`);
             }
           }

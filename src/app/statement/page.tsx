@@ -157,7 +157,7 @@ export default function StatementPage() {
           lastSearched: new Date(item.lastSearched)
         })));
       } catch (error) {
-        console.error('검색 히스토리 로드 실패:', error);
+        // 검색 히스토리 로드 실패 시 무시
       }
     }
   }, []);

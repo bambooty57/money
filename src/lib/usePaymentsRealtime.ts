@@ -22,7 +22,7 @@ export function usePaymentsRealtime({ customerId, onPaymentsChange }: { customer
             'postgres_changes',
             { event: '*', schema: 'public', table: 'payments' },
             (payload) => {
-              console.log('Realtime payment change:', payload);
+
               // customerId가 있으면 해당 거래만, 아니면 전체
               if (onPaymentsChange) {
                 onPaymentsChange();
@@ -32,17 +32,13 @@ export function usePaymentsRealtime({ customerId, onPaymentsChange }: { customer
             }
           )
           .subscribe((status) => {
-            console.log('Realtime connection status:', status);
             if (status === 'SUBSCRIBED') {
               setConnectionStatus('connected');
               setRetryCount(0); // 연결 성공 시 재시도 카운트 리셋
             } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
               setConnectionStatus('disconnected');
-              console.warn('Realtime connection failed, falling back to manual refresh');
-              
               // 재시도 로직 (최대 3번)
               if (retryCount < 3) {
-                console.log(`Retrying connection in ${(retryCount + 1) * 5} seconds...`);
                 retryTimeout = setTimeout(() => {
                   setRetryCount(prev => prev + 1);
                 }, (retryCount + 1) * 5000); // 5초, 10초, 15초 후 재시도
@@ -52,13 +48,11 @@ export function usePaymentsRealtime({ customerId, onPaymentsChange }: { customer
 
         // 연결 정리 함수 반환
         return () => {
-          console.log('Cleaning up realtime connection');
           setConnectionStatus('disconnected');
           if (retryTimeout) clearTimeout(retryTimeout);
           supabase.removeChannel(channel);
         };
       } catch (error) {
-        console.error('Failed to setup realtime connection:', error);
         setConnectionStatus('disconnected');
         return () => {
           if (retryTimeout) clearTimeout(retryTimeout);

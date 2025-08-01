@@ -49,7 +49,7 @@ export default function TransactionForm({ customers, onSuccess, transaction, ref
       fetch('/api/customers?page=1&pageSize=1000')
         .then(res => res.json())
         .then(data => setAllCustomers(data.data || []))
-        .catch(err => console.error('Failed to fetch customers:', err));
+        .catch(() => {/* 고객 목록 로드 실패 시 무시 */});
     }
   }, [customers]);
 

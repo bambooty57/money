@@ -65,7 +65,6 @@ export function useTransactionsRealtime({
             'postgres_changes',
             { event: '*', schema: 'public', table: 'transactions' },
             (payload) => {
-              console.log('🔄 Realtime transaction change:', payload);
               smartRefresh();
             }
           )
@@ -73,7 +72,6 @@ export function useTransactionsRealtime({
             'postgres_changes',
             { event: '*', schema: 'public', table: 'payments' },
             (payload) => {
-              console.log('🔄 Realtime payment change:', payload);
               smartRefresh();
             }
           )
@@ -81,23 +79,18 @@ export function useTransactionsRealtime({
             'postgres_changes',
             { event: '*', schema: 'public', table: 'customers' },
             (payload) => {
-              console.log('🔄 Realtime customer change:', payload);
               smartRefresh();
             }
           )
           .subscribe((status) => {
-            console.log('📡 Realtime connection status:', status);
             if (status === 'SUBSCRIBED') {
               setConnectionStatus('connected');
               setRetryCount(0); // 연결 성공 시 재시도 카운트 리셋
             } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
               setConnectionStatus('disconnected');
-              console.warn('⚠️ Realtime connection failed, falling back to manual refresh');
-              
               // 재시도 로직 (최대 3번)
               if (retryCount < 3) {
                 const retryDelay = Math.min((retryCount + 1) * 5000, 15000); // 최대 15초
-                console.log(`🔄 Retrying connection in ${retryDelay / 1000} seconds...`);
                 retryTimeout = setTimeout(() => {
                   setRetryCount(prev => prev + 1);
                 }, retryDelay);
@@ -107,7 +100,6 @@ export function useTransactionsRealtime({
 
         // 연결 정리 함수 반환
         return () => {
-          console.log('🧹 Cleaning up realtime connection');
           setConnectionStatus('disconnected');
           if (retryTimeout) clearTimeout(retryTimeout);
           if (refreshTimeout.current) clearTimeout(refreshTimeout.current);
@@ -116,7 +108,6 @@ export function useTransactionsRealtime({
           }
         };
       } catch (error) {
-        console.error('❌ Failed to setup realtime connection:', error);
         setConnectionStatus('disconnected');
         return () => {
           if (retryTimeout) clearTimeout(retryTimeout);

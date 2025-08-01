@@ -40,8 +40,8 @@ export default function SmsSender({ selectedCustomer, onSuccess }: SmsSenderProp
       return;
     }
     let template = smsTemplates[category as SmsTemplateCategory][templateKey];
-    // 반드시 selectedCustomer.name을 직접 치환
-    template = template.replace(/\{고객명\}/g, selectedCustomer.name);
+    // 반드시 selectedCustomer.name을 직접 치환 (null 체크 추가)
+    template = template.replace(/\{고객명\}/g, selectedCustomer.name || '');
     template = template.replace(/\{미수금\}/g, selectedCustomer.total_unpaid?.toLocaleString() ?? '0');
     template = template.replace(/\{거래건수\}/g, String(selectedCustomer.transaction_count ?? 0));
     // 기타 변수는 빈값
