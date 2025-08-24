@@ -614,11 +614,12 @@ export default function StatementPage() {
                         <Button onClick={() => { setEditTransaction(null); setTransactionFormOpen(false); }} className="bg-gray-400 text-white px-4 py-2 rounded-lg text-lg font-bold hover:bg-gray-300">취소하기</Button>
                       )}
                       <Button onClick={() => { setDeleteTargetId(tx.id); setDeleteModalOpen(true); }} className="bg-red-600 text-white px-4 py-2 rounded-lg text-lg font-bold">🗑️ 삭제</Button>
-                      {/* 입금 등록/수정/삭제 버튼: 거래 1건당 1개만 허용 */}
-                      {Array.isArray(tx.payments) && tx.payments.length === 0 && (
-                        <Button onClick={() => { setTargetTransactionId(tx.id); setEditPayment(null); setPaymentFormOpen(true); }} className="bg-green-600 text-white px-4 py-2 rounded-lg text-lg font-bold">➕ 입금 등록</Button>
-                      )}
-                      {Array.isArray(tx.payments) && tx.payments.length === 1 && (
+                      {/* 입금 등록/수정/삭제 버튼: 여러 건 입금 허용 */}
+                      {/* 입금 추가 버튼 - 항상 표시 */}
+                      <Button onClick={() => { setTargetTransactionId(tx.id); setEditPayment(null); setPaymentFormOpen(true); }} className="bg-green-600 text-white px-4 py-2 rounded-lg text-lg font-bold">➕ 입금 추가</Button>
+                      
+                      {/* 기존 입금이 있을 때만 수정/삭제 버튼 표시 */}
+                      {Array.isArray(tx.payments) && tx.payments.length > 0 && (
                         <>
                           <Button onClick={() => { setTargetTransactionId(tx.id); setEditPayment((tx.payments as any[])[0]); setPaymentFormOpen(true); }} className="bg-green-700 text-white px-4 py-2 rounded-lg text-lg font-bold">✏️ 입금 수정</Button>
                           <Button onClick={async () => { if(window.confirm('정말 삭제하시겠습니까?')) { await deletePayment((tx.payments as any[])[0].id); }}} className="bg-red-700 text-white px-4 py-2 rounded-lg text-lg font-bold">🗑️ 입금 삭제</Button>
