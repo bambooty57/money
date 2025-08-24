@@ -65,137 +65,229 @@ const toFile = (f: any): File => ({
 });
 
 // Payment 등록 폼 컴포넌트
-function PaymentForm({ transactionId, onSuccess, setSuccessMsg, setErrorMsg }: { transactionId: string, onSuccess: () => void, setSuccessMsg: (msg: string) => void, setErrorMsg: (msg: string) => void }) {
-  const [method, setMethod] = useState('현금');
-  const [amount, setAmount] = useState('');
-  const [paidAt, setPaidAt] = useState('');
-  const [payerName, setPayerName] = useState('');
+interface PaymentFormProps {
+  transactionId: string;
+  onSuccess: () => void;
+  setSuccessMsg: (msg: string) => void;
+  setErrorMsg: (msg: string) => void;
+}
+
+function PaymentForm({ transactionId, onSuccess, setSuccessMsg, setErrorMsg }: PaymentFormProps) {
+  const [method, setMethod] = useState<string>('현금');
+  const [amount, setAmount] = useState<string>('');
+  const [paidAt, setPaidAt] = useState<string>('');
+  const [payerName, setPayerName] = useState<string>('');
   // 카드 결제용
-  const [cardName, setCardName] = useState('');
-  const [paidLocation, setPaidLocation] = useState('');
-  const [paidBy, setPaidBy] = useState('');
-  const [note, setNote] = useState('');
+  const [cardName, setCardName] = useState<string>('');
+  const [paidLocation, setPaidLocation] = useState<string>('');
+  const [paidBy, setPaidBy] = useState<string>('');
+  const [note, setNote] = useState<string>('');
   // 현금/계좌이체용(간략화)
-  const [cashPlace, setCashPlace] = useState('');
-  const [cashReceiver, setCashReceiver] = useState('');
-  const [cashDetail, setCashDetail] = useState('');
-  const [accountNumber, setAccountNumber] = useState('');
-  const [accountHolder, setAccountHolder] = useState('');
+  const [cashPlace, setCashPlace] = useState<string>('');
+  const [cashReceiver, setCashReceiver] = useState<string>('');
+  const [cashDetail, setCashDetail] = useState<string>('');
+  const [accountNumber, setAccountNumber] = useState<string>('');
+  const [accountHolder, setAccountHolder] = useState<string>('');
   // 중고인수용
-  const [usedModelType, setUsedModelType] = useState('');
-  const [usedModel, setUsedModel] = useState('');
-  const [usedPlace, setUsedPlace] = useState('');
-  const [usedBy, setUsedBy] = useState('');
-  const [usedAt, setUsedAt] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [otherReason, setOtherReason] = useState('');
-  const [accountSelect, setAccountSelect] = useState(''); // ''=직접입력, index=계좌목록
-  const [bankName, setBankName] = useState('');
-  const [customBankName, setCustomBankName] = useState('');
+  const [usedModelType, setUsedModelType] = useState<string>('');
+  const [usedModel, setUsedModel] = useState<string>('');
+  const [usedPlace, setUsedPlace] = useState<string>('');
+  const [usedBy, setUsedBy] = useState<string>('');
+  const [usedAt, setUsedAt] = useState<string>('');
+  const [loading, setLoading] = useState<boolean>(false);
+  const [otherReason, setOtherReason] = useState<string>('');
+  const [accountSelect, setAccountSelect] = useState<string>(''); // ''=직접입력, index=계좌목록
+  const [bankName, setBankName] = useState<string>('');
+  const [customBankName, setCustomBankName] = useState<string>('');
   const [recentAccountNumbers, setRecentAccountNumbers] = useState<string[]>([]);
-  const [loanDetail, setLoanDetail] = useState('');
-  const [otherDetail, setOtherDetail] = useState('');
-  const [otherNote, setOtherNote] = useState('');
+  const [loanDetail, setLoanDetail] = useState<string>('');
+  const [otherDetail, setOtherDetail] = useState<string>('');
+  const [otherNote, setOtherNote] = useState<string>('');
   // 수표 다중입력용 (발행은행/금액/수표번호)
   const [cheques, setCheques] = useState<{bank: string, amount: string, number: string}[]>([{bank: '', amount: '', number: ''}]);
 
   // 수표 합계 계산
-  const chequeTotal = cheques.reduce((sum, c) => sum + (parseFloat(c.amount) || 0), 0);
+  const chequeTotal = cheques.reduce((sum, c) => {
+    try {
+      if (!c || !c.amount || c.amount.trim() === '') return sum;
+      const amount = parseFloat(c.amount);
+      return sum + (isNaN(amount) ? 0 : amount);
+    } catch {
+      return sum;
+    }
+  }, 0);
 
   // 수표 추가/삭제/수정 핸들러
   const addCheque = () => setCheques([...cheques, {bank: '', amount: '', number: ''}]);
-  const removeCheque = (idx: number) => setCheques(cheques.length === 1 ? cheques : cheques.filter((_, i) => i !== idx));
-  const updateCheque = (idx: number, key: 'bank'|'amount'|'number', value: string) => setCheques(cheques.map((c, i) => i === idx ? {...c, [key]: value} : c));
+  const removeCheque = (idx: number) => {
+    if (idx >= 0 && idx < cheques.length) {
+      setCheques(cheques.length === 1 ? cheques : cheques.filter((_, i) => i !== idx));
+    }
+  };
+  const updateCheque = (idx: number, key: 'bank'|'amount'|'number', value: string) => {
+    if (idx >= 0 && idx < cheques.length) {
+      setCheques(cheques.map((c, i) => i === idx ? {...c, [key]: value} : c));
+    }
+  };
 
   useEffect(() => {
     if (method === '계좌이체') {
-      const list = JSON.parse(localStorage.getItem('recentAccountNumbers') || '[]');
-      setRecentAccountNumbers(list);
+      try {
+        const stored = localStorage.getItem('recentAccountNumbers');
+        const list = stored ? JSON.parse(stored) : [];
+        if (Array.isArray(list)) {
+          setRecentAccountNumbers(list);
+        } else {
+          setRecentAccountNumbers([]);
+        }
+      } catch (error) {
+        console.error('localStorage 파싱 오류:', error);
+        setRecentAccountNumbers([]);
+      }
     }
   }, [method]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    if (typeof setSuccessMsg === 'function') setSuccessMsg('');
-    if (typeof setErrorMsg === 'function') setErrorMsg('');
+    
     try {
+      if (typeof setSuccessMsg === 'function') setSuccessMsg('');
+      if (typeof setErrorMsg === 'function') setErrorMsg('');
+      
+      // 금액 유효성 검사
+      if (method !== '수표') {
+        if (!amount || amount.trim() === '') {
+          if (typeof setErrorMsg === 'function') setErrorMsg('금액을 입력해주세요.');
+          throw new Error('금액을 입력해주세요.');
+        }
+        let amountValue = 0;
+        try {
+          amountValue = parseFloat(amount || '0');
+        } catch {
+          if (typeof setErrorMsg === 'function') setErrorMsg('금액 형식이 올바르지 않습니다.');
+          throw new Error('금액 형식이 올바르지 않습니다.');
+        }
+        
+        if (isNaN(amountValue) || amountValue <= 0) {
+          if (typeof setErrorMsg === 'function') setErrorMsg('유효한 금액을 입력해주세요.');
+          throw new Error('유효한 금액을 입력해주세요.');
+        }
+      }
+      
+      if (method === '수표') {
+        if (isNaN(chequeTotal) || chequeTotal <= 0) {
+          if (typeof setErrorMsg === 'function') setErrorMsg('수표 금액을 입력해주세요.');
+          throw new Error('수표 금액을 입력해주세요.');
+        }
+      }
       const payload: any = {
         transaction_id: transactionId || '',
-        amount: Math.round(parseFloat(amount)),
-        paid_at: paidAt,
-        method,
-        payer_name: payerName,
+        amount: method === '수표' ? (() => {
+          try {
+            return Math.round(chequeTotal) || 0;
+          } catch {
+            return 0;
+          }
+        })() : (() => {
+          try {
+            const parsed = parseFloat(amount || '0');
+            return isNaN(parsed) ? 0 : Math.round(parsed);
+          } catch {
+            return 0;
+          }
+        })(),
+        paid_at: paidAt || '',
+        method: method || '',
+        payer_name: payerName || '',
       };
       if (method === '현금') {
-        payload.cash_place = cashPlace;
-        payload.cash_receiver = cashReceiver;
-        payload.cash_detail = cashDetail;
-        payload.note = note;
+        payload.cash_place = cashPlace || '';
+        payload.cash_receiver = cashReceiver || '';
+        payload.cash_detail = cashDetail || '';
+        payload.note = note || '';
       }
       if (method === '계좌이체') {
-        payload.account_number = accountNumber;
-        payload.account_holder = accountHolder;
-        payload.note = note;
-        payload.bank_name = bankName === '기타(직접입력)' ? customBankName : bankName;
+        payload.account_number = accountNumber || '';
+        payload.account_holder = accountHolder || '';
+        payload.note = note || '';
+        payload.bank_name = bankName === '기타(직접입력)' ? (customBankName || '') : (bankName || '');
       }
       if (method === '카드') {
-        payload.card_name = cardName;
-        payload.paid_location = paidLocation;
-        payload.paid_by = paidBy;
-        payload.note = note;
-        payload.bank_name = bankName === '기타(직접입력)' ? customBankName : bankName;
+        payload.card_name = cardName || '';
+        payload.paid_location = paidLocation || '';
+        payload.paid_by = paidBy || '';
+        payload.note = note || '';
+        payload.bank_name = bankName === '기타(직접입력)' ? (customBankName || '') : (bankName || '');
       }
       if (method === '중고인수') {
-        payload.used_model_type = usedModelType;
-        payload.used_model = usedModel;
-        payload.used_place = usedPlace;
-        payload.used_by = usedBy;
-        payload.used_at = usedAt ? usedAt : null;
-        payload.amount = Math.round(parseFloat(amount)); // 인수금액
-        payload.note = note;
+        payload.used_model_type = usedModelType || '';
+        payload.used_model = usedModel || '';
+        payload.used_place = usedPlace || '';
+        payload.used_by = usedBy || '';
+        payload.used_at = usedAt || null;
+        payload.note = note || '';
       }
       if (method === '융자') {
-        payload.bank_name = bankName === '기타(직접입력)' ? customBankName : bankName;
-        payload.detail = loanDetail;
-        payload.note = note;
+        payload.bank_name = bankName === '기타(직접입력)' ? (customBankName || '') : (bankName || '');
+        payload.detail = loanDetail || '';
+        payload.note = note || '';
       }
       if (method === '캐피탈') {
-        payload.bank_name = bankName === '기타(직접입력)' ? customBankName : bankName;
-        payload.detail = loanDetail;
-        payload.note = note;
+        payload.bank_name = bankName === '기타(직접입력)' ? (customBankName || '') : (bankName || '');
+        payload.detail = loanDetail || '';
+        payload.note = note || '';
       }
       if (method === '기타') {
-        payload.detail = otherDetail;
-        payload.note = otherNote;
+        payload.detail = otherDetail || '';
+        payload.note = otherNote || '';
       }
       if (method === '수표') {
-        payload.cheques = JSON.stringify(cheques);
-        payload.amount = Math.round(chequeTotal);
-        payload.note = note;
+        payload.cheques = JSON.stringify(cheques || []);
+        payload.note = note || '';
       }
       const res = await fetch('/api/payments', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
-      if (!res.ok) throw new Error('저장 실패');
+      
+      if (!res.ok) {
+        const errorText = await res.text();
+        throw new Error(`저장 실패: ${res.status} ${res.statusText}${errorText ? ` - ${errorText}` : ''}`);
+      }
       setAmount(''); setPaidAt(''); setPayerName(''); setCardName(''); setPaidLocation(''); setPaidBy(''); setCashPlace(''); setCashReceiver(''); setCashDetail(''); setAccountNumber(''); setAccountHolder(''); setNote(''); setUsedModelType(''); setUsedModel(''); setUsedPlace(''); setUsedBy(''); setUsedAt(''); setOtherReason(''); setLoanDetail(''); setOtherDetail(''); setOtherNote(''); setCheques([{bank: '', amount: '', number: ''}]);
-      if (typeof setSuccessMsg === 'function') setSuccessMsg('입금 등록이 완료되었습니다.');
-      onSuccess();
+      if (typeof setSuccessMsg === 'function') {
+        setSuccessMsg('입금 등록이 완료되었습니다.');
+      }
+      if (typeof onSuccess === 'function') {
+        onSuccess();
+      }
       if (res.ok && method === '계좌이체') {
-        let list = JSON.parse(localStorage.getItem('recentAccountNumbers') || '[]');
-        list = [accountNumber, ...list.filter((n: string) => n !== accountNumber)];
-        if (list.length > 5) list = list.slice(0, 5);
-        localStorage.setItem('recentAccountNumbers', JSON.stringify(list));
-        setRecentAccountNumbers(list);
+        try {
+          const stored = localStorage.getItem('recentAccountNumbers');
+          let list = stored ? JSON.parse(stored) : [];
+          if (!Array.isArray(list)) list = [];
+          
+          list = [accountNumber, ...list.filter((n: string) => n !== accountNumber)];
+          if (list.length > 5) list = list.slice(0, 5);
+          
+          localStorage.setItem('recentAccountNumbers', JSON.stringify(list));
+          setRecentAccountNumbers(list);
+        } catch (error) {
+          console.error('localStorage 업데이트 오류:', error);
+        }
       }
     } catch (err: any) {
-      if (typeof setErrorMsg === 'function') setErrorMsg((err as Error).message || '저장 중 오류 발생');
+      console.error('입금 등록 오류:', err);
+      if (typeof setErrorMsg === 'function') {
+        const errorMessage = err instanceof Error ? err.message : '저장 중 오류 발생';
+        setErrorMsg(errorMessage);
+      }
     } finally {
       setLoading(false);
     }
-  };
+  }
   // 계좌 선택 핸들러
   function handleAccountSelect(e: React.ChangeEvent<HTMLSelectElement>) {
     const val = e.target.value;
@@ -205,8 +297,10 @@ function PaymentForm({ transactionId, onSuccess, setSuccessMsg, setErrorMsg }: {
       setAccountHolder('');
     } else {
       const idx = parseInt(val, 10);
-      setAccountNumber(ACCOUNT_LIST[idx].number);
-      setAccountHolder(ACCOUNT_LIST[idx].holder);
+      if (idx >= 0 && idx < ACCOUNT_LIST.length) {
+        setAccountNumber(ACCOUNT_LIST[idx].number);
+        setAccountHolder(ACCOUNT_LIST[idx].holder);
+      }
     }
   }
   return (
