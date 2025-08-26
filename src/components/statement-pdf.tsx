@@ -39,82 +39,362 @@ function wrapText(text: string, font: any, fontSize: number, maxWidth: number, m
   return lines;
 }
 
-// 레거시 PDF 생성 함수 (pdf-lib 기반)
+// 값 표시 유틸리티 함수
+function displayValue(val: any): string {
+  if (val === null || val === undefined || val === '' || val === 'null' || val === 'undefined') {
+    return '';
+  }
+  return String(val);
+}
+
+// 텍스트 너비 기반 자동 줄바꿈 함수
+function splitTextByWidth(text: string, maxWidth: number, font: any, fontSize: number): string[] {
+  if (!text || text.trim() === '') return [''];
+  
+  const words = text.split(' ');
+  const lines: string[] = [];
+  let currentLine = '';
+  
+  for (const word of words) {
+    const testLine = currentLine ? `${currentLine} ${word}` : word;
+    const width = font.widthOfTextAtSize(testLine, fontSize);
+    
+    if (width <= maxWidth) {
+      currentLine = testLine;
+    } else {
+      if (currentLine) {
+        lines.push(currentLine);
+        currentLine = word;
+      } else {
+        // 단어가 너무 길면 강제로 자르기
+        lines.push(word);
+      }
+    }
+  }
+  
+  if (currentLine) {
+    lines.push(currentLine);
+  }
+  
+  return lines.length > 0 ? lines : [''];
+}
+
+// 완전한 PDF 생성 함수 (이전 양식 복원)
 export async function generateStatementPdf({ customer, transactions, payments, supplier, title = '거래명세서', printDate, photoUrl }: StatementPdfOptions): Promise<Blob> {
-  const pdfDoc = await PDFDocument.create();
-  pdfDoc.registerFontkit(fontkit);
-  let page = pdfDoc.addPage([595, 842]); // A4
-  const fontUrl = '/Noto_Sans_KR/static/NotoSansKR-Regular.ttf';
-  const fontBytes = await fetch(fontUrl).then(res => res.arrayBuffer());
-  const font = await pdfDoc.embedFont(fontBytes);
-  let y = 780;
-  
-  // 1. 상단 로고/제목/출력일
   try {
-    const logoUrl = '/kubotalogo5.png';
-    const logoResponse = await fetch(logoUrl);
-    if (logoResponse.ok) {
-      const logoBytes = await logoResponse.arrayBuffer();
-      const logoImg = await pdfDoc.embedPng(logoBytes);
-      page.drawImage(logoImg, { x: 50, y: y - 20, width: 150, height: 60 });
+    const pdfDoc = await PDFDocument.create();
+    pdfDoc.registerFontkit(fontkit);
+    const page = pdfDoc.addPage([595, 842]); // A4
+
+    // 폰트 로드
+    const fontUrl = '/Noto_Sans_KR/static/NotoSansKR-Regular.ttf';
+    const fontBytes = await fetch(fontUrl).then(res => res.arrayBuffer());
+    const font = await pdfDoc.embedFont(fontBytes);
+
+    // 1. 상단 헤더 (로고, 제목, 출력일)
+    const headerY = 780;
+    
+    // 로고 이미지
+    try {
+      const logoUrl = '/kubotalogo5.png';
+      const logoResponse = await fetch(logoUrl);
+      if (logoResponse.ok) {
+        const logoBytes = await logoResponse.arrayBuffer();
+        const logoImg = await pdfDoc.embedPng(logoBytes);
+        page.drawImage(logoImg, { x: 50, y: headerY - 20, width: 150, height: 60 });
+      }
+    } catch (logoError) {
+      console.error('로고 로드 실패:', logoError);
     }
-  } catch {}
-  
-  page.drawText(title, { x: 220, y, size: 28, font, color: rgb(0,0,0) });
-  const today = printDate || `${new Date().getFullYear()}.${String(new Date().getMonth() + 1).padStart(2, '0')}.${String(new Date().getDate()).padStart(2, '0')}`;
-  page.drawText(`출력일: ${today}`, { x: 420, y, size: 11, font, color: rgb(0.5,0.5,0.5) });
-  y -= 40;
-  
-  // 2. 고객정보 박스
-  const customerTable = [
-    ['고객명', customer.name || ''],
-    ['고객유형', customer.customer_type || ''],
-    ['주민번호', customer.ssn || ''],
-    ['사업자번호', customer.business_no || ''],
-    ['휴대폰번호', customer.mobile || customer.phone || ''],
-    ['주소', customer.address || ''],
-    ['지번주소', customer.address_jibun || '']
-  ];
-  
-  const customerBoxX = 60;
-  const customerBoxY = y;
-  const customerBoxWidth = 350;
-  const customerBoxHeight = 126;
-  
-  // 고객정보 박스
-  page.drawRectangle({ x: customerBoxX, y: customerBoxY - customerBoxHeight, width: customerBoxWidth, height: customerBoxHeight, borderColor: rgb(0.7, 0.7, 0.7), borderWidth: 1 });
-  customerTable.forEach(([k, v], i) => {
-    const rowY = customerBoxY - 15 - (i * 15);
-    page.drawText(`${k}:`, { x: customerBoxX + 10, y: rowY, size: 9, font, color: rgb(0.3,0.3,0.3) });
-    page.drawText(v, { x: customerBoxX + 100, y: rowY, size: 9, font, color: rgb(0,0,0) });
-    if (i < customerTable.length - 1) {
-      page.drawLine({ start: {x: customerBoxX + 5, y: rowY - 3}, end: {x: customerBoxX + customerBoxWidth - 5, y: rowY - 3}, thickness: 0.3, color: rgb(0.9,0.9,0.9) });
+
+    // 제목
+    page.drawText(title, { 
+      x: 220, 
+      y: headerY, 
+      size: 28, 
+      font, 
+      color: rgb(0,0,0) 
+    });
+    
+    // 출력일
+    const today = printDate || `${new Date().getFullYear()}.${String(new Date().getMonth() + 1).padStart(2, '0')}.${String(new Date().getDate()).padStart(2, '0')}`;
+    page.drawText(`출력일: ${today}`, { 
+      x: 420, 
+      y: headerY, 
+      size: 11, 
+      font, 
+      color: rgb(0.5,0.5,0.5) 
+    });
+    
+    let y = 760;
+    page.drawLine({ start: {x: 50, y}, end: {x: 545, y}, thickness: 2, color: rgb(0.7,0.7,0.8) });
+    y -= 25;
+
+    // 2. 고객정보 박스
+    const getField = (...fields: string[]) => {
+      for (const f of fields) {
+        if (customer[f] !== undefined && customer[f] !== null) return customer[f];
+      }
+      return '';
+    };
+
+    const customerTable = [
+      ['고객명', displayValue(getField('name', 'customer_name'))],
+      ['고객유형', displayValue(getField('customer_type', 'type'))],
+      ['주민번호', displayValue(getField('ssn', 'rrn'))],
+      ['사업자번호', displayValue(getField('business_no', 'business_number', 'biznum', 'business_reg_no', 'biz_no'))],
+      ['휴대폰번호', displayValue(getField('mobile', 'phone', 'mobile_phone', 'cell_phone', 'phone_number'))],
+      ['주소', displayValue(getField('address', 'addr', 'road_address', 'road_addr'))],
+      ['지번주소', displayValue(getField('jibun_address', 'jibun_addr', 'lot_address', 'old_address', 'jibun', 'lot_addr', 'address_jibun'))]
+    ];
+
+    const customerBoxX = 60;
+    const customerBoxY = y;
+    const customerBoxWidth = 350;
+    const customerBoxHeight = 126;
+    
+    // 고객정보 박스 그리기
+    page.drawRectangle({
+      x: customerBoxX,
+      y: customerBoxY - customerBoxHeight,
+      width: customerBoxWidth,
+      height: customerBoxHeight,
+      borderColor: rgb(0.8, 0.8, 0.8),
+      borderWidth: 1
+    });
+    
+    // 고객정보 내용 표시
+    customerTable.forEach(([k, v], i) => {
+      const rowY = customerBoxY - 15 - (i * 15);
+      // 라벨
+      page.drawText(`${k}:`, { 
+        x: customerBoxX + 10, 
+        y: rowY, 
+        size: 9, 
+        font, 
+        color: rgb(0.3,0.3,0.3) 
+      });
+      // 값
+      page.drawText(v, { 
+        x: customerBoxX + 100, 
+        y: rowY, 
+        size: 9, 
+        font, 
+        color: rgb(0,0,0) 
+      });
+      // 구분선
+      if (i < customerTable.length - 1) {
+        page.drawLine({ 
+          start: {x: customerBoxX + 5, y: rowY - 3}, 
+          end: {x: customerBoxX + customerBoxWidth - 5, y: rowY - 3}, 
+          thickness: 0.3, 
+          color: rgb(0.9,0.9,0.9) 
+        });
+      }
+    });
+
+    y -= customerBoxHeight + 30;
+
+    // 3. 거래명세서 표
+    const headers = ['#', '일자', '거래명', '기종/모델', '대변(매출)', '차변(입금)', '잔액', '비고'];
+    const colWidths = [30, 60, 80, 100, 80, 80, 80, 106]; // 총 616px
+    const tableStartX = 50;
+    const tableWidth = colWidths.reduce((a,b)=>a+b,0);
+    
+    // 테이블 헤더 배경
+    page.drawRectangle({
+      x: tableStartX,
+      y: y - 20,
+      width: tableWidth,
+      height: 20,
+      color: rgb(0.9, 0.95, 1.0),
+      borderColor: rgb(0.2, 0.4, 0.8),
+      borderWidth: 1
+    });
+    
+    // 헤더 텍스트
+    let headerX = tableStartX;
+    headers.forEach((header, i) => {
+      page.drawText(header, {
+        x: headerX + 5,
+        y: y - 15,
+        size: 10,
+        font,
+        color: rgb(0,0,0)
+      });
+      headerX += colWidths[i];
+    });
+    
+    y -= 20;
+    
+    // 거래 데이터 행
+    transactions.forEach((tx, idx) => {
+      const rowHeight = 20;
+      
+      // 행 배경 (홀수/짝수 구분)
+      if (idx % 2 === 0) {
+        page.drawRectangle({
+          x: tableStartX,
+          y: y - rowHeight,
+          width: tableWidth,
+          height: rowHeight,
+          color: rgb(0.98, 0.98, 0.98)
+        });
+      }
+      
+      // 행 테두리
+      page.drawRectangle({
+        x: tableStartX,
+        y: y - rowHeight,
+        width: tableWidth,
+        height: rowHeight,
+        borderColor: rgb(0.7, 0.7, 0.7),
+        borderWidth: 0.5
+      });
+      
+      // 셀 데이터
+      const rowData = [
+        String(idx + 1),
+        tx.created_at?.slice(0, 10) || '',
+        tx.type || '',
+        `${tx.model || tx.models_types?.model || ''}${(tx.model || tx.models_types?.model) && (tx.model_type || tx.models_types?.type) ? '/' : ''}${tx.model_type || tx.models_types?.type || ''}`,
+        (tx.amount || 0).toLocaleString(),
+        (tx.paid_amount || 0).toLocaleString(),
+        (tx.unpaid_amount || 0).toLocaleString(),
+        tx.description || tx.notes || tx.note || ''
+      ];
+      
+      let cellX = tableStartX;
+      rowData.forEach((cellData, cellIdx) => {
+        // 텍스트 정렬 (금액은 우측, 나머지는 좌측)
+        const isAmount = cellIdx >= 4 && cellIdx <= 6;
+        const textX = isAmount ? cellX + colWidths[cellIdx] - 10 : cellX + 5;
+        
+        page.drawText(cellData, {
+          x: textX,
+          y: y - 15,
+          size: 9,
+          font,
+          color: rgb(0,0,0)
+        });
+        cellX += colWidths[cellIdx];
+      });
+      
+      y -= rowHeight;
+      
+      // 입금내역 표시
+      if (Array.isArray(tx.payments) && tx.payments.length > 0) {
+        tx.payments.forEach((payment: any) => {
+          const paymentHeight = 15;
+          
+          // 입금행 배경
+          page.drawRectangle({
+            x: tableStartX,
+            y: y - paymentHeight,
+            width: tableWidth,
+            height: paymentHeight,
+            color: rgb(0.95, 0.98, 1.0),
+            borderColor: rgb(0.7, 0.7, 0.7),
+            borderWidth: 0.5
+          });
+          
+          // 입금 정보
+          const paymentInfo = `      └ ${payment.paid_at?.slice(0, 10) || ''} ${payment.method || ''} ${(payment.amount || 0).toLocaleString()}원 (${payment.payer_name || ''})`;
+          page.drawText(paymentInfo, {
+            x: tableStartX + 5,
+            y: y - 12,
+            size: 8,
+            font,
+            color: rgb(0.2, 0.2, 0.8)
+          });
+          
+          y -= paymentHeight;
+        });
+      }
+    });
+    
+    // 합계 행
+    y -= 10;
+    const summary = {
+      total_amount: transactions.reduce((sum, tx) => sum + (tx.amount || 0), 0),
+      total_paid: transactions.reduce((sum, tx) => sum + (tx.paid_amount || 0), 0),
+      total_unpaid: transactions.reduce((sum, tx) => sum + (tx.unpaid_amount || 0), 0),
+    };
+    
+    page.drawRectangle({
+      x: tableStartX,
+      y: y - 25,
+      width: tableWidth,
+      height: 25,
+      color: rgb(0.9, 0.9, 0.9),
+      borderColor: rgb(0.2, 0.4, 0.8),
+      borderWidth: 1
+    });
+    
+    // 합계 텍스트
+    let summaryX = tableStartX + colWidths[0] + colWidths[1] + colWidths[2] + colWidths[3];
+    page.drawText('합계', {
+      x: summaryX - 20,
+      y: y - 18,
+      size: 11,
+      font,
+      color: rgb(0,0,0)
+    });
+    
+    // 합계 금액들
+    const summaryAmounts = [
+      summary.total_amount.toLocaleString(),
+      summary.total_paid.toLocaleString(),
+      summary.total_unpaid.toLocaleString()
+    ];
+    
+    for (let i = 0; i < 3; i++) {
+      page.drawText(summaryAmounts[i], {
+        x: summaryX + colWidths[4 + i] - 10,
+        y: y - 18,
+        size: 10,
+        font,
+        color: rgb(0,0,0)
+      });
+      summaryX += colWidths[4 + i];
     }
-  });
-  
-  y -= customerBoxHeight + 75;
-  
-  // 3. 거래명세서 표
-  const headers = ['#', '일자', '거래명', '기종/모델', '대변(매출)', '차변(입금)', '잔액', '비고'];
-  const colWidths = [28, 48, 70, 90, 80, 80, 80, 140];
-  const tableWidth = colWidths.reduce((a,b)=>a+b,0);
-  const baseRowHeight = 32;
-  const rowCount = Math.max(transactions.length, 1);
-  const tableHeight = baseRowHeight * (rowCount + 2);
-  
-  page.drawRectangle({ x: customerBoxX, y: y, width: tableWidth, height: -tableHeight, borderColor: rgb(0.2,0.4,0.8), borderWidth: 2 });
-  y -= tableHeight;
-  
-  // 합계 계산
-  const summary = {
-    total_amount: transactions.reduce((sum, tx) => sum + (tx.amount || 0), 0),
-    total_paid: transactions.reduce((sum, tx) => sum + (tx.paid_amount || 0), 0),
-    total_unpaid: transactions.reduce((sum, tx) => sum + (tx.unpaid_amount || 0), 0),
-  };
-  
-  // PDF 저장
-  const pdfBytes = await pdfDoc.save();
-  return new Blob([pdfBytes], { type: 'application/pdf' });
+    
+    y -= 50;
+    
+    // 고객 확인 서명란
+    const confirmBoxHeight = 80;
+    page.drawRectangle({
+      x: 50,
+      y: y - confirmBoxHeight,
+      width: 495,
+      height: confirmBoxHeight,
+      color: rgb(0.98, 0.98, 0.98),
+      borderColor: rgb(0.7, 0.7, 0.7),
+      borderWidth: 1
+    });
+    
+    const year = new Date().getFullYear();
+    page.drawText('위 거래내용이 틀림없음을 확인하며 잔액에 대하여            년            월            일까지  완납하겠음을 확인합니다', {
+      x: 70,
+      y: y - 25,
+      size: 11,
+      font,
+      color: rgb(0.2, 0.2, 0.2)
+    });
+    
+    const confirmY = y - 50;
+    const confirmText = `${year}년     월     일     확인자:     ${customer.name || ''}     (서명)`;
+    const confirmWidth = font.widthOfTextAtSize(confirmText, 11);
+    const confirmX = (595 - confirmWidth) / 2;
+    page.drawText(confirmText, { x: confirmX, y: confirmY, size: 11, font, color: rgb(0.2,0.2,0.2) });
+
+    // PDF 저장
+    const pdfBytes = await pdfDoc.save();
+    return new Blob([pdfBytes], { type: 'application/pdf' });
+  } catch (err) {
+    console.error('PDF 생성 중 오류:', err);
+    throw err;
+  }
 }
 
 // @react-pdf/renderer 컴포넌트 제거 - React 19 호환성 문제로 pdf-lib만 사용 
