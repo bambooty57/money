@@ -310,6 +310,9 @@ export async function generateStatementPdf({ customer, transactions, payments, s
       const paid = (tx.payments || []).reduce((sum: number, p: any) => sum + (p.amount || 0), 0);
       const unpaid = (tx.amount || 0) - paid;
       
+      // 디버그 정보 출력
+      console.log(`거래 ${idx + 1}: 매출=${tx.amount}, 입금=${paid}, 잔액=${unpaid}`);
+      
       // 셀 데이터 (컬럼명 변경에 맞게 수정)
       const rowData = [
         String(idx + 1),
