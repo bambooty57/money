@@ -84,15 +84,15 @@ export async function generateStatementPdf({ customer, transactions, payments, s
   try {
     const pdfDoc = await PDFDocument.create();
     pdfDoc.registerFontkit(fontkit);
-    const page = pdfDoc.addPage([595, 842]); // A4
+    const page = pdfDoc.addPage([842, 595]); // A4 가로 모드 (Landscape)
 
     // 폰트 로드
     const fontUrl = '/Noto_Sans_KR/static/NotoSansKR-Regular.ttf';
     const fontBytes = await fetch(fontUrl).then(res => res.arrayBuffer());
     const font = await pdfDoc.embedFont(fontBytes);
 
-    // 1. 상단 헤더 (로고, 제목, 출력일)
-    const headerY = 780;
+    // 1. 상단 헤더 (로고, 제목, 출력일) - 가로 모드에 맞게 조정
+    const headerY = 550; // 가로 모드에 맞게 y 위치 조정
     
     // 로고 이미지
     try {
@@ -107,27 +107,27 @@ export async function generateStatementPdf({ customer, transactions, payments, s
       console.error('로고 로드 실패:', logoError);
     }
 
-    // 제목
+    // 제목 (가로 모드에서 중앙에 맞게 조정)
     page.drawText(title, { 
-      x: 220, 
+      x: 320, // 가로 모드 중앙으로 이동
       y: headerY, 
       size: 28, 
       font, 
       color: rgb(0,0,0) 
     });
     
-    // 출력일
+    // 출력일 (가로 모드에서 우측으로 이동)
     const today = printDate || `${new Date().getFullYear()}.${String(new Date().getMonth() + 1).padStart(2, '0')}.${String(new Date().getDate()).padStart(2, '0')}`;
     page.drawText(`출력일: ${today}`, { 
-      x: 420, 
+      x: 650, // 가로 모드에서 우측으로 이동
       y: headerY, 
       size: 11, 
       font, 
       color: rgb(0.5,0.5,0.5) 
     });
     
-    let y = 760;
-    page.drawLine({ start: {x: 50, y}, end: {x: 545, y}, thickness: 2, color: rgb(0.7,0.7,0.8) });
+    let y = 530; // 가로 모드에 맞게 y 위치 조정
+    page.drawLine({ start: {x: 50, y}, end: {x: 792, y}, thickness: 2, color: rgb(0.7,0.7,0.8) });
     y -= 25;
 
     // 2. 고객정보 박스
@@ -195,9 +195,9 @@ export async function generateStatementPdf({ customer, transactions, payments, s
 
     y -= customerBoxHeight + 30;
 
-    // 3. 거래명세서 표
+    // 3. 거래명세서 표 (가로 모드에 맞게 확장)
     const headers = ['#', '일자', '거래명', '기종/모델', '대변(매출)', '차변(입금)', '잔액', '비고'];
-    const colWidths = [30, 60, 80, 100, 80, 80, 80, 106]; // 총 616px
+    const colWidths = [40, 80, 100, 140, 100, 100, 100, 182]; // 총 842px (가로 모드 전체 너비)
     const tableStartX = 50;
     const tableWidth = colWidths.reduce((a,b)=>a+b,0);
     
@@ -361,12 +361,12 @@ export async function generateStatementPdf({ customer, transactions, payments, s
     
     y -= 50;
     
-    // 고객 확인 서명란
+    // 고객 확인 서명란 (가로 모드에 맞게 확장)
     const confirmBoxHeight = 80;
     page.drawRectangle({
       x: 50,
       y: y - confirmBoxHeight,
-      width: 495,
+      width: 742, // 가로 모드에 맞게 확장
       height: confirmBoxHeight,
       color: rgb(0.98, 0.98, 0.98),
       borderColor: rgb(0.7, 0.7, 0.7),
@@ -385,7 +385,7 @@ export async function generateStatementPdf({ customer, transactions, payments, s
     const confirmY = y - 50;
     const confirmText = `${year}년     월     일     확인자:     ${customer.name || ''}     (서명)`;
     const confirmWidth = font.widthOfTextAtSize(confirmText, 11);
-    const confirmX = (595 - confirmWidth) / 2;
+    const confirmX = (842 - confirmWidth) / 2; // 가로 모드 너비에 맞게 조정
     page.drawText(confirmText, { x: confirmX, y: confirmY, size: 11, font, color: rgb(0.2,0.2,0.2) });
 
     // PDF 저장
