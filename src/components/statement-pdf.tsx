@@ -193,9 +193,9 @@ export async function generateStatementPdf({ customer, transactions, payments, s
       }
     });
 
-    // 공급자 정보 박스 (오른쪽에 추가)
-    const supplierBoxX = customerBoxX + customerBoxWidth + 30;
-    const supplierBoxWidth = 350;
+    // 공급자 정보 박스 (페이지 내에서 배치)
+    const supplierBoxX = 450; // 고정 위치로 조정
+    const supplierBoxWidth = 292; // 페이지 안에 들어가도록 너비 조정 (842-450-50 = 342, 여유 50)
     
     const supplierTable = [
       ['공급자명', displayValue(supplier?.name || supplier?.company_name || '')],
@@ -251,7 +251,7 @@ export async function generateStatementPdf({ customer, transactions, payments, s
 
     // 3. 거래명세서 표 (가로 모드에 맞게 확장)
     const headers = ['#', '일자', '거래명', '기종/모델', '매출', '입금', '잔액', '비고'];
-    const colWidths = [40, 80, 100, 140, 100, 100, 100, 182]; // 총 842px (가로 모드 전체 너비)
+    const colWidths = [35, 70, 85, 120, 90, 90, 90, 162]; // 총 742px (페이지 안에 맞게 조정)
     const tableStartX = 50;
   const tableWidth = colWidths.reduce((a,b)=>a+b,0);
     
@@ -428,12 +428,12 @@ export async function generateStatementPdf({ customer, transactions, payments, s
     
     y -= 50;
     
-    // 고객 확인 서명란 (가로 모드에 맞게 확장)
+    // 고객 확인 서명란 (테이블 너비에 맞게 조정)
     const confirmBoxHeight = 80;
     page.drawRectangle({
       x: 50,
       y: y - confirmBoxHeight,
-      width: 742, // 가로 모드에 맞게 확장
+      width: tableWidth, // 테이블과 동일한 너비
       height: confirmBoxHeight,
       color: rgb(0.98, 0.98, 0.98),
       borderColor: rgb(0.7, 0.7, 0.7),
@@ -452,7 +452,7 @@ export async function generateStatementPdf({ customer, transactions, payments, s
     const confirmY = y - 50;
     const confirmText = `${year}년        월        일        확인자:                     (서명)`;
     const confirmWidth = font.widthOfTextAtSize(confirmText, 11);
-    const confirmX = (842 - confirmWidth) / 2; // 가로 모드 너비에 맞게 조정
+    const confirmX = (tableWidth - confirmWidth) / 2 + tableStartX; // 테이블 너비에 맞게 중앙 정렬
     page.drawText(confirmText, { x: confirmX, y: confirmY, size: 11, font, color: rgb(0.2,0.2,0.2) });
   
   // PDF 저장
