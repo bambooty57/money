@@ -325,16 +325,9 @@ export async function generateStatementPdf({ customer, transactions, payments, s
         tx.description || tx.notes || tx.note || '' // 비고 컬럼
       ];
       
-      // 각 컬럼의 정확한 위치 계산
-      for (let cellIdx = 0; cellIdx < rowData.length; cellIdx++) {
-        const cellData = rowData[cellIdx];
-        
-        // 컬럼 시작 위치 계산
-        let cellX = tableStartX;
-        for (let i = 0; i < cellIdx; i++) {
-          cellX += colWidths[i];
-        }
-        
+      // 헤더와 동일한 방식으로 위치 계산
+      let cellX = tableStartX;
+      rowData.forEach((cellData, cellIdx) => {
         // 텍스트 정렬 (금액은 우측, 나머지는 좌측)
         const isAmount = cellIdx >= 4 && cellIdx <= 6; // 매출, 입금, 잔액 컬럼
         const textX = isAmount ? cellX + colWidths[cellIdx] - 10 : cellX + 5;
@@ -346,7 +339,9 @@ export async function generateStatementPdf({ customer, transactions, payments, s
           font,
           color: rgb(0,0,0)
         });
-      }
+        
+        cellX += colWidths[cellIdx]; // 헤더와 동일한 방식
+      });
       
       y -= rowHeight;
       
