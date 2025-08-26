@@ -249,8 +249,8 @@ export async function generateStatementPdf({ customer, transactions, payments, s
 
     y -= customerBoxHeight + 30;
 
-    // 3. 거래명세서 표 (가로 모드에 맞게 확장)
-    const headers = ['#', '일자', '거래명', '기종/모델', '매출', '입금', '잔액', '비고'];
+    // 3. 거래명세서 표 (헤더를 데이터 위치에 맞게 조정)
+    const headers = ['', '#', '일자', '거래명', '기종/모델', '비고', '매출', '입금'];
     const colWidths = [35, 70, 85, 120, 90, 90, 90, 162]; // 총 742px (페이지 안에 맞게 조정)
     const tableStartX = 50;
   const tableWidth = colWidths.reduce((a,b)=>a+b,0);
