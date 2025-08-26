@@ -250,7 +250,7 @@ export async function generateStatementPdf({ customer, transactions, payments, s
     y -= customerBoxHeight + 30;
 
     // 3. 거래명세서 표 (가로 모드에 맞게 확장)
-    const headers = ['#', '일자', '거래명', '기종/모델', '대변', '차변', '잔고', '입고'];
+    const headers = ['#', '일자', '거래명', '기종/모델', '매출', '입금', '잔액', '비고'];
     const colWidths = [40, 80, 100, 140, 100, 100, 100, 182]; // 총 842px (가로 모드 전체 너비)
     const tableStartX = 50;
   const tableWidth = colWidths.reduce((a,b)=>a+b,0);
@@ -310,16 +310,16 @@ export async function generateStatementPdf({ customer, transactions, payments, s
       const paid = (tx.payments || []).reduce((sum: number, p: any) => sum + (p.amount || 0), 0);
       const unpaid = (tx.amount || 0) - paid;
       
-      // 셀 데이터 (기존 구조 유지)
+      // 셀 데이터 (컬럼명 변경에 맞게 수정)
       const rowData = [
         String(idx + 1),
         tx.created_at?.slice(0, 10) || '',
         tx.type || '',
         `${tx.model || tx.models_types?.model || ''}${(tx.model || tx.models_types?.model) && (tx.model_type || tx.models_types?.type) ? '/' : ''}${tx.model_type || tx.models_types?.type || ''}`,
-        (tx.amount || 0).toLocaleString(), // 대변(매출액)
-        paid > 0 ? paid.toLocaleString() : '', // 차변(이 거래의 총 입금액)
-        unpaid.toLocaleString(), // 잔고(매출액 - 입금액)
-        tx.description || tx.notes || tx.note || '' // 입고(비고)
+        (tx.amount || 0).toLocaleString(), // 매출(매출액)
+        paid > 0 ? paid.toLocaleString() : '', // 입금(이 거래의 총 입금액)
+        unpaid.toLocaleString(), // 잔액(매출액 - 입금액)
+        tx.description || tx.notes || tx.note || '' // 비고
       ];
       
       let cellX = tableStartX;
