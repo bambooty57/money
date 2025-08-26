@@ -281,7 +281,9 @@ export async function generateStatementPdf({ customer, transactions, payments, s
     
     y -= 20;
     
-    // 거래 데이터 행
+    // 거래 데이터 행 (누적 잔고 계산)
+    let runningBalance = 0;
+    
     transactions.forEach((tx, idx) => {
       const rowHeight = 20;
       
@@ -306,6 +308,9 @@ export async function generateStatementPdf({ customer, transactions, payments, s
         borderWidth: 0.5
       });
       
+      // 누적 잔고 계산 (대변 추가)
+      runningBalance += (tx.amount || 0);
+      
       // 셀 데이터 (컬럼명과 정확히 매칭)
       const rowData = [
         String(idx + 1),
@@ -314,7 +319,7 @@ export async function generateStatementPdf({ customer, transactions, payments, s
         `${tx.model || tx.models_types?.model || ''}${(tx.model || tx.models_types?.model) && (tx.model_type || tx.models_types?.type) ? '/' : ''}${tx.model_type || tx.models_types?.type || ''}`,
         (tx.amount || 0).toLocaleString(), // 대변(매출액)
         '', // 차변(입금액) - 개별 입금은 하단에 표시
-        (tx.unpaid_amount || 0).toLocaleString(), // 잔고(미납액)
+        runningBalance.toLocaleString(), // 잔고(누적 계산)
         tx.description || tx.notes || tx.note || '' // 입고(비고)
       ];
       
@@ -352,6 +357,9 @@ export async function generateStatementPdf({ customer, transactions, payments, s
             borderWidth: 0.5
           });
           
+          // 입금 시 누적 잔고에서 차감
+          runningBalance -= (payment.amount || 0);
+          
           // 입금 정보를 각 컬럼에 정확히 배치
           const paymentData = [
             '', // #
@@ -360,7 +368,7 @@ export async function generateStatementPdf({ customer, transactions, payments, s
             '', // 기종/모델
             '', // 대변
             (payment.amount || 0).toLocaleString(), // 차변(입금액)
-            '', // 잔고
+            runningBalance.toLocaleString(), // 잔고(입금 후 누적 잔고)
             `${payment.method || ''} (${payment.payer_name || ''})` // 입고(비고)
           ];
           
@@ -388,11 +396,21 @@ export async function generateStatementPdf({ customer, transactions, payments, s
     
     // 합계 행
     y -= 10;
-  const summary = {
-    total_amount: transactions.reduce((sum, tx) => sum + (tx.amount || 0), 0),
-    total_paid: transactions.reduce((sum, tx) => sum + (tx.paid_amount || 0), 0),
-    total_unpaid: transactions.reduce((sum, tx) => sum + (tx.unpaid_amount || 0), 0),
-  };
+    
+    // 실제 입금액 계산 (모든 payments에서)
+    const allPayments = transactions.flatMap(tx => 
+      Array.isArray(tx.payments) ? tx.payments : []
+    );
+    const actualTotalPaid = allPayments.reduce((sum, payment) => sum + (payment.amount || 0), 0);
+    
+    const summary = {
+      total_amount: transactions.reduce((sum, tx) => sum + (tx.amount || 0), 0),
+      total_paid: actualTotalPaid, // 실제 입금액 사용
+      total_unpaid: 0, // 계산으로 구함
+    };
+    
+    // 잔고 = 대변 - 차변
+    summary.total_unpaid = summary.total_amount - summary.total_paid;
     
     page.drawRectangle({
       x: tableStartX,
