@@ -791,7 +791,7 @@ export default function StatementPage() {
                       )}
                     </TableCell>
                   </TableRow>
-                  {/* 입금내역 하위 행은 정보만 표시, 버튼은 제거 */}
+                  {/* 입금내역 개별 행으로 표시 */}
                   {Array.isArray(tx.payments) && tx.payments.length > 0 ? (
                     tx.payments.map((p, pidx) => (
                       <TableRow key={p.id || pidx} className="bg-blue-50">
@@ -803,21 +803,32 @@ export default function StatementPage() {
                             className="w-4 h-4"
                           />
                         </TableCell>
-                        <TableCell className="w-20" />
-                        <TableCell className="w-20" />
-                        <TableCell className="w-24 text-center">{p.paid_at?.slice(0, 10) || ""}</TableCell>
-                        <TableCell className="w-28 text-right pr-4">{p.amount?.toLocaleString() || ""}</TableCell>
-                        <TableCell className="w-28 pl-4">{p.method || ""}</TableCell>
-                        <TableCell className="w-28">{p.payer_name || ""}</TableCell>
-                        <TableCell className="w-40 text-center">{[p.bank_name, p.account_number, p.account_holder, p.cash_place, p.cash_receiver, p.detail, p.note].filter(Boolean).join(' / ')}</TableCell>
-                        <TableCell />
+                        <TableCell className="text-center w-20" />
+                        <TableCell className="text-center w-24 font-semibold">{p.paid_at?.slice(0, 10) || ""}</TableCell>
+                        <TableCell className="text-center w-32 font-semibold text-blue-700">{p.method || ""}</TableCell>
+                        <TableCell className="text-center w-40" />
+                        <TableCell className="text-right w-32" />
+                        <TableCell className="text-right w-32 font-semibold text-green-600">{p.amount?.toLocaleString() || ""}</TableCell>
+                        <TableCell className="text-right w-32" />
+                        <TableCell className="text-center w-56 font-semibold text-gray-700">
+                          {[
+                            p.payer_name && `입금자:${p.payer_name}`,
+                            p.bank_name && `은행:${p.bank_name}`,
+                            p.account_number && `계좌:${p.account_number}`,
+                            p.account_holder && `예금주:${p.account_holder}`,
+                            p.cash_place && `장소:${p.cash_place}`,
+                            p.cash_receiver && `수령자:${p.cash_receiver}`,
+                            p.detail && `상세:${p.detail}`,
+                            p.note && `비고:${p.note}`
+                          ].filter(Boolean).join(' / ')}
+                        </TableCell>
                       </TableRow>
                     ))
                   ) : (
                     <TableRow className="bg-blue-50">
+                      <TableCell className="w-16" />
                       <TableCell className="w-20" />
-                      <TableCell className="w-20" />
-                      <TableCell className="w-20" />
+                      <TableCell className="w-24" />
                       <TableCell colSpan={5} className="text-center text-blue-700 font-bold py-4 text-lg">입금없음</TableCell>
                       <TableCell />
                     </TableRow>
