@@ -1,13 +1,12 @@
 "use client";
 
+import React from "react";
 import { useEffect, useState, useRef, useMemo, useCallback } from "react";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import * as XLSX from "xlsx";
-import React from "react";
 import { Card } from "@/components/ui/card";
-// import { StatementPDFTable } from '@/components/statement-pdf';
-// import { PDFDownloadLink } from '@react-pdf/renderer';
+import { generateStatementPdf } from '@/components/statement-pdf';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 import { useRefreshContext } from '@/lib/refresh-context';
@@ -112,6 +111,30 @@ export default function StatementPage() {
   useEffect(() => {
     console.log('👤 selectedCustomer 상태 변경됨:', selectedCustomer);
   }, [selectedCustomer]);
+
+  // 🆕 데이터 변경 시 입금 선택 상태 초기화
+  useEffect(() => {
+    setSelectedPaymentIds(new Set());
+    setSelectAllPayments(false);
+  }, [selectedCustomer, transactions]);
+
+  // 🆕 선택된 입금에 따라 전체 선택 체크박스 상태 업데이트
+  useEffect(() => {
+    const allPaymentIds = new Set<string>();
+    transactions.forEach(tx => {
+      if (Array.isArray(tx.payments)) {
+        tx.payments.forEach(p => {
+          if (p.id) allPaymentIds.add(p.id);
+        });
+      }
+    });
+    
+    if (allPaymentIds.size > 0 && selectedPaymentIds.size === allPaymentIds.size) {
+      setSelectAllPayments(true);
+    } else {
+      setSelectAllPayments(false);
+    }
+  }, [selectedPaymentIds, transactions]);
   const [summary, setSummary] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const { refreshKey, triggerRefresh } = useRefreshContext();
@@ -137,6 +160,10 @@ export default function StatementPage() {
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
   const [smsModalOpen, setSmsModalOpen] = useState(false);
+  
+  // 입금 다중 선택 상태 추가
+  const [selectedPaymentIds, setSelectedPaymentIds] = useState<Set<string>>(new Set());
+  const [selectAllPayments, setSelectAllPayments] = useState(false);
 
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -403,6 +430,124 @@ export default function StatementPage() {
     }, [triggerRefresh]),
   });
 
+  // 🆕 입금 체크박스 선택/해제 핸들러 (React 19 자동 최적화)
+  const handlePaymentCheckboxChange = (paymentId: string, checked: boolean) => {
+    setSelectedPaymentIds(prev => {
+      const newSelected = new Set(prev);
+      if (checked) {
+        newSelected.add(paymentId);
+      } else {
+        newSelected.delete(paymentId);
+      }
+      return newSelected;
+    });
+  };
+
+  // 🆕 전체 입금 선택/해제 핸들러 (React 19 자동 최적화)
+  const handleSelectAllPayments = (checked: boolean) => {
+    if (checked) {
+      const allPaymentIds = new Set<string>();
+      transactions.forEach(tx => {
+        if (Array.isArray(tx.payments)) {
+          tx.payments.forEach(p => {
+            if (p.id) allPaymentIds.add(p.id);
+          });
+        }
+      });
+      setSelectedPaymentIds(allPaymentIds);
+      setSelectAllPayments(true);
+    } else {
+      setSelectedPaymentIds(new Set());
+      setSelectAllPayments(false);
+    }
+  };
+
+  // 🆕 선택된 입금 내역 일괄 삭제
+  const handleBulkDeletePayments = useCallback(async () => {
+    if (selectedPaymentIds.size === 0) return;
+    
+    if (!window.confirm(`선택된 ${selectedPaymentIds.size}개의 입금내역을 정말 삭제하시겠습니까?`)) return;
+    
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
+      
+      if (!token) {
+        alert('인증이 필요합니다.');
+        return;
+      }
+      
+      const paymentIds = Array.from(selectedPaymentIds).join(',');
+      const res = await fetch(`/api/payments?ids=${paymentIds}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      
+      if (res.ok) {
+        const result = await res.json();
+        alert(result.message || `${selectedPaymentIds.size}개의 입금내역이 삭제되었습니다.`);
+        setSelectedPaymentIds(new Set());
+        setSelectAllPayments(false);
+        // 데이터 새로고침
+        triggerRefresh();
+      } else {
+        const errorText = await res.text();
+        alert('삭제 실패: ' + errorText);
+      }
+    } catch (error) {
+      console.error('입금 일괄 삭제 중 오류:', error);
+      alert('입금 삭제 중 오류가 발생했습니다.');
+    }
+  }, [selectedPaymentIds, triggerRefresh]);
+
+  // 🆕 PDF 다운로드 핸들러
+  const handlePdfDownload = useCallback(async () => {
+    if (!selectedCustomer || !customerData || !transactions.length) {
+      alert('고객을 선택하고 거래내역이 있어야 PDF를 생성할 수 있습니다.');
+      return;
+    }
+
+    try {
+      // 공급자 정보 (실제 데이터로 교체)
+      const supplierInfo = {
+        company_name: '구보다농기계영암대리점',
+        ceo_name: '정현목',
+        business_no: '743-39-01106',
+        address: '전남 영암군 군서면 녹암대동보길184',
+        phone: '010-2602-3276',
+        account: '농협 302-2602-3276-61 (정현목)'
+      };
+
+      // 입금내역 수집
+      const allPayments = transactions.flatMap(tx => 
+        Array.isArray(tx.payments) ? tx.payments : []
+      );
+
+      const pdfBlob = await generateStatementPdf({
+        customer: customerData,
+        transactions,
+        payments: allPayments,
+        supplier: supplierInfo,
+        title: '거래명세서',
+        printDate: new Date().toLocaleDateString('ko-KR')
+      });
+
+      // PDF 다운로드
+      const url = URL.createObjectURL(pdfBlob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `거래명세서_${customerData.name}_${new Date().toISOString().slice(0, 10)}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+    } catch (error) {
+      console.error('PDF 생성 오류:', error);
+      alert('PDF 생성 중 오류가 발생했습니다: ' + (error as Error).message);
+    }
+  }, [selectedCustomer, customerData, transactions]);
+
   // 3. 엑셀 다운로드
   const handleExcelDownload = () => {
     if (!transactions.length) return;
@@ -545,8 +690,25 @@ export default function StatementPage() {
           <div className="flex flex-wrap gap-3 items-center">
             <Button onClick={handleExcelDownload} className="bg-green-600 text-white px-4 py-2 rounded-lg text-lg font-bold hover:bg-green-700 transition-colors">📊 엑셀 다운로드</Button>
             
-            {/* PDF 다운로드 버튼 - 임시 비활성화 (React 19 호환성 문제) */}
-            <Button disabled className="bg-gray-400 text-white px-4 py-2 rounded-lg text-lg font-bold cursor-not-allowed" title="React 19 호환성 문제로 임시 비활성화">📄 PDF 다운로드 (임시 비활성화)</Button>
+            {/* PDF 다운로드 버튼 - pdf-lib 기반으로 활성화 */}
+            <Button 
+              onClick={handlePdfDownload} 
+              disabled={!selectedCustomer || !transactions.length}
+              className="bg-red-600 text-white px-4 py-2 rounded-lg text-lg font-bold hover:bg-red-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+              title={!selectedCustomer || !transactions.length ? "고객과 거래내역이 있어야 PDF를 생성할 수 있습니다" : "PDF 다운로드"}
+            >
+              📄 PDF 다운로드
+            </Button>
+            
+            {/* 입금 일괄 삭제 버튼 */}
+            {selectedPaymentIds.size > 0 && (
+              <Button 
+                onClick={handleBulkDeletePayments}
+                className="bg-red-600 text-white px-4 py-2 rounded-lg text-lg font-bold hover:bg-red-700 transition-colors"
+              >
+                🗑️ 선택된 입금 삭제 ({selectedPaymentIds.size}개)
+              </Button>
+            )}
             
             {selectedCustomer && customerData && (
               <Button
@@ -570,6 +732,15 @@ export default function StatementPage() {
           <Table id="statement-table" className="w-full divide-y divide-blue-100">
             <TableHeader>
               <TableRow className="bg-blue-50">
+                <TableHead className="w-16 text-center">
+                  <input 
+                    type="checkbox" 
+                    checked={selectAllPayments}
+                    onChange={(e) => handleSelectAllPayments(e.target.checked)}
+                    className="w-4 h-4"
+                    title="전체 입금 선택/해제"
+                  />
+                </TableHead>
                 <TableHead className="w-20 text-center">#</TableHead>
                 <TableHead className="w-24 text-center">일자</TableHead>
                 <TableHead className="w-32 text-center">거래명</TableHead>
@@ -584,6 +755,7 @@ export default function StatementPage() {
               {transactions.map((tx, idx) => (
                 <React.Fragment key={tx.id}>
                   <TableRow className="bg-red-50 ring-2 ring-red-200 rounded-xl shadow hover:bg-red-100 min-h-[72px] transition-all duration-200">
+                    <TableCell className="text-center align-middle px-4 py-8 bg-red-50 w-16"></TableCell>
                     <TableCell className="text-center align-middle px-4 py-8 bg-red-50 font-semibold w-20">{idx + 1}</TableCell>
                     <TableCell className="px-4 py-8 bg-red-50 font-semibold w-24 text-center">{tx.created_at?.slice(0, 10) || ""}</TableCell>
                     <TableCell className="px-4 py-8 bg-red-50 font-semibold w-32 text-center">{tx.type || ""}</TableCell>
@@ -621,6 +793,14 @@ export default function StatementPage() {
                   {Array.isArray(tx.payments) && tx.payments.length > 0 ? (
                     tx.payments.map((p, pidx) => (
                       <TableRow key={p.id || pidx} className="bg-blue-50">
+                        <TableCell className="text-center w-16">
+                          <input 
+                            type="checkbox" 
+                            checked={selectedPaymentIds.has(p.id)}
+                            onChange={(e) => handlePaymentCheckboxChange(p.id, e.target.checked)}
+                            className="w-4 h-4"
+                          />
+                        </TableCell>
                         <TableCell className="w-20" />
                         <TableCell className="w-20" />
                         <TableCell className="w-24 text-center">{p.paid_at?.slice(0, 10) || ""}</TableCell>
