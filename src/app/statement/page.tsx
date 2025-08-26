@@ -112,29 +112,6 @@ export default function StatementPage() {
     console.log('👤 selectedCustomer 상태 변경됨:', selectedCustomer);
   }, [selectedCustomer]);
 
-  // 🆕 데이터 변경 시 입금 선택 상태 초기화
-  useEffect(() => {
-    setSelectedPaymentIds(new Set());
-    setSelectAllPayments(false);
-  }, [selectedCustomer, transactions]);
-
-  // 🆕 선택된 입금에 따라 전체 선택 체크박스 상태 업데이트
-  useEffect(() => {
-    const allPaymentIds = new Set<string>();
-    transactions.forEach(tx => {
-      if (Array.isArray(tx.payments)) {
-        tx.payments.forEach(p => {
-          if (p.id) allPaymentIds.add(p.id);
-        });
-      }
-    });
-    
-    if (allPaymentIds.size > 0 && selectedPaymentIds.size === allPaymentIds.size) {
-      setSelectAllPayments(true);
-    } else {
-      setSelectAllPayments(false);
-    }
-  }, [selectedPaymentIds, transactions]);
   const [summary, setSummary] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const { refreshKey, triggerRefresh } = useRefreshContext();
@@ -166,6 +143,30 @@ export default function StatementPage() {
   const [selectAllPayments, setSelectAllPayments] = useState(false);
 
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // 🆕 데이터 변경 시 입금 선택 상태 초기화
+  useEffect(() => {
+    setSelectedPaymentIds(new Set());
+    setSelectAllPayments(false);
+  }, [selectedCustomer, transactions]);
+
+  // 🆕 선택된 입금에 따라 전체 선택 체크박스 상태 업데이트
+  useEffect(() => {
+    const allPaymentIds = new Set<string>();
+    transactions.forEach(tx => {
+      if (Array.isArray(tx.payments)) {
+        tx.payments.forEach(p => {
+          if (p.id) allPaymentIds.add(p.id);
+        });
+      }
+    });
+    
+    if (allPaymentIds.size > 0 && selectedPaymentIds.size === allPaymentIds.size) {
+      setSelectAllPayments(true);
+    } else {
+      setSelectAllPayments(false);
+    }
+  }, [selectedPaymentIds, transactions]);
 
   // 1. 고객 목록 불러오기 (refreshKey 변경 시에도 갱신)
   useEffect(() => {
