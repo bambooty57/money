@@ -82,25 +82,25 @@ function splitTextByWidth(text: string, maxWidth: number, font: any, fontSize: n
 // 완전한 PDF 생성 함수 (이전 양식 복원)
 export async function generateStatementPdf({ customer, transactions, payments, supplier, title = '거래명세서', printDate, photoUrl }: StatementPdfOptions): Promise<Blob> {
   try {
-    const pdfDoc = await PDFDocument.create();
-    pdfDoc.registerFontkit(fontkit);
+  const pdfDoc = await PDFDocument.create();
+  pdfDoc.registerFontkit(fontkit);
     const page = pdfDoc.addPage([842, 595]); // A4 가로 모드 (Landscape)
 
     // 폰트 로드
-    const fontUrl = '/Noto_Sans_KR/static/NotoSansKR-Regular.ttf';
-    const fontBytes = await fetch(fontUrl).then(res => res.arrayBuffer());
-    const font = await pdfDoc.embedFont(fontBytes);
+  const fontUrl = '/Noto_Sans_KR/static/NotoSansKR-Regular.ttf';
+  const fontBytes = await fetch(fontUrl).then(res => res.arrayBuffer());
+  const font = await pdfDoc.embedFont(fontBytes);
 
     // 1. 상단 헤더 (로고, 제목, 출력일) - 가로 모드에 맞게 조정
     const headerY = 550; // 가로 모드에 맞게 y 위치 조정
-    
+  
     // 로고 이미지
-    try {
-      const logoUrl = '/kubotalogo5.png';
-      const logoResponse = await fetch(logoUrl);
-      if (logoResponse.ok) {
-        const logoBytes = await logoResponse.arrayBuffer();
-        const logoImg = await pdfDoc.embedPng(logoBytes);
+  try {
+    const logoUrl = '/kubotalogo5.png';
+    const logoResponse = await fetch(logoUrl);
+    if (logoResponse.ok) {
+      const logoBytes = await logoResponse.arrayBuffer();
+      const logoImg = await pdfDoc.embedPng(logoBytes);
         page.drawImage(logoImg, { x: 50, y: headerY - 20, width: 150, height: 60 });
       }
     } catch (logoError) {
@@ -117,7 +117,7 @@ export async function generateStatementPdf({ customer, transactions, payments, s
     });
     
     // 출력일 (가로 모드에서 우측으로 이동)
-    const today = printDate || `${new Date().getFullYear()}.${String(new Date().getMonth() + 1).padStart(2, '0')}.${String(new Date().getDate()).padStart(2, '0')}`;
+  const today = printDate || `${new Date().getFullYear()}.${String(new Date().getMonth() + 1).padStart(2, '0')}.${String(new Date().getDate()).padStart(2, '0')}`;
     page.drawText(`출력일: ${today}`, { 
       x: 650, // 가로 모드에서 우측으로 이동
       y: headerY, 
@@ -129,8 +129,8 @@ export async function generateStatementPdf({ customer, transactions, payments, s
     let y = 530; // 가로 모드에 맞게 y 위치 조정
     page.drawLine({ start: {x: 50, y}, end: {x: 792, y}, thickness: 2, color: rgb(0.7,0.7,0.8) });
     y -= 25;
-
-    // 2. 고객정보 박스
+  
+  // 2. 고객정보 박스
     const getField = (...fields: string[]) => {
       for (const f of fields) {
         if (customer[f] !== undefined && customer[f] !== null) return customer[f];
@@ -138,7 +138,7 @@ export async function generateStatementPdf({ customer, transactions, payments, s
       return '';
     };
 
-    const customerTable = [
+  const customerTable = [
       ['고객명', displayValue(getField('name', 'customer_name'))],
       ['고객유형', displayValue(getField('customer_type', 'type'))],
       ['주민번호', displayValue(getField('ssn', 'rrn'))],
@@ -146,13 +146,13 @@ export async function generateStatementPdf({ customer, transactions, payments, s
       ['휴대폰번호', displayValue(getField('mobile', 'phone', 'mobile_phone', 'cell_phone', 'phone_number'))],
       ['주소', displayValue(getField('address', 'addr', 'road_address', 'road_addr'))],
       ['지번주소', displayValue(getField('jibun_address', 'jibun_addr', 'lot_address', 'old_address', 'jibun', 'lot_addr', 'address_jibun'))]
-    ];
-
-    const customerBoxX = 60;
-    const customerBoxY = y;
-    const customerBoxWidth = 350;
-    const customerBoxHeight = 126;
-    
+  ];
+  
+  const customerBoxX = 60;
+  const customerBoxY = y;
+  const customerBoxWidth = 350;
+  const customerBoxHeight = 126;
+  
     // 고객정보 박스 그리기
     page.drawRectangle({
       x: customerBoxX,
@@ -164,8 +164,8 @@ export async function generateStatementPdf({ customer, transactions, payments, s
     });
     
     // 고객정보 내용 표시
-    customerTable.forEach(([k, v], i) => {
-      const rowY = customerBoxY - 15 - (i * 15);
+  customerTable.forEach(([k, v], i) => {
+    const rowY = customerBoxY - 15 - (i * 15);
       // 라벨
       page.drawText(`${k}:`, { 
         x: customerBoxX + 10, 
@@ -183,7 +183,7 @@ export async function generateStatementPdf({ customer, transactions, payments, s
         color: rgb(0,0,0) 
       });
       // 구분선
-      if (i < customerTable.length - 1) {
+    if (i < customerTable.length - 1) {
         page.drawLine({ 
           start: {x: customerBoxX + 5, y: rowY - 3}, 
           end: {x: customerBoxX + customerBoxWidth - 5, y: rowY - 3}, 
@@ -193,13 +193,67 @@ export async function generateStatementPdf({ customer, transactions, payments, s
       }
     });
 
+    // 공급자 정보 박스 (오른쪽에 추가)
+    const supplierBoxX = customerBoxX + customerBoxWidth + 30;
+    const supplierBoxWidth = 350;
+    
+    const supplierTable = [
+      ['공급자명', displayValue(supplier?.company_name || supplier?.name || '')],
+      ['대표자명', displayValue(supplier?.ceo_name || supplier?.representative || '')],
+      ['사업자번호', displayValue(supplier?.business_number || supplier?.biz_no || '')],
+      ['전화번호', displayValue(supplier?.phone || supplier?.tel || '')],
+      ['팩스번호', displayValue(supplier?.fax || '')],
+      ['주소', displayValue(supplier?.address || '')],
+      ['이메일', displayValue(supplier?.email || '')]
+    ];
+    
+    // 공급자정보 박스 그리기
+    page.drawRectangle({
+      x: supplierBoxX,
+      y: customerBoxY - customerBoxHeight,
+      width: supplierBoxWidth,
+      height: customerBoxHeight,
+      borderColor: rgb(0.8, 0.8, 0.8),
+      borderWidth: 1
+    });
+    
+    // 공급자정보 내용 표시
+    supplierTable.forEach(([k, v], i) => {
+      const rowY = customerBoxY - 15 - (i * 15);
+      // 라벨
+      page.drawText(`${k}:`, { 
+        x: supplierBoxX + 10, 
+        y: rowY, 
+        size: 9, 
+        font, 
+        color: rgb(0.3,0.3,0.3) 
+      });
+      // 값
+      page.drawText(v, { 
+        x: supplierBoxX + 100, 
+        y: rowY, 
+        size: 9, 
+        font, 
+        color: rgb(0,0,0) 
+      });
+      // 구분선
+      if (i < supplierTable.length - 1) {
+        page.drawLine({ 
+          start: {x: supplierBoxX + 5, y: rowY - 3}, 
+          end: {x: supplierBoxX + supplierBoxWidth - 5, y: rowY - 3}, 
+          thickness: 0.3, 
+          color: rgb(0.9,0.9,0.9) 
+        });
+      }
+    });
+
     y -= customerBoxHeight + 30;
 
     // 3. 거래명세서 표 (가로 모드에 맞게 확장)
-    const headers = ['#', '일자', '거래명', '기종/모델', '대변(매출)', '차변(입금)', '잔액', '비고'];
+    const headers = ['#', '일자', '거래명', '기종/모델', '대변', '차변', '잔고', '입고'];
     const colWidths = [40, 80, 100, 140, 100, 100, 100, 182]; // 총 842px (가로 모드 전체 너비)
     const tableStartX = 50;
-    const tableWidth = colWidths.reduce((a,b)=>a+b,0);
+  const tableWidth = colWidths.reduce((a,b)=>a+b,0);
     
     // 테이블 헤더 배경
     page.drawRectangle({
@@ -252,16 +306,16 @@ export async function generateStatementPdf({ customer, transactions, payments, s
         borderWidth: 0.5
       });
       
-      // 셀 데이터
+      // 셀 데이터 (컬럼명과 정확히 매칭)
       const rowData = [
         String(idx + 1),
         tx.created_at?.slice(0, 10) || '',
         tx.type || '',
         `${tx.model || tx.models_types?.model || ''}${(tx.model || tx.models_types?.model) && (tx.model_type || tx.models_types?.type) ? '/' : ''}${tx.model_type || tx.models_types?.type || ''}`,
-        (tx.amount || 0).toLocaleString(),
-        (tx.paid_amount || 0).toLocaleString(),
-        (tx.unpaid_amount || 0).toLocaleString(),
-        tx.description || tx.notes || tx.note || ''
+        (tx.amount || 0).toLocaleString(), // 대변(매출액)
+        '', // 차변(입금액) - 개별 입금은 하단에 표시
+        (tx.unpaid_amount || 0).toLocaleString(), // 잔고(미납액)
+        tx.description || tx.notes || tx.note || '' // 입고(비고)
       ];
       
       let cellX = tableStartX;
@@ -282,7 +336,7 @@ export async function generateStatementPdf({ customer, transactions, payments, s
       
       y -= rowHeight;
       
-      // 입금내역 표시
+      // 입금내역 표시 (차변 컬럼에 정확히 매칭)
       if (Array.isArray(tx.payments) && tx.payments.length > 0) {
         tx.payments.forEach((payment: any) => {
           const paymentHeight = 15;
@@ -298,14 +352,33 @@ export async function generateStatementPdf({ customer, transactions, payments, s
             borderWidth: 0.5
           });
           
-          // 입금 정보
-          const paymentInfo = `      └ ${payment.paid_at?.slice(0, 10) || ''} ${payment.method || ''} ${(payment.amount || 0).toLocaleString()}원 (${payment.payer_name || ''})`;
-          page.drawText(paymentInfo, {
-            x: tableStartX + 5,
-            y: y - 12,
-            size: 8,
-            font,
-            color: rgb(0.2, 0.2, 0.8)
+          // 입금 정보를 각 컬럼에 정확히 배치
+          const paymentData = [
+            '', // #
+            payment.paid_at?.slice(0, 10) || '', // 일자
+            '입금', // 거래명
+            '', // 기종/모델
+            '', // 대변
+            (payment.amount || 0).toLocaleString(), // 차변(입금액)
+            '', // 잔고
+            `${payment.method || ''} (${payment.payer_name || ''})` // 입고(비고)
+          ];
+          
+          let cellX = tableStartX;
+          paymentData.forEach((cellData, cellIdx) => {
+            if (cellData) {
+              const isAmount = cellIdx >= 4 && cellIdx <= 6;
+              const textX = isAmount ? cellX + colWidths[cellIdx] - 10 : cellX + 5;
+              
+              page.drawText(cellData, {
+                x: textX,
+                y: y - 12,
+                size: 8,
+                font,
+                color: rgb(0.2, 0.2, 0.8)
+              });
+            }
+            cellX += colWidths[cellIdx];
           });
           
           y -= paymentHeight;
@@ -315,11 +388,11 @@ export async function generateStatementPdf({ customer, transactions, payments, s
     
     // 합계 행
     y -= 10;
-    const summary = {
-      total_amount: transactions.reduce((sum, tx) => sum + (tx.amount || 0), 0),
-      total_paid: transactions.reduce((sum, tx) => sum + (tx.paid_amount || 0), 0),
-      total_unpaid: transactions.reduce((sum, tx) => sum + (tx.unpaid_amount || 0), 0),
-    };
+  const summary = {
+    total_amount: transactions.reduce((sum, tx) => sum + (tx.amount || 0), 0),
+    total_paid: transactions.reduce((sum, tx) => sum + (tx.paid_amount || 0), 0),
+    total_unpaid: transactions.reduce((sum, tx) => sum + (tx.unpaid_amount || 0), 0),
+  };
     
     page.drawRectangle({
       x: tableStartX,
@@ -374,7 +447,7 @@ export async function generateStatementPdf({ customer, transactions, payments, s
     });
     
     const year = new Date().getFullYear();
-    page.drawText('위 거래내용이 틀림없음을 확인하며 잔액에 대하여            년            월            일까지  완납하겠음을 확인합니다', {
+    page.drawText('위 거래내용이 틀림없음을 확인하며 잔액에 대하여                년                월                일까지  완납하겠음을 확인합니다', {
       x: 70,
       y: y - 25,
       size: 11,
@@ -383,14 +456,14 @@ export async function generateStatementPdf({ customer, transactions, payments, s
     });
     
     const confirmY = y - 50;
-    const confirmText = `${year}년     월     일     확인자:     ${customer.name || ''}     (서명)`;
+    const confirmText = `${year}년        월        일        확인자:                     (서명)`;
     const confirmWidth = font.widthOfTextAtSize(confirmText, 11);
     const confirmX = (842 - confirmWidth) / 2; // 가로 모드 너비에 맞게 조정
     page.drawText(confirmText, { x: confirmX, y: confirmY, size: 11, font, color: rgb(0.2,0.2,0.2) });
-
-    // PDF 저장
-    const pdfBytes = await pdfDoc.save();
-    return new Blob([pdfBytes], { type: 'application/pdf' });
+  
+  // PDF 저장
+  const pdfBytes = await pdfDoc.save();
+  return new Blob([pdfBytes], { type: 'application/pdf' });
   } catch (err) {
     console.error('PDF 생성 중 오류:', err);
     throw err;
