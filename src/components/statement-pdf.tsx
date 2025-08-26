@@ -313,22 +313,30 @@ export async function generateStatementPdf({ customer, transactions, payments, s
       // 디버그 정보 출력
       console.log(`거래 ${idx + 1}: 매출=${tx.amount}, 입금=${paid}, 잔액=${unpaid}`);
       
-      // 셀 데이터 (컬럼명 변경에 맞게 수정)
+      // 셀 데이터 (정확한 컬럼 배치)
       const rowData = [
-        String(idx + 1),
-        tx.created_at?.slice(0, 10) || '',
-        tx.type || '',
-        `${tx.model || tx.models_types?.model || ''}${(tx.model || tx.models_types?.model) && (tx.model_type || tx.models_types?.type) ? '/' : ''}${tx.model_type || tx.models_types?.type || ''}`,
-        (tx.amount || 0).toLocaleString(), // 매출(매출액)
-        paid > 0 ? paid.toLocaleString() : '', // 입금(이 거래의 총 입금액)
-        unpaid.toLocaleString(), // 잔액(매출액 - 입금액)
-        tx.description || tx.notes || tx.note || '' // 비고
+        String(idx + 1),                          // # 컬럼
+        tx.created_at?.slice(0, 10) || '',        // 일자 컬럼
+        tx.type || '',                            // 거래명 컬럼
+        `${tx.model || tx.models_types?.model || ''}${(tx.model || tx.models_types?.model) && (tx.model_type || tx.models_types?.type) ? '/' : ''}${tx.model_type || tx.models_types?.type || ''}`, // 기종/모델 컬럼
+        (tx.amount || 0).toLocaleString(),        // 매출 컬럼 (매출액)
+        paid.toLocaleString(),                    // 입금 컬럼 (입금액)
+        unpaid.toLocaleString(),                  // 잔액 컬럼 (잔액)
+        tx.description || tx.notes || tx.note || '' // 비고 컬럼
       ];
       
-      let cellX = tableStartX;
-      rowData.forEach((cellData, cellIdx) => {
+      // 각 컬럼의 정확한 위치 계산
+      for (let cellIdx = 0; cellIdx < rowData.length; cellIdx++) {
+        const cellData = rowData[cellIdx];
+        
+        // 컬럼 시작 위치 계산
+        let cellX = tableStartX;
+        for (let i = 0; i < cellIdx; i++) {
+          cellX += colWidths[i];
+        }
+        
         // 텍스트 정렬 (금액은 우측, 나머지는 좌측)
-        const isAmount = cellIdx >= 4 && cellIdx <= 6;
+        const isAmount = cellIdx >= 4 && cellIdx <= 6; // 매출, 입금, 잔액 컬럼
         const textX = isAmount ? cellX + colWidths[cellIdx] - 10 : cellX + 5;
         
         page.drawText(cellData, {
@@ -338,8 +346,7 @@ export async function generateStatementPdf({ customer, transactions, payments, s
           font,
           color: rgb(0,0,0)
         });
-        cellX += colWidths[cellIdx];
-      });
+      }
       
       y -= rowHeight;
       
