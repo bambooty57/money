@@ -198,13 +198,13 @@ export async function generateStatementPdf({ customer, transactions, payments, s
     const supplierBoxWidth = 350;
     
     const supplierTable = [
-      ['공급자명', displayValue(supplier?.company_name || supplier?.name || '')],
-      ['대표자명', displayValue(supplier?.ceo_name || supplier?.representative || '')],
-      ['사업자번호', displayValue(supplier?.business_number || supplier?.biz_no || '')],
-      ['전화번호', displayValue(supplier?.phone || supplier?.tel || '')],
-      ['팩스번호', displayValue(supplier?.fax || '')],
-      ['주소', displayValue(supplier?.address || '')],
-      ['이메일', displayValue(supplier?.email || '')]
+      ['공급자명', displayValue(supplier?.name || supplier?.company_name || '')],
+      ['대표자명', displayValue(supplier?.ceo || supplier?.ceo_name || '')],
+      ['사업자번호', displayValue(supplier?.biznum || supplier?.business_no || '')],
+      ['전화번호', displayValue(supplier?.phone || '')],
+      ['계좌번호', displayValue(supplier?.accounts?.[0] ? `${supplier.accounts[0].bank} ${supplier.accounts[0].number}` : '')],
+      ['예금주', displayValue(supplier?.accounts?.[0]?.holder || '')],
+      ['주소', displayValue(supplier?.address || '')]
     ];
     
     // 공급자정보 박스 그리기

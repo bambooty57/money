@@ -509,14 +509,15 @@ export default function StatementPage() {
     }
 
     try {
-      // 공급자 정보 (실제 데이터로 교체)
-      const supplierInfo = {
-        company_name: '구보다농기계영암대리점',
-        ceo_name: '정현목',
-        business_no: '743-39-01106',
+      // 공급자 정보 API에서 가져오기
+      const supplierResponse = await fetch('/api/supplier-info');
+      const supplierInfo = supplierResponse.ok ? await supplierResponse.json() : {
+        name: '구보다농기계영암대리점',
+        ceo: '정현목',
+        biznum: '743-39-01106',
         address: '전남 영암군 군서면 녹암대동보길184',
         phone: '010-2602-3276',
-        account: '농협 302-2602-3276-61 (정현목)'
+        accounts: [{ bank: '농협', number: '302-2602-3276-61', holder: '정현목' }]
       };
 
       // 입금내역 수집
