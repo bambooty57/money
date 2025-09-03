@@ -137,7 +137,10 @@ export default function DashboardPage() {
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (!session) {
+        console.log('🔒 세션이 없습니다. 로그인 페이지로 이동합니다.');
         router.replace('/login');
+      } else {
+        console.log('✅ 로그인된 사용자:', session.user?.email);
       }
     });
   }, [router]);
