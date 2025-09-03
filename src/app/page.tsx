@@ -34,6 +34,7 @@ ChartJS.register(
 );
 
 interface DashboardData {
+  today: string;
   totalUnpaid: number;
   agingAnalysis: Array<{
     created_at: string;
@@ -45,6 +46,7 @@ interface DashboardData {
     transactions: Array<{
       amount: number;
       status: string;
+      payments?: Array<{ amount: number }>;
     }>;
     customer_type_multi?: string[];
     customer_type?: string;
@@ -58,34 +60,54 @@ interface DashboardData {
     month: string;
     total: number;
   }>;
-  typeStats: Array<{
-    type: string;
+  monthlySalesStats: Array<{
+    month: string;
     total: number;
   }>;
-  statusStats: Array<{
-    status: string;
+  typeStats: Array<{
+    type: string;
     total: number;
   }>;
   dueThisMonth: Array<{
     id: string;
     customer_id: string;
-    due_date?: string;
+    customer_name?: string;
+    model?: string;
+    model_type?: string;
     amount?: number;
+    paid_amount?: number;
+    unpaid_amount?: number;
+    paid_ratio?: number;
+    due_date?: string;
     status: string;
+    days_left?: number;
   }>;
+  dueThisMonthSummary: {
+    count: number;
+    totalAmount: number;
+    totalUnpaid: number;
+    avgPaidRatio: number;
+  };
   overdueTxs: Array<{
     id: string;
     customer_id: string;
-    due_date?: string;
+    customer_name?: string;
+    model?: string;
+    model_type?: string;
     amount?: number;
+    paid_amount?: number;
+    unpaid_amount?: number;
+    paid_ratio?: number;
+    due_date?: string;
     status: string;
     overdue_days?: number;
   }>;
-  today: string;
-  monthlySalesStats: Array<{
-    month: string;
-    total: number;
-  }>;
+  overdueTxsSummary: {
+    count: number;
+    totalAmount: number;
+    totalUnpaid: number;
+    avgOverdueDays: number;
+  };
 }
 
 export default function DashboardPage() {
@@ -105,6 +127,12 @@ export default function DashboardPage() {
   const [overduePage, setOverduePage] = useState(1);
   const overduePageSize = 15;
   const [showScrollTop, setShowScrollTop] = useState(false);
+  const [isClient, setIsClient] = useState(false);
+  const [realtimeStatus, setRealtimeStatus] = useState<'connected' | 'connecting' | 'disconnected'>('connecting');
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -116,12 +144,141 @@ export default function DashboardPage() {
 
   useEffect(() => {
     async function fetchDashboard() {
-      const response = await fetch('/api/dashboard');
-      const dashboardData = await response.json();
-      setData(dashboardData);
+      try {
+        const response = await fetch('/api/dashboard');
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const dashboardData = await response.json();
+        
+        // API 응답에 error 필드가 있으면 오류 처리
+        if (dashboardData.error) {
+          console.error('Dashboard API error:', dashboardData.error);
+          return;
+        }
+        
+        setData(dashboardData);
+      } catch (error) {
+        console.error('Failed to fetch dashboard data:', error);
+        // 기본값으로 빈 데이터 설정하여 UI 깨짐 방지
+        setData({
+          today: new Date().toISOString().slice(0, 10),
+          totalUnpaid: 0,
+          agingAnalysis: [],
+          topCustomers: [],
+          monthlyStats: [],
+          monthlySalesStats: [],
+          typeStats: [],
+          dueThisMonth: [],
+          dueThisMonthSummary: { count: 0, totalAmount: 0, totalUnpaid: 0, avgPaidRatio: 0 },
+          overdueTxs: [],
+          overdueTxsSummary: { count: 0, totalAmount: 0, totalUnpaid: 0, avgOverdueDays: 0 }
+        });
+      }
     }
     fetchDashboard();
   }, [refreshKey]);
+
+  // 실시간 데이터 동기화 설정
+  useEffect(() => {
+    const channels: any[] = [];
+    
+    // 거래 데이터 변경 감지
+    const transactionsChannel = supabase
+      .channel('dashboard-transactions')
+      .on('postgres_changes', 
+        { 
+          event: '*', 
+          schema: 'public', 
+          table: 'transactions' 
+        }, 
+        (payload) => {
+          console.log('🔄 거래 데이터 변경 감지:', payload.eventType);
+          setRealtimeStatus('connected');
+          // 데이터 새로고침 (약간의 지연을 주어 DB 변경 완료 후 조회)
+          setTimeout(() => {
+            window.location.reload();
+          }, 500);
+        }
+      )
+      .on('subscribe', (status) => {
+        if (status === 'SUBSCRIBED') {
+          console.log('✅ 거래 데이터 실시간 구독 성공');
+          setRealtimeStatus('connected');
+        }
+      })
+      .subscribe();
+    
+    // 결제 데이터 변경 감지
+    const paymentsChannel = supabase
+      .channel('dashboard-payments')
+      .on('postgres_changes', 
+        { 
+          event: '*', 
+          schema: 'public', 
+          table: 'payments' 
+        }, 
+        (payload) => {
+          console.log('🔄 결제 데이터 변경 감지:', payload.eventType);
+          setRealtimeStatus('connected');
+          // 데이터 새로고침 (약간의 지연을 주어 DB 변경 완료 후 조회)
+          setTimeout(() => {
+            window.location.reload();
+          }, 500);
+        }
+      )
+      .on('subscribe', (status) => {
+        if (status === 'SUBSCRIBED') {
+          console.log('✅ 결제 데이터 실시간 구독 성공');
+          setRealtimeStatus('connected');
+        }
+      })
+      .subscribe();
+    
+    // 고객 데이터 변경 감지
+    const customersChannel = supabase
+      .channel('dashboard-customers')
+      .on('postgres_changes', 
+        { 
+          event: '*', 
+          schema: 'public', 
+          table: 'customers' 
+        }, 
+        (payload) => {
+          console.log('🔄 고객 데이터 변경 감지:', payload.eventType);
+          setRealtimeStatus('connected');
+          // 데이터 새로고침 (약간의 지연을 주어 DB 변경 완료 후 조회)
+          setTimeout(() => {
+            window.location.reload();
+          }, 500);
+        }
+      )
+      .on('subscribe', (status) => {
+        if (status === 'SUBSCRIBED') {
+          console.log('✅ 고객 데이터 실시간 구독 성공');
+          setRealtimeStatus('connected');
+        }
+      })
+      .subscribe();
+    
+    channels.push(transactionsChannel, paymentsChannel, customersChannel);
+    
+    // 연결 상태 모니터링
+    const statusInterval = setInterval(() => {
+      const allConnected = channels.every(channel => channel.state === 'joined');
+      if (!allConnected && realtimeStatus === 'connected') {
+        setRealtimeStatus('disconnected');
+      }
+    }, 5000);
+    
+    // 정리 함수
+    return () => {
+      clearInterval(statusInterval);
+      channels.forEach(channel => {
+        supabase.removeChannel(channel);
+      });
+    };
+  }, [realtimeStatus]);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -152,7 +309,18 @@ export default function DashboardPage() {
     if (e.target === galleryBackdropRef.current) closeGallery();
   };
 
-  if (!data) return <div>로딩 중...</div>;
+  // 로딩 상태 개선 - 시니어 친화적 UI
+  if (!data) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="bg-white rounded-lg shadow-lg p-12 text-center border-2 border-blue-200">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-blue-600 mx-auto mb-6"></div>
+          <h2 className="text-2xl font-bold text-gray-800 mb-4">📊 대시보드 로딩 중</h2>
+          <p className="text-lg text-gray-600">잠시만 기다려주세요...</p>
+        </div>
+      </div>
+    );
+  }
 
   // 아래 변수들은 data가 null이 아닐 때만 정의
   const stackColors = [
@@ -171,19 +339,19 @@ export default function DashboardPage() {
     'rgba(255, 99, 132, 1)',
     'rgba(255, 159, 64, 1)',
   ];
-  const maxUnpaid = Math.max(...data.topCustomers.map(c => c.unpaidAmount || 0));
+  const maxUnpaid = (data.topCustomers || []).length > 0 ? Math.max(...(data.topCustomers || []).map(c => c.unpaidAmount || 0)) : 0;
   const yAxisMax = Math.ceil(maxUnpaid / 10000000) * 10000000 + 10000000; // 1천만 단위 올림
 
-  // 1. Top 10 고객만 추출
-  const top10 = data.topCustomers.slice(0, 10);
+  // 1. Top 10 고객만 추출 (안전 가드 추가)
+  const top10 = (data.topCustomers || []).slice(0, 10);
   // 2. X축 라벨: 고객명(윗줄) + 총 미수금(아랫줄)
-  const customerLabels = top10.map(c => `${c.name}\n₩${c.unpaidAmount.toLocaleString()}`);
-  // 3. 각 고객별 건별 미수금 스택 데이터셋 생성
-  const maxTxCount = Math.max(...top10.map(c => c.transactions.filter(tx => tx.status === 'unpaid').length));
-  const stackDatasets = Array.from({ length: maxTxCount }).map((_, stackIdx) => ({
+  const customerLabels = top10.map(c => `${c.name || '이름없음'}\n₩${(c.unpaidAmount || 0).toLocaleString()}`);
+  // 3. 각 고객별 건별 미수금 스택 데이터셋 생성 (안전 가드 추가)
+  const maxTxCount = top10.length > 0 ? Math.max(...top10.map(c => (c.transactions || []).filter(tx => tx.status === 'unpaid').length)) : 0;
+  const stackDatasets = maxTxCount > 0 ? Array.from({ length: maxTxCount }).map((_, stackIdx) => ({
     label: `${stackIdx + 1}번째 건`,
     data: top10.map(c => {
-      const unpaidTxs = (c.transactions as any[]).filter((tx: any) => tx.status === 'unpaid');
+      const unpaidTxs = (c.transactions || []).filter((tx: any) => tx.status === 'unpaid');
       const tx = unpaidTxs[stackIdx];
       if (!tx) return 0;
       const paid = (tx.payments || []).reduce((sum: any, p: any) => sum + (p.amount || 0), 0);
@@ -201,14 +369,14 @@ export default function DashboardPage() {
       align: 'center' as const,
       clip: false,
     }
-  }));
+  })) : [];
 
-  // DashboardPage 내부
-  const dueTxs = (data as any).dueThisMonth || [];
+  // DashboardPage 내부 (안전 가드 추가)
+  const dueTxs = data.dueThisMonth || [];
   const dueTotalPages = Math.ceil(dueTxs.length / duePageSize);
   const dueTxsPage = dueTxs.slice((duePage - 1) * duePageSize, duePage * duePageSize);
 
-  const overdueTxs = (data as any).overdueTxs || [];
+  const overdueTxs = data.overdueTxs || [];
   const overdueTotalPages = Math.ceil(overdueTxs.length / overduePageSize);
   const overdueTxsPage = overdueTxs.slice((overduePage - 1) * overduePageSize, overduePage * overduePageSize);
 
@@ -259,8 +427,28 @@ export default function DashboardPage() {
             <h1 className="text-4xl font-bold text-gray-800 flex items-center gap-3 mb-0">
               📊 관리 대시보드
             </h1>
-            <div className="text-xl text-gray-600 font-semibold flex items-center gap-2">
-              📅 오늘: <span className="text-blue-600 font-bold">{data.today}</span>
+            <div className="flex flex-col items-end gap-2">
+              <div className="flex items-center space-x-3">
+                <div className={`w-4 h-4 rounded-full ${
+                  realtimeStatus === 'connected' ? 'bg-green-500 animate-pulse' :
+                  realtimeStatus === 'connecting' ? 'bg-yellow-500 animate-pulse' :
+                  'bg-red-500'
+                }`}></div>
+                <span className={`text-lg font-bold ${
+                  realtimeStatus === 'connected' ? 'text-green-600' :
+                  realtimeStatus === 'connecting' ? 'text-yellow-600' :
+                  'text-red-600'
+                }`}>
+                  {realtimeStatus === 'connected' ? '🟢 실시간 연결됨' :
+                   realtimeStatus === 'connecting' ? '🟡 연결 중...' :
+                   '🔴 연결 끊김'}
+                </span>
+              </div>
+              <div className="text-xl text-gray-600 font-semibold flex items-center gap-2">
+                📅 오늘: <span className="text-blue-600 font-bold">
+                  {isClient ? data.today : new Date().toISOString().slice(0, 10)}
+                </span>
+              </div>
             </div>
           </div>
         </div>
