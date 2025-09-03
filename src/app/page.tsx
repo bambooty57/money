@@ -204,14 +204,10 @@ export default function DashboardPage() {
           }, 500);
         }
       )
-      .on('subscribe', (status, err) => {
+      .on('subscribe', (status: string) => {
         if (status === 'SUBSCRIBED') {
           console.log('✅ 거래 데이터 실시간 구독 성공');
           setRealtimeStatus('connected');
-        }
-        if (err) {
-          console.error('❌ 거래 데이터 구독 오류:', err);
-          setRealtimeStatus('disconnected');
         }
       })
       .subscribe();
@@ -234,14 +230,10 @@ export default function DashboardPage() {
           }, 500);
         }
       )
-      .on('subscribe', (status, err) => {
+      .on('subscribe', (status: string) => {
         if (status === 'SUBSCRIBED') {
           console.log('✅ 결제 데이터 실시간 구독 성공');
           setRealtimeStatus('connected');
-        }
-        if (err) {
-          console.error('❌ 결제 데이터 구독 오류:', err);
-          setRealtimeStatus('disconnected');
         }
       })
       .subscribe();
@@ -264,14 +256,10 @@ export default function DashboardPage() {
           }, 500);
         }
       )
-      .on('subscribe', (status, err) => {
+      .on('subscribe', (status: string) => {
         if (status === 'SUBSCRIBED') {
           console.log('✅ 고객 데이터 실시간 구독 성공');
           setRealtimeStatus('connected');
-        }
-        if (err) {
-          console.error('❌ 고객 데이터 구독 오류:', err);
-          setRealtimeStatus('disconnected');
         }
       })
       .subscribe();
