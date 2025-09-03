@@ -462,7 +462,7 @@ export async function generateStatementPdf({ customer, transactions, payments, s
   
   // PDF 저장
   const pdfBytes = await pdfDoc.save();
-  return new Blob([pdfBytes], { type: 'application/pdf' });
+  return new Blob([new Uint8Array(pdfBytes)], { type: 'application/pdf' });
   } catch (err) {
     console.error('PDF 생성 중 오류:', err);
     throw err;

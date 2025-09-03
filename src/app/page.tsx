@@ -204,18 +204,13 @@ export default function DashboardPage() {
           }, 500);
         }
       )
-      .on('subscribe', {}, (status: string) => {
+      .subscribe((status: string) => {
         console.log('📡 거래 데이터 구독 상태:', status);
         if (status === 'SUBSCRIBED') {
           console.log('✅ 거래 데이터 실시간 구독 성공');
           setRealtimeStatus('connected');
         }
-      })
-      .on('error', {}, (error: any) => {
-        console.error('❌ 거래 데이터 구독 오류:', error);
-        setRealtimeStatus('disconnected');
-      })
-      .subscribe();
+      });
     
     // 결제 데이터 변경 감지
     const paymentsChannel = supabase
@@ -235,18 +230,13 @@ export default function DashboardPage() {
           }, 500);
         }
       )
-      .on('subscribe', {}, (status: string) => {
+      .subscribe((status: string) => {
         console.log('📡 결제 데이터 구독 상태:', status);
         if (status === 'SUBSCRIBED') {
           console.log('✅ 결제 데이터 실시간 구독 성공');
           setRealtimeStatus('connected');
         }
-      })
-      .on('error', {}, (error: any) => {
-        console.error('❌ 결제 데이터 구독 오류:', error);
-        setRealtimeStatus('disconnected');
-      })
-      .subscribe();
+      });
     
     // 고객 데이터 변경 감지
     const customersChannel = supabase
@@ -266,18 +256,13 @@ export default function DashboardPage() {
           }, 500);
         }
       )
-      .on('subscribe', {}, (status: string) => {
+      .subscribe((status: string) => {
         console.log('📡 고객 데이터 구독 상태:', status);
         if (status === 'SUBSCRIBED') {
           console.log('✅ 고객 데이터 실시간 구독 성공');
           setRealtimeStatus('connected');
         }
-      })
-      .on('error', {}, (error: any) => {
-        console.error('❌ 고객 데이터 구독 오류:', error);
-        setRealtimeStatus('disconnected');
-      })
-      .subscribe();
+      });
     
     channels.push(transactionsChannel, paymentsChannel, customersChannel);
     
@@ -677,8 +662,8 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* 거래 상태별 합계 차트 */}
-        {data.statusStats && data.statusStats.length > 0 && (
+        {/* 거래 상태별 합계 차트 - 임시 비활성화 */}
+        {/* {data.statusStats && data.statusStats.length > 0 && (
           <div className="bg-white p-8 rounded-lg shadow-lg border-2 border-gray-200 mb-8">
             <h3 className="text-2xl font-bold mb-6 text-gray-800 flex items-center gap-2">
               📊 거래 상태별 합계
@@ -720,7 +705,7 @@ export default function DashboardPage() {
               }
             }} />
           </div>
-        )}
+        )} */}
 
         {/* 뷰 모드 토글 */}
         <div className="bg-white p-6 rounded-lg shadow-lg border-2 border-gray-200 mb-6">

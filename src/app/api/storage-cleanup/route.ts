@@ -1,13 +1,9 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient } from '@/lib/supabase';
 import { NextResponse } from 'next/server';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
 
 export async function GET(request: Request) {
   try {
+    const supabase = createClient();
     const { searchParams } = new URL(request.url);
     const action = searchParams.get('action');
     
@@ -24,8 +20,8 @@ export async function GET(request: Request) {
     const ac776Files = files.filter(f => f.url && f.url.includes('ac776'));
     
     // 3. 고객 테이블에서 해당 ID들 확인
-    const customerIds = ac776Files.map(f => f.customer_id).filter(Boolean);
-    const transactionIds = ac776Files.map(f => f.transaction_id).filter(Boolean);
+    const customerIds = ac776Files.map(f => f.customer_id).filter((id): id is string => Boolean(id));
+    const transactionIds = ac776Files.map(f => f.transaction_id).filter((id): id is string => Boolean(id));
     
     let connectedCustomers: any[] = [];
     let connectedTransactions: any[] = [];
