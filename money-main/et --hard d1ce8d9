@@ -1,0 +1,5 @@
+[33m3bc8a58[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m Fix: 거래명세서 페이지 전용 안정적인 실시간 동기화 구현 - useTransactionsRealtime 훅 제거
+[33m2b9c2c4[m Fix: 거래명세서 페이지 useTransactionsRealtime 훅 정확한 사용법으로 수정 - 거래관리 페이지와 동일한 구조로 통일
+[33md4c92d8[m Fix: 거래명세서 페이지 실시간 동기화 완전 수정 - 직접 Supabase 구독으로 변경
+[33md6fe6e6[m Fix: 거래명세서 페이지 실시간 동기화 완전 수정
+[33md1ce8d9[m Fix: 거래명세서 페이지 실시간 동기화 문제 해결 - useStatementRealtime을 useTransactionsRealtime으로 교체하여 입금등록/삭제 실시간 반영 구현

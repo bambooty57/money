@@ -1,0 +1,20 @@
+{
+  "recommendations": [
+    "esbenp.prettier-vscode",
+    "ms-vscode.vscode-typescript-next",
+    "bradlc.vscode-tailwindcss",
+    "formulahendry.auto-rename-tag",
+    "ms-vscode.vscode-json",
+    "streetsidesoftware.code-spell-checker",
+    "ms-playwright.playwright",
+    "supabase.supabase-vscode",
+    "usernamehw.errorlens",
+    "christian-kohler.path-intellisense",
+    "ms-vscode.vscode-eslint",
+    "zignd.html-css-class-completion",
+    "bradlc.vscode-tailwindcss"
+  ],
+  "unwantedRecommendations": [
+    "ms-vscode.vscode-typescript"
+  ]
+} 

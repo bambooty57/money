@@ -1,0 +1,5 @@
+[33mfd47307[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m 대시보드 고객관리 기능 복원
+[33m5d442ce[m fix: mark usePaymentsRealtime.ts as client component
+[33maea8444[m 입금 등록 후 거래상세 실시간 반영 및 차트 개선, 인증 에러 진단
+[33m4a2d32a[m 작업 내용 저장
+[33mfb8ff12[m feat(auth): enforce login as entry point using middleware, dashboard graph UX improvements

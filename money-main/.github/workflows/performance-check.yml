@@ -1,0 +1,170 @@
+name: Performance & Schema Check
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    - cron: '0 2 * * *' # 매일 새벽 2시 스키마 동기화 체크
+
+jobs:
+  type-check:
+    name: TypeScript Type Check
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          
+      - name: Install dependencies
+        run: npm ci
+        
+      - name: TypeScript type check
+        run: npm run types:check
+        
+      - name: ESLint check
+        run: npm run lint
+
+  schema-sync:
+    name: Schema Synchronization Check
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule' || contains(github.event.head_commit.message, '[schema]')
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          
+      - name: Install dependencies
+        run: npm ci
+        
+      - name: Generate Supabase types
+        run: |
+          if [ -n "${{ secrets.SUPABASE_ACCESS_TOKEN }}" ]; then
+            npx supabase gen types typescript \
+              --project-id ${{ secrets.SUPABASE_PROJECT_ID }} \
+              --schema public > src/types/supabase-generated.ts
+            
+            # Compare with existing types
+            if ! diff -q src/types/supabase.ts src/types/supabase-generated.ts; then
+              echo "⚠️ Schema changes detected!"
+              echo "Please update types with: npm run types:generate"
+              exit 1
+            else
+              echo "✅ Schema is in sync"
+            fi
+          else
+            echo "⚠️ Supabase access token not available, skipping schema check"
+          fi
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+
+  build-check:
+    name: Build & Performance Check
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          
+      - name: Install dependencies
+        run: npm ci
+        
+      - name: Build application
+        run: npm run build
+        
+      - name: Analyze bundle size
+        run: |
+          npm run build:analyze
+          
+          # Check bundle size (example threshold: 1MB for main bundle)
+          MAIN_BUNDLE_SIZE=$(find .next/static/chunks -name "*.js" -exec du -b {} + | awk '{total += $1} END {print total}')
+          MAX_SIZE=$((1024 * 1024)) # 1MB in bytes
+          
+          if [ "$MAIN_BUNDLE_SIZE" -gt "$MAX_SIZE" ]; then
+            echo "⚠️ Bundle size ($MAIN_BUNDLE_SIZE bytes) exceeds threshold ($MAX_SIZE bytes)"
+            echo "Consider code splitting or tree shaking"
+            exit 1
+          else
+            echo "✅ Bundle size is within limits: $MAIN_BUNDLE_SIZE bytes"
+          fi
+
+  lighthouse-check:
+    name: Lighthouse Performance Audit
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          
+      - name: Install dependencies
+        run: npm ci
+        
+      - name: Build application
+        run: npm run build
+        
+      - name: Start application
+        run: |
+          npm run start &
+          sleep 10 # Wait for server to start
+        
+      - name: Run Lighthouse audit
+        uses: treosh/lighthouse-ci-action@v10
+        with:
+          urls: |
+            http://localhost:3000
+            http://localhost:3000/customers
+            http://localhost:3000/transactions
+          configPath: './lighthouserc.json'
+          uploadArtifacts: true
+          temporaryPublicStorage: true
+
+  dependency-check:
+    name: Security & Dependency Check
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          
+      - name: Install dependencies
+        run: npm ci
+        
+      - name: Audit dependencies
+        run: |
+          npm audit --audit-level=moderate
+          
+      - name: Check for outdated packages
+        run: |
+          npm outdated || true # Don't fail on outdated packages, just warn 
