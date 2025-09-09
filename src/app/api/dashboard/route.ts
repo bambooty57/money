@@ -3,12 +3,15 @@ import { supabase } from '@/lib/supabase';
 
 export async function GET() {
   try {
-    console.log('🔍 Dashboard API 시작');
+    console.log('🔍 Dashboard API 시작 (최적화 버전)');
     console.log('🔗 Supabase URL:', process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://jcqdjkxllgiedjqxryoq.supabase.co');
     console.log('🔑 Supabase Key:', process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ? '설정됨' : '미설정');
     
     // Supabase 설정 확인 (하드코딩된 값 사용)
     console.log('✅ Supabase 설정 완료 (하드코딩된 값 사용)');
+    
+    // 성능 측정 시작
+    const startTime = Date.now();
     
     // 1. 총 미수금 계산 (실제 데이터베이스 시도)
     console.log('📊 거래 데이터 조회 시작');
@@ -72,60 +75,54 @@ export async function GET() {
       console.log('⚠️ 채권 연령 분석 테스트 데이터 사용');
     }
 
-    // 3. 상위 미수금 고객 (실제 데이터베이스 시도)
+    // 3. 상위 미수금 고객 (최적화된 단일 쿼리)
     let topCustomers = [];
     try {
-      const { data: customers, error: customerError } = await supabase
+      // 단일 쿼리로 고객, 거래, 결제, 파일 데이터를 한번에 조회
+      const { data: customersWithData, error: customerError } = await supabase
         .from('customers')
-        .select('*')
-        .order('created_at', { ascending: false });
+        .select(`
+          *,
+          transactions!inner (
+            id, amount, status,
+            payments (amount)
+          ),
+          files!left (
+            url
+          )
+        `)
+        .order('created_at', { ascending: false })
+        .limit(50); // 상위 50명만 조회하여 성능 향상
       
       if (customerError) {
         console.error('❌ 고객 데이터 조회 오류:', customerError);
         throw customerError;
       }
       
-      if (customers && customers.length > 0) {
-        // 각 고객별로 거래 데이터와 미수금 계산
-        for (const customer of customers) {
-          try {
-            // 고객의 거래 데이터 가져오기
-            const { data: transactions } = await supabase
-              .from('transactions')
-              .select('id, amount, status, payments(amount)')
-              .eq('customer_id', customer.id);
-            
-            // 고객 사진 가져오기
-            const { data: files } = await supabase
-              .from('files')
-              .select('url')
-              .eq('customer_id', customer.id)
-              .limit(3);
-            
-            // 미수금 계산
-            let unpaidAmount = 0;
-            if (transactions) {
-              transactions.forEach(tx => {
-                const paid = (tx.payments || []).reduce((sum, p) => sum + (p.amount || 0), 0);
-                const unpaid = (tx.amount || 0) - paid;
-                unpaidAmount += unpaid > 0 ? unpaid : 0;
-              });
-            }
-            
-            topCustomers.push({
-              ...customer,
-              transactions: transactions || [],
-              photos: files || [],
-              unpaidAmount,
-            });
-          } catch (error) {
-            console.error('❌ 고객별 데이터 조회 실패:', customer.id, error);
-          }
-        }
+      if (customersWithData && customersWithData.length > 0) {
+        // 미수금 계산 및 정렬
+        topCustomers = customersWithData.map(customer => {
+          let unpaidAmount = 0;
+          const transactions = customer.transactions || [];
+          
+          transactions.forEach(tx => {
+            const paid = (tx.payments || []).reduce((sum, p) => sum + (p.amount || 0), 0);
+            const unpaid = (tx.amount || 0) - paid;
+            unpaidAmount += unpaid > 0 ? unpaid : 0;
+          });
+          
+          return {
+            ...customer,
+            transactions,
+            photos: (customer.files || []).slice(0, 3), // 최대 3개만
+            unpaidAmount,
+          };
+        })
+        .filter(customer => customer.unpaidAmount > 0) // 미수금이 있는 고객만
+        .sort((a, b) => b.unpaidAmount - a.unpaidAmount)
+        .slice(0, 10); // 상위 10명만
         
-        // 미수금 기준으로 정렬
-        topCustomers.sort((a, b) => b.unpaidAmount - a.unpaidAmount);
-        console.log('✅ 실제 고객 데이터:', topCustomers.length, '명');
+        console.log('✅ 최적화된 고객 데이터:', topCustomers.length, '명');
       } else {
         throw new Error('고객 데이터가 없습니다');
       }
@@ -470,14 +467,22 @@ export async function GET() {
       overdueTxsSummary,
     };
     
-    console.log('✅ 대시보드 데이터 반환:', {
+    const endTime = Date.now();
+    const processingTime = endTime - startTime;
+    
+    console.log('✅ 대시보드 데이터 반환 (최적화 완료):', {
       totalUnpaid: dashboardData.totalUnpaid,
       topCustomersCount: dashboardData.topCustomers.length,
       dueThisMonthCount: dashboardData.dueThisMonth.length,
-      overdueTxsCount: dashboardData.overdueTxs.length
+      overdueTxsCount: dashboardData.overdueTxs.length,
+      processingTime: `${processingTime}ms`
     });
     
-    return NextResponse.json(dashboardData);
+    // 캐시 헤더 추가 (5분 캐시)
+    const response = NextResponse.json(dashboardData);
+    response.headers.set('Cache-Control', 's-maxage=300, stale-while-revalidate=60');
+    
+    return response;
   } catch (error) {
     console.error('❌ Dashboard API 오류:', error);
     console.error('❌ 오류 스택:', error instanceof Error ? error.stack : '스택 없음');

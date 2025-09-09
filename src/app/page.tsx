@@ -1,37 +1,16 @@
 "use client";
 import { useEffect, useState, useRef } from 'react';
-import { Bar, Line } from 'react-chartjs-2';
-import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  BarElement,
-  LineElement,
-  Title,
-  Tooltip,
-  Legend,
-  PointElement
-} from 'chart.js';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import jsPDF from 'jspdf';
-import ChartDataLabels from 'chartjs-plugin-datalabels';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase';
 import { useRefreshContext } from '@/lib/refresh-context';
 import { Pagination } from '@/components/ui/pagination';
 import ScrollToTop from '@/components/ui/scroll-to-top';
+import PerformanceMonitor, { useApiPerformance } from '@/components/PerformanceMonitor';
 import { supabase } from '@/lib/supabase';
 
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  BarElement,
-  LineElement,
-  Title,
-  Tooltip,
-  Legend,
-  PointElement,
-  ChartDataLabels
-);
+// Recharts는 별도 등록이 필요하지 않습니다
 
 interface DashboardData {
   today: string;
@@ -120,6 +99,7 @@ export default function DashboardPage() {
   const galleryBackdropRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
   const { refreshKey } = useRefreshContext();
+  const { measureApiCall } = useApiPerformance();
   // 지급예정 거래건 페이지네이션 상태 (최상단으로 이동)
   const [duePage, setDuePage] = useState(1);
   const duePageSize = 15;
@@ -145,42 +125,45 @@ export default function DashboardPage() {
     });
   }, [router]);
 
-  useEffect(() => {
-    async function fetchDashboard() {
-      try {
+  const fetchDashboard = async () => {
+    try {
+      const dashboardData = await measureApiCall('Dashboard', async () => {
         const response = await fetch('/api/dashboard');
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
-        const dashboardData = await response.json();
-        
-        // API 응답에 error 필드가 있으면 오류 처리
-        if (dashboardData.error) {
-          console.error('Dashboard API error:', dashboardData.error);
-          return;
-        }
-        
-        setData(dashboardData);
-      } catch (error) {
-        console.error('Failed to fetch dashboard data:', error);
-        // 기본값으로 빈 데이터 설정하여 UI 깨짐 방지
-        setData({
-          today: new Date().toISOString().slice(0, 10),
-          totalUnpaid: 0,
-          agingAnalysis: [],
-          topCustomers: [],
-          monthlyStats: [],
-          monthlySalesStats: [],
-          typeStats: [],
-          dueThisMonth: [],
-          dueThisMonthSummary: { count: 0, totalAmount: 0, totalUnpaid: 0, avgPaidRatio: 0 },
-          overdueTxs: [],
-          overdueTxsSummary: { count: 0, totalAmount: 0, totalUnpaid: 0, avgOverdueDays: 0 }
-        });
+        return await response.json();
+      });
+      
+      // API 응답에 error 필드가 있으면 오류 처리
+      if (dashboardData.error) {
+        console.error('Dashboard API error:', dashboardData.error);
+        return;
       }
+      
+      setData(dashboardData);
+    } catch (error) {
+      console.error('Failed to fetch dashboard data:', error);
+      // 기본값으로 빈 데이터 설정하여 UI 깨짐 방지
+      setData({
+        today: new Date().toISOString().slice(0, 10),
+        totalUnpaid: 0,
+        agingAnalysis: [],
+        topCustomers: [],
+        monthlyStats: [],
+        monthlySalesStats: [],
+        typeStats: [],
+        dueThisMonth: [],
+        dueThisMonthSummary: { count: 0, totalAmount: 0, totalUnpaid: 0, avgPaidRatio: 0 },
+        overdueTxs: [],
+        overdueTxsSummary: { count: 0, totalAmount: 0, totalUnpaid: 0, avgOverdueDays: 0 }
+      });
     }
+  };
+
+  useEffect(() => {
     fetchDashboard();
-  }, [refreshKey]);
+  }, [refreshKey, measureApiCall]);
 
   // 실시간 데이터 동기화 설정
   useEffect(() => {
@@ -198,10 +181,10 @@ export default function DashboardPage() {
         (payload) => {
           console.log('🔄 거래 데이터 변경 감지:', payload.eventType);
           setRealtimeStatus('connected');
-          // 데이터 새로고침 (약간의 지연을 주어 DB 변경 완료 후 조회)
+          // 효율적인 데이터 새로고침 (전체 페이지 새로고침 대신 API 재호출)
           setTimeout(() => {
-            window.location.reload();
-          }, 500);
+            fetchDashboard();
+          }, 300);
         }
       )
       .subscribe((status: string) => {
@@ -224,10 +207,10 @@ export default function DashboardPage() {
         (payload) => {
           console.log('🔄 결제 데이터 변경 감지:', payload.eventType);
           setRealtimeStatus('connected');
-          // 데이터 새로고침 (약간의 지연을 주어 DB 변경 완료 후 조회)
+          // 효율적인 데이터 새로고침
           setTimeout(() => {
-            window.location.reload();
-          }, 500);
+            fetchDashboard();
+          }, 300);
         }
       )
       .subscribe((status: string) => {
@@ -250,10 +233,10 @@ export default function DashboardPage() {
         (payload) => {
           console.log('🔄 고객 데이터 변경 감지:', payload.eventType);
           setRealtimeStatus('connected');
-          // 데이터 새로고침 (약간의 지연을 주어 DB 변경 완료 후 조회)
+          // 효율적인 데이터 새로고침
           setTimeout(() => {
-            window.location.reload();
-          }, 500);
+            fetchDashboard();
+          }, 300);
         }
       )
       .subscribe((status: string) => {
@@ -312,67 +295,33 @@ export default function DashboardPage() {
     if (e.target === galleryBackdropRef.current) closeGallery();
   };
 
-  // 로딩 상태 개선 - 시니어 친화적 UI
+  // 로딩 상태 개선 - 시니어 친화적 UI + 성능 최적화
   if (!data) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="bg-white rounded-lg shadow-lg p-12 text-center border-2 border-blue-200">
           <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-blue-600 mx-auto mb-6"></div>
           <h2 className="text-2xl font-bold text-gray-800 mb-4">📊 대시보드 로딩 중</h2>
-          <p className="text-lg text-gray-600">잠시만 기다려주세요...</p>
+          <p className="text-lg text-gray-600">데이터를 불러오는 중입니다...</p>
+          <div className="mt-4 text-sm text-gray-500">
+            최적화된 쿼리로 빠르게 로딩됩니다
+          </div>
         </div>
       </div>
     );
   }
 
-  // 아래 변수들은 data가 null이 아닐 때만 정의
-  const stackColors = [
-    'rgba(53, 162, 235, 0.7)', // 파랑
-    'rgba(75, 192, 192, 0.7)', // 초록
-    'rgba(153, 102, 255, 0.7)', // 보라
-    'rgba(255, 206, 86, 0.7)', // 노랑
-    'rgba(255, 99, 132, 0.7)', // 빨강
-    'rgba(255, 159, 64, 0.7)', // 주황
-  ];
-  const stackBorderColors = [
-    'rgba(53, 162, 235, 1)',
-    'rgba(75, 192, 192, 1)',
-    'rgba(153, 102, 255, 1)',
-    'rgba(255, 206, 86, 1)',
-    'rgba(255, 99, 132, 1)',
-    'rgba(255, 159, 64, 1)',
-  ];
-  const maxUnpaid = (data.topCustomers || []).length > 0 ? Math.max(...(data.topCustomers || []).map(c => c.unpaidAmount || 0)) : 0;
-  const yAxisMax = Math.ceil(maxUnpaid / 10000000) * 10000000 + 10000000; // 1천만 단위 올림
-
-  // 1. Top 10 고객만 추출 (안전 가드 추가)
+  // Recharts용 데이터 변환
+  const chartColors = ['#35a2eb', '#4bc0c0', '#9966ff', '#ffce56', '#ff6384', '#ff9f40'];
+  
+  // Top 10 고객 차트 데이터 준비
   const top10 = (data.topCustomers || []).slice(0, 10);
-  // 2. X축 라벨: 고객명(윗줄) + 총 미수금(아랫줄)
-  const customerLabels = top10.map(c => `${c.name || '이름없음'}\n₩${(c.unpaidAmount || 0).toLocaleString()}`);
-  // 3. 각 고객별 건별 미수금 스택 데이터셋 생성 (안전 가드 추가)
-  const maxTxCount = top10.length > 0 ? Math.max(...top10.map(c => (c.transactions || []).filter(tx => tx.status === 'unpaid').length)) : 0;
-  const stackDatasets = maxTxCount > 0 ? Array.from({ length: maxTxCount }).map((_, stackIdx) => ({
-    label: `${stackIdx + 1}번째 건`,
-    data: top10.map(c => {
-      const unpaidTxs = (c.transactions || []).filter((tx: any) => tx.status === 'unpaid');
-      const tx = unpaidTxs[stackIdx];
-      if (!tx) return 0;
-      const paid = (tx.payments || []).reduce((sum: any, p: any) => sum + (p.amount || 0), 0);
-      return Math.max((tx.amount || 0) - paid, 0);
-    }),
-    backgroundColor: stackColors[stackIdx % stackColors.length],
-    borderColor: stackBorderColors[stackIdx % stackBorderColors.length],
-    borderWidth: 2,
-    datalabels: {
-      formatter: (value: any) => value > 0 ? `₩${Number(value).toLocaleString('ko-KR')}` : '',
-      color: '#fff',
-      font: { weight: 700, size: 14 },
-      display: true,
-      anchor: 'center' as const,
-      align: 'center' as const,
-      clip: false,
-    }
-  })) : [];
+  const chartData = top10.map((customer, index) => ({
+    name: customer.name || '이름없음',
+    amount: customer.unpaidAmount || 0,
+    color: chartColors[index % chartColors.length],
+    displayName: customer.name?.length > 8 ? customer.name.substring(0, 8) + '...' : customer.name || '이름없음'
+  }));
 
   // DashboardPage 내부 (안전 가드 추가)
   const dueTxs = data.dueThisMonth || [];
@@ -384,7 +333,8 @@ export default function DashboardPage() {
   const overdueTxsPage = overdueTxs.slice((overduePage - 1) * overduePageSize, overduePage * overduePageSize);
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <PerformanceMonitor componentName="대시보드">
+      <div className="min-h-screen bg-gray-50">
       {/* 갤러리 모달 */}
       {galleryOpen && (
         <div ref={galleryBackdropRef} onClick={handleBackdropClick} className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-70" style={{backdropFilter:'blur(2px)'}}>
@@ -404,6 +354,8 @@ export default function DashboardPage() {
                 alt={`고객사진 ${galleryIndex + 1}`}
                 className="max-w-[80vw] max-h-[70vh] rounded-lg border-4 border-blue-200 shadow-lg bg-white"
                 style={{objectFit:'contain'}}
+                loading="eager"
+                decoding="async"
               />
               <button
                 onClick={() => setGalleryIndex(idx => Math.min(galleryPhotos.length - 1, idx + 1))}
@@ -512,52 +464,34 @@ export default function DashboardPage() {
               <span>💰 총 미수금액:</span>
               <span className="text-xl md:text-3xl text-red-600">₩{data.topCustomers.reduce((sum, c) => sum + (c.unpaidAmount || 0), 0).toLocaleString()}</span>
             </div>
-            <Bar
-              data={{
-                labels: customerLabels,
-                datasets: stackDatasets
-              }}
-              options={{
-                responsive: true,
-                plugins: {
-                  legend: { display: false },
-                  datalabels: {
-                    display: true,
-                    color: '#fff',
-                    font: { weight: 'bold', size: 16 },
-                    anchor: 'center',
-                    align: 'center',
-                    formatter: function(value, context) {
-                      // 각 스택 조각에만 금액 표시 (합계는 x축 라벨로 대체)
-                      return value > 0 ? `₩${Number(value).toLocaleString('ko-KR')}` : '';
-                    },
-                  },
-                },
-                scales: {
-                  x: {
-                    stacked: true,
-                    ticks: {
-                      font: { size: 16 },
-                      callback: function(value, index) {
-                        // index 기반 2줄 라벨 강제 반환
-                        return customerLabels[index] ? customerLabels[index].split('\n') : value;
-                      }
-                    },
-                  },
-                  y: {
-                    stacked: true,
-                    max: yAxisMax,
-                    ticks: {
-                      font: { size: 14 },
-                      callback: function(tickValue, _index, _ticks) {
-                        return typeof tickValue === 'number' ? `₩${tickValue.toLocaleString('ko-KR')}` : tickValue;
-                      }
-                    }
-                  }
-                }
-              }}
-              plugins={[ChartDataLabels]}
-            />
+            <ResponsiveContainer width="100%" height={400}>
+              <BarChart
+                data={chartData}
+                margin={{ top: 20, right: 30, left: 20, bottom: 60 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis 
+                  dataKey="displayName" 
+                  angle={-45}
+                  textAnchor="end"
+                  height={80}
+                  fontSize={14}
+                />
+                <YAxis 
+                  tickFormatter={(value) => `₩${value.toLocaleString()}`}
+                  fontSize={12}
+                />
+                <Tooltip 
+                  formatter={(value: number) => [`₩${value.toLocaleString()}`, '미수금']}
+                  labelFormatter={(label) => `고객: ${label}`}
+                />
+                <Bar dataKey="amount" radius={[4, 4, 0, 0]}>
+                  {chartData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.color} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
           </div>
 
         {/* 상위 고객 상세 테이블 */}
@@ -641,6 +575,8 @@ export default function DashboardPage() {
                                 src={photo.url}
                                 alt="고객사진"
                                 className="w-8 md:w-12 h-8 md:h-12 rounded-lg object-cover border-2 border-gray-300 cursor-pointer hover:border-blue-400 hover:shadow-lg transition-all duration-200"
+                                loading="lazy"
+                                decoding="async"
                               />
                             </button>
                           ))}
@@ -957,5 +893,6 @@ export default function DashboardPage() {
         )}
       </div>
     </div>
+    </PerformanceMonitor>
   );
 }

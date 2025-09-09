@@ -1,0 +1,67 @@
+{
+  "name": "크레딧-노트 | 구보다농기계 영암대리점",
+  "short_name": "크레딧-노트",
+  "description": "채권 관리 솔루션",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#3b82f6",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/kubotalogo.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/kubotalogo3.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["business", "finance", "productivity"],
+  "lang": "ko",
+  "dir": "ltr",
+  "scope": "/",
+  "prefer_related_applications": false,
+  "shortcuts": [
+    {
+      "name": "대시보드",
+      "short_name": "대시보드",
+      "description": "메인 대시보드로 이동",
+      "url": "/",
+      "icons": [
+        {
+          "src": "/kubotalogo.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "고객 관리",
+      "short_name": "고객",
+      "description": "고객 목록으로 이동",
+      "url": "/customers",
+      "icons": [
+        {
+          "src": "/kubotalogo.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "거래 관리",
+      "short_name": "거래",
+      "description": "거래 목록으로 이동",
+      "url": "/transactions",
+      "icons": [
+        {
+          "src": "/kubotalogo.png",
+          "sizes": "192x192"
+        }
+      ]
+    }
+  ]
+}
