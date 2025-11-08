@@ -250,8 +250,8 @@ export async function generateStatementPdf({ customer, transactions, payments, s
     y -= customerBoxHeight + 30;
 
     // 3. 거래명세서 표 (헤더를 데이터 위치에 맞게 조정)
-    const headers = ['', '#', '일자', '거래명', '기종/모델', '비고', '매출', '입금'];
-    const colWidths = [35, 70, 85, 120, 90, 90, 90, 162]; // 총 742px (페이지 안에 맞게 조정)
+    const headers = ['#', '일자', '거래명', '기종/모델', '비고', '매출', '입금', '잔액'];
+    const colWidths = [35, 90, 120, 120, 90, 90, 90, 107]; // 총 742px (페이지 안에 맞게 조정)
     const tableStartX = 50;
   const tableWidth = colWidths.reduce((a,b)=>a+b,0);
     
@@ -319,17 +319,17 @@ export async function generateStatementPdf({ customer, transactions, payments, s
         tx.created_at?.slice(0, 10) || '',        // 일자 컬럼
         tx.type || '',                            // 거래명 컬럼
         `${tx.model || tx.models_types?.model || ''}${(tx.model || tx.models_types?.model) && (tx.model_type || tx.models_types?.type) ? '/' : ''}${tx.model_type || tx.models_types?.type || ''}`, // 기종/모델 컬럼
+        tx.description || tx.notes || tx.note || '', // 비고 컬럼
         (tx.amount || 0).toLocaleString(),        // 매출 컬럼 (매출액)
         paid.toLocaleString(),                    // 입금 컬럼 (입금액)
-        unpaid.toLocaleString(),                  // 잔액 컬럼 (잔액)
-        tx.description || tx.notes || tx.note || '' // 비고 컬럼
+        unpaid.toLocaleString()                   // 잔액 컬럼 (잔액)
       ];
       
       // 헤더와 동일한 방식으로 위치 계산
       let cellX = tableStartX;
       rowData.forEach((cellData, cellIdx) => {
         // 텍스트 정렬 (금액은 우측, 나머지는 좌측)
-        const isAmount = cellIdx >= 4 && cellIdx <= 6; // 매출, 입금, 잔액 컬럼
+        const isAmount = cellIdx >= 5; // 금액 관련 컬럼
         const textX = isAmount ? cellX + colWidths[cellIdx] - 10 : cellX + 5;
         
         page.drawText(cellData, {
@@ -404,9 +404,9 @@ export async function generateStatementPdf({ customer, transactions, payments, s
     });
     
     // 합계 텍스트
-    let summaryX = tableStartX + colWidths[0] + colWidths[1] + colWidths[2] + colWidths[3];
+    const summaryLabelStart = tableStartX + colWidths.slice(0, 4).reduce((sum, width) => sum + width, 0);
     page.drawText('합계', {
-      x: summaryX - 20,
+      x: summaryLabelStart + 5,
       y: y - 18,
       size: 11,
       font,
@@ -415,21 +415,21 @@ export async function generateStatementPdf({ customer, transactions, payments, s
     
     // 합계 금액들
     const summaryAmounts = [
-      summary.total_amount.toLocaleString(),
-      summary.total_paid.toLocaleString(),
-      summary.total_unpaid.toLocaleString()
+      { value: summary.total_amount.toLocaleString(), index: 5 },
+      { value: summary.total_paid.toLocaleString(), index: 6 },
+      { value: summary.total_unpaid.toLocaleString(), index: 7 }
     ];
     
-    for (let i = 0; i < 3; i++) {
-      page.drawText(summaryAmounts[i], {
-        x: summaryX + colWidths[4 + i] - 10,
+    summaryAmounts.forEach(({ value, index }) => {
+      const columnStart = tableStartX + colWidths.slice(0, index).reduce((sum, width) => sum + width, 0);
+      page.drawText(value, {
+        x: columnStart + colWidths[index] - 10,
         y: y - 18,
         size: 10,
         font,
         color: rgb(0,0,0)
       });
-      summaryX += colWidths[4 + i];
-    }
+    });
     
     y -= 50;
     
