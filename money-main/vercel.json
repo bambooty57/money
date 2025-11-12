@@ -1,0 +1,8 @@
+{
+  "buildCommand": "cd money-main && npm install && npm run build",
+  "outputDirectory": "money-main/.next",
+  "installCommand": "cd money-main && npm install",
+  "framework": "nextjs",
+  "rootDirectory": "money-main"
+}
+
