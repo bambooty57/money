@@ -915,7 +915,10 @@ function PaginatedCustomerListInner({
                       
                       if (res.ok) {
                         alert('고객과 관련된 모든 데이터가 삭제되었습니다.');
-                        fetchCustomers();
+                        // 삭제 후 목록 강제 새로고침
+                        await fetchCustomers(true);
+                        // 페이지 새로고침으로 확실히 갱신
+                        router.refresh();
                       } else {
                         const { error } = await res.json();
                         alert('삭제 실패: ' + error);
