@@ -314,6 +314,38 @@ export async function POST(request: Request) {
   }
 }
 
+// Storage 파일 삭제 헬퍼 함수
+async function deleteStorageFiles(authenticatedSupabase: any, files: Array<{ url?: string | null }>) {
+  if (!files || files.length === 0) return;
+  
+  for (const file of files) {
+    try {
+      // URL에서 파일 경로 추출
+      if (file.url && file.url.includes('/storage/v1/object/public/')) {
+        const parts = file.url.split('/storage/v1/object/public/');
+        if (parts.length > 1) {
+          const pathParts = parts[1].split('/');
+          const bucket = pathParts[0]; // 'photos'
+          const path = pathParts.slice(1).join('/'); // 'customer_photos/uuid/filename.jpg'
+          
+          console.log('🗑️ Storage 파일 삭제:', { bucket, path });
+          const { error: storageError } = await authenticatedSupabase.storage
+            .from(bucket)
+            .remove([path]);
+          
+          if (storageError) {
+            console.warn('⚠️ Storage 파일 삭제 실패:', storageError);
+            // Storage 삭제 실패해도 DB 레코드는 삭제 진행
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('⚠️ 파일 삭제 중 오류 (계속 진행):', err);
+      // Storage 삭제 실패해도 DB 레코드는 삭제 진행
+    }
+  }
+}
+
 export async function DELETE(request: Request) {
   // Authorization 헤더에서 토큰 추출
   const authHeader = request.headers.get('authorization')
@@ -333,35 +365,70 @@ export async function DELETE(request: Request) {
   const id = searchParams.get('id');
   if (!id) return NextResponse.json({ error: '고객 ID가 필요합니다.' }, { status: 400 });
 
-  // 1. 고객의 거래 ID 목록 조회
-  const { data: transactions, error: txError } = await authenticatedSupabase.from('transactions').select('id').eq('customer_id', id);
-  if (txError) return NextResponse.json({ error: txError.message }, { status: 500 });
-  const txIds = (transactions || []).map(tx => tx.id);
+  try {
+    // 1. 고객의 거래 ID 목록 조회
+    const { data: transactions, error: txError } = await authenticatedSupabase.from('transactions').select('id').eq('customer_id', id);
+    if (txError) return NextResponse.json({ error: txError.message }, { status: 500 });
+    const txIds = (transactions || []).map(tx => tx.id);
 
-  // 2. payments에서 해당 거래 ID들에 연결된 입금 기록 삭제
-  if (txIds.length > 0) {
-    const { error: paymentError } = await authenticatedSupabase.from('payments').delete().in('transaction_id', txIds);
-    if (paymentError) return NextResponse.json({ error: paymentError.message }, { status: 500 });
+    // 2. 거래 관련 파일들 조회 (삭제 전에 Storage 파일 경로를 얻기 위해)
+    let transactionFiles: Array<{ url?: string | null }> = [];
+    if (txIds.length > 0) {
+      const { data: txFiles, error: txFilesError } = await authenticatedSupabase
+        .from('files')
+        .select('url')
+        .in('transaction_id', txIds);
+      if (txFilesError) {
+        console.warn('⚠️ 거래 관련 파일 조회 실패:', txFilesError);
+      } else {
+        transactionFiles = txFiles || [];
+      }
+    }
+
+    // 3. 고객 직접 연결된 파일들 조회 (삭제 전에 Storage 파일 경로를 얻기 위해)
+    const { data: customerFiles, error: customerFilesError } = await authenticatedSupabase
+      .from('files')
+      .select('url')
+      .eq('customer_id', id);
+    if (customerFilesError) {
+      console.warn('⚠️ 고객 파일 조회 실패:', customerFilesError);
+    }
+
+    const allFiles = [...transactionFiles, ...(customerFiles || [])];
+
+    // 4. Supabase Storage에서 실제 파일들 삭제
+    await deleteStorageFiles(authenticatedSupabase, allFiles);
+
+    // 5. payments에서 해당 거래 ID들에 연결된 입금 기록 삭제
+    if (txIds.length > 0) {
+      const { error: paymentError } = await authenticatedSupabase.from('payments').delete().in('transaction_id', txIds);
+      if (paymentError) return NextResponse.json({ error: paymentError.message }, { status: 500 });
+    }
+
+    // 6. files 테이블에서 파일 레코드들 삭제 (거래 관련)
+    if (txIds.length > 0) {
+      const { error: fileError } = await authenticatedSupabase.from('files').delete().in('transaction_id', txIds);
+      if (fileError) return NextResponse.json({ error: fileError.message }, { status: 500 });
+    }
+
+    // 7. files 테이블에서 파일 레코드들 삭제 (고객 직접 연결)
+    const { error: customerFileError } = await authenticatedSupabase.from('files').delete().eq('customer_id', id);
+    if (customerFileError) return NextResponse.json({ error: customerFileError.message }, { status: 500 });
+
+    // 8. 거래 삭제
+    if (txIds.length > 0) {
+      const { error: txDelError } = await authenticatedSupabase.from('transactions').delete().in('id', txIds);
+      if (txDelError) return NextResponse.json({ error: txDelError.message }, { status: 500 });
+    }
+
+    // 9. 고객 삭제
+    const { error } = await authenticatedSupabase.from('customers').delete().eq('id', id);
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    
+    console.log(`✅ 고객 및 관련 데이터 완전 삭제 완료 (파일 ${allFiles.length}개)`);
+    return NextResponse.json({ success: true, deletedFiles: allFiles.length });
+  } catch (error) {
+    console.error('❌ 고객 삭제 중 오류:', error);
+    return NextResponse.json({ error: error instanceof Error ? error.message : '고객 삭제 중 오류가 발생했습니다.' }, { status: 500 });
   }
-
-  // 3. files에서 해당 거래 ID들에 연결된 파일 삭제
-  if (txIds.length > 0) {
-    const { error: fileError } = await authenticatedSupabase.from('files').delete().in('transaction_id', txIds);
-    if (fileError) return NextResponse.json({ error: fileError.message }, { status: 500 });
-  }
-
-  // 4. 고객 직접 연결된 파일들 삭제 (고객 사진 등)
-  const { error: customerFileError } = await authenticatedSupabase.from('files').delete().eq('customer_id', id);
-  if (customerFileError) return NextResponse.json({ error: customerFileError.message }, { status: 500 });
-
-  // 5. 거래 삭제
-  if (txIds.length > 0) {
-    const { error: txDelError } = await authenticatedSupabase.from('transactions').delete().in('id', txIds);
-    if (txDelError) return NextResponse.json({ error: txDelError.message }, { status: 500 });
-  }
-
-  // 6. 고객 삭제
-  const { error } = await authenticatedSupabase.from('customers').delete().eq('id', id);
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ success: true });
 } 

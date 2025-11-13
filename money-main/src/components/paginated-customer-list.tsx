@@ -914,14 +914,17 @@ function PaginatedCustomerListInner({
                       });
                       
                       if (res.ok) {
-                        alert('고객과 관련된 모든 데이터가 삭제되었습니다.');
+                        const result = await res.json();
+                        alert(`고객과 관련된 모든 데이터가 삭제되었습니다.${result.deletedFiles ? ` (파일 ${result.deletedFiles}개 삭제)` : ''}`);
                         // 삭제 후 목록 강제 새로고침
                         await fetchCustomers(true);
                         // 페이지 새로고침으로 확실히 갱신
                         router.refresh();
                       } else {
-                        const { error } = await res.json();
-                        alert('삭제 실패: ' + error);
+                        const errorData = await res.json().catch(() => ({ error: '알 수 없는 오류가 발생했습니다.' }));
+                        const errorMessage = errorData.error || errorData.message || '삭제에 실패했습니다.';
+                        console.error('삭제 실패 응답:', errorData);
+                        alert(`삭제 실패: ${errorMessage}`);
                       }
                     } catch (error) {
                       console.error('삭제 중 오류:', error);
