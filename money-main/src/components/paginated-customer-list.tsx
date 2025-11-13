@@ -922,7 +922,10 @@ function PaginatedCustomerListInner({
                           return {
                             ...prevData,
                             data: prevData.data.filter(c => c.id !== customer.id),
-                            total: Math.max(0, (prevData.total || 0) - 1)
+                            pagination: {
+                              ...prevData.pagination,
+                              total: Math.max(0, (prevData.pagination.total || 0) - 1)
+                            }
                           };
                         });
                         
