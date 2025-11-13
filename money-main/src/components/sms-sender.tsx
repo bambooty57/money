@@ -46,6 +46,8 @@ export default function SmsSender({ selectedCustomer, onSuccess }: SmsSenderProp
       setTemplatesLoading(true);
       const response = await fetch('/api/sms-templates');
       const result = await response.json();
+      console.log('템플릿 로드 응답:', result);
+      
       if (result.data && Array.isArray(result.data)) {
         // DB 템플릿을 카테고리별로 그룹화
         const grouped: Record<string, Record<string, string>> = {};
@@ -58,8 +60,14 @@ export default function SmsSender({ selectedCustomer, onSuccess }: SmsSenderProp
           grouped[template.category][template.key] = template.content;
           ids[template.category][template.key] = template.id;
         });
+        console.log('템플릿 그룹화 완료:', { grouped, ids });
         setDbTemplates(grouped);
         setDbTemplateIds(ids);
+      } else {
+        console.warn('템플릿 데이터가 없거나 배열이 아닙니다:', result);
+        // 데이터가 없으면 초기화
+        setDbTemplates({});
+        setDbTemplateIds({});
       }
       // 에러가 있으면 콘솔에만 표시 (하드코딩된 템플릿 사용)
       if (result.error) {
@@ -68,6 +76,8 @@ export default function SmsSender({ selectedCustomer, onSuccess }: SmsSenderProp
     } catch (err) {
       console.error('템플릿 로드 실패:', err);
       // 에러가 발생해도 하드코딩된 템플릿 사용 가능
+      setDbTemplates({});
+      setDbTemplateIds({});
     } finally {
       setTemplatesLoading(false);
     }
@@ -261,13 +271,18 @@ export default function SmsSender({ selectedCustomer, onSuccess }: SmsSenderProp
       if (result.error) {
         setError(result.error);
         console.error('템플릿 삭제 에러:', result.error);
-      } else {
+      } else if (result.success) {
         setError('');
         if (templateKey === key) {
           setTemplateKey('');
           setMessage('');
         }
+        // 템플릿 목록 새로고침
         await loadTemplates();
+        console.log('템플릿 삭제 완료, 목록 새로고침됨');
+      } else {
+        setError('삭제 응답을 확인할 수 없습니다.');
+        console.error('예상치 못한 삭제 응답:', result);
       }
     } catch (err: any) {
       const errorMsg = err?.message || '템플릿 삭제에 실패했습니다.';

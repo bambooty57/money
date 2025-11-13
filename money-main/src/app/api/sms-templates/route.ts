@@ -104,16 +104,21 @@ export async function PUT(request: Request) {
       .from('sms_templates')
       .update({ category, key, content })
       .eq('id', id)
-      .select()
-      .single();
+      .select();
     
     if (error) {
+      console.error('템플릿 수정 에러:', error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
     
-    return NextResponse.json({ data });
-  } catch {
-    return NextResponse.json({ error: 'Failed to update template' }, { status: 500 });
+    if (!data || data.length === 0) {
+      return NextResponse.json({ error: '수정할 템플릿을 찾을 수 없습니다.' }, { status: 404 });
+    }
+    
+    return NextResponse.json({ data: data[0] });
+  } catch (err: any) {
+    console.error('템플릿 수정 중 오류:', err);
+    return NextResponse.json({ error: err?.message || 'Failed to update template' }, { status: 500 });
   }
 }
 
