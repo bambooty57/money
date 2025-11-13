@@ -232,11 +232,16 @@ export default function SmsSender({ selectedCustomer, onSuccess }: SmsSenderProp
   };
 
   const handleDeleteTemplate = async (key: string) => {
-    if (!category) return;
+    if (!category) {
+      setError('카테고리를 선택해주세요.');
+      return;
+    }
     
     const templateId = dbTemplateIds[category]?.[key];
+    console.log('삭제 시도:', { category, key, templateId, dbTemplateIds });
+    
     if (!templateId) {
-      setError('DB에 저장된 템플릿만 삭제할 수 있습니다.');
+      setError('DB에 저장된 템플릿만 삭제할 수 있습니다. (하드코딩된 템플릿은 삭제할 수 없습니다)');
       return;
     }
 
@@ -245,23 +250,29 @@ export default function SmsSender({ selectedCustomer, onSuccess }: SmsSenderProp
     }
 
     try {
+      setError(''); // 에러 초기화
       const response = await fetch(`/api/sms-templates?id=${templateId}`, {
         method: 'DELETE'
       });
 
       const result = await response.json();
+      console.log('삭제 응답:', result);
+      
       if (result.error) {
         setError(result.error);
+        console.error('템플릿 삭제 에러:', result.error);
       } else {
         setError('');
         if (templateKey === key) {
           setTemplateKey('');
           setMessage('');
         }
-        loadTemplates();
+        await loadTemplates();
       }
-    } catch (err) {
-      setError('템플릿 삭제에 실패했습니다.');
+    } catch (err: any) {
+      const errorMsg = err?.message || '템플릿 삭제에 실패했습니다.';
+      setError(errorMsg);
+      console.error('템플릿 삭제 실패:', err);
     }
   };
 

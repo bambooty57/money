@@ -66,18 +66,27 @@ export async function DELETE(request: Request) {
     }
     
     const supabase = createClient();
-    const { error } = await (supabase as any)
+    const { data, error } = await supabase
       .from('sms_templates')
       .delete()
-      .eq('id', id);
+      .eq('id', id)
+      .select();
     
     if (error) {
+      console.error('템플릿 삭제 에러:', error);
+      // 테이블이 없는 경우 명확한 에러 메시지
+      if (error.message?.includes('does not exist') || error.message?.includes('relation') || error.code === '42P01') {
+        return NextResponse.json({ 
+          error: 'sms_templates 테이블이 존재하지 않습니다. Supabase에서 테이블을 먼저 생성해주세요.' 
+        }, { status: 500 });
+      }
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
     
-    return NextResponse.json({ success: true });
-  } catch {
-    return NextResponse.json({ error: 'Failed to delete template' }, { status: 500 });
+    return NextResponse.json({ success: true, deleted: data });
+  } catch (err: any) {
+    console.error('템플릿 삭제 중 오류:', err);
+    return NextResponse.json({ error: err?.message || 'Failed to delete template' }, { status: 500 });
   }
 }
 
