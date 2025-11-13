@@ -40,7 +40,7 @@ export default function SmsSender({ selectedCustomer, onSuccess }: SmsSenderProp
   const [error, setError] = useState('');
 
   // DB에서 템플릿 로드
-  const loadTemplates = async () => {
+  const loadTemplates = async (): Promise<{ grouped: Record<string, Record<string, string>>; ids: Record<string, Record<string, string>> } | null> => {
     try {
       setTemplatesLoading(true);
       const response = await fetch('/api/sms-templates');
@@ -81,6 +81,8 @@ export default function SmsSender({ selectedCustomer, onSuccess }: SmsSenderProp
           setTemplateKey('');
           setMessage('');
         }
+        
+        return { grouped, ids };
       } else {
         console.warn('템플릿 데이터가 없거나 배열이 아닙니다:', result);
         // 데이터가 없으면 초기화
@@ -91,6 +93,7 @@ export default function SmsSender({ selectedCustomer, onSuccess }: SmsSenderProp
           setTemplateKey('');
           setMessage('');
         }
+        return null;
       }
       // 에러가 있으면 콘솔에만 표시
       if (result.error) {
@@ -106,6 +109,7 @@ export default function SmsSender({ selectedCustomer, onSuccess }: SmsSenderProp
         setTemplateKey('');
         setMessage('');
       }
+      return null;
     } finally {
       setTemplatesLoading(false);
     }
@@ -145,6 +149,10 @@ export default function SmsSender({ selectedCustomer, onSuccess }: SmsSenderProp
     // 기타 변수는 빈값
     template = template.replace(/\{납부기한\}/g, '');
     template = template.replace(/\{분할금액\}/g, '');
+    
+    // \n을 실제 줄바꿈으로 변환 (DB에 문자열로 저장된 \n을 실제 줄바꿈 문자로 변환)
+    template = template.replace(/\\n/g, '\n');
+    
     setMessage(template);
   }, [selectedCustomer, category, templateKey, dbTemplates]);
 
@@ -207,12 +215,17 @@ export default function SmsSender({ selectedCustomer, onSuccess }: SmsSenderProp
         setAddFormData({ key: '', content: '' });
         setError('');
         // 템플릿 목록 새로고침
-        await loadTemplates();
+        const loadedData = await loadTemplates();
         // 새로 추가된 템플릿을 자동으로 선택하여 메시지 생성
-        // loadTemplates가 완료된 후 상태가 업데이트되므로 약간의 지연 필요
-        setTimeout(() => {
+        // loadTemplates가 반환한 그룹화된 데이터를 사용하여 즉시 템플릿 키 설정
+        if (loadedData && loadedData.grouped[category]?.[newKey]) {
+          // 상태가 업데이트되었으므로 바로 템플릿 키 설정
+          // useEffect가 dbTemplates 변경을 감지하여 메시지를 생성함
           setTemplateKey(newKey);
-        }, 100);
+          console.log('새 템플릿 선택:', { category, newKey, exists: !!loadedData.grouped[category]?.[newKey] });
+        } else {
+          console.warn('새 템플릿을 찾을 수 없습니다:', { category, newKey, loadedData });
+        }
       }
     } catch (err: any) {
       const errorMsg = err?.message || '템플릿 추가에 실패했습니다.';
@@ -320,8 +333,36 @@ export default function SmsSender({ selectedCustomer, onSuccess }: SmsSenderProp
           setTemplateKey('');
           setMessage('');
         }
+        
+        // 즉시 로컬 상태에서 템플릿 제거 (낙관적 업데이트)
+        setDbTemplates(prev => {
+          const updated = { ...prev };
+          if (updated[category]) {
+            updated[category] = { ...updated[category] };
+            delete updated[category][key];
+            // 카테고리가 비어있으면 카테고리 자체도 제거
+            if (Object.keys(updated[category]).length === 0) {
+              delete updated[category];
+            }
+          }
+          return updated;
+        });
+        
+        setDbTemplateIds(prev => {
+          const updated = { ...prev };
+          if (updated[category]) {
+            updated[category] = { ...updated[category] };
+            delete updated[category][key];
+            // 카테고리가 비어있으면 카테고리 자체도 제거
+            if (Object.keys(updated[category]).length === 0) {
+              delete updated[category];
+            }
+          }
+          return updated;
+        });
+        
         setError('');
-        // 템플릿 목록 새로고침
+        // 템플릿 목록 새로고침 (서버에서 최신 데이터 가져오기)
         await loadTemplates();
         console.log('템플릿 삭제 완료, 목록 새로고침됨');
       } else {
@@ -599,7 +640,7 @@ export default function SmsSender({ selectedCustomer, onSuccess }: SmsSenderProp
             value={message}
             onChange={e => setMessage(e.target.value)}
             rows={8}
-            className="block w-full rounded-xl border-2 border-gray-300 shadow-lg focus:border-blue-500 focus:ring-blue-500 pr-32 p-4 text-lg leading-relaxed resize-none"
+            className="block w-full rounded-xl border-2 border-gray-300 shadow-lg focus:border-blue-500 focus:ring-blue-500 pr-32 p-4 text-lg leading-relaxed resize-none whitespace-pre-wrap"
             placeholder="메시지 내용을 입력하거나 위에서 템플릿을 선택하세요..."
           />
           
