@@ -445,7 +445,7 @@ export async function generateStatementPdf({ customer, transactions, payments, s
       borderWidth: 1
     });
     
-    page.drawText('위 거래내용이 틀림없음을 확인하며 잔액에 대하여                      2025년                      월                      일까지  완납하겠음을 확인합니다', {
+    page.drawText('위 거래내용이 틀림없음을 확인하며 잔액에 대하여                      년                      월                      일까지  완납하겠음을 확인합니다', {
       x: 70,
       y: y - 25,
       size: 11,
@@ -454,7 +454,7 @@ export async function generateStatementPdf({ customer, transactions, payments, s
     });
     
     const confirmY = y - 50;
-    const confirmText = `2025년        월        일        확인자:                     (서명)`;
+    const confirmText = `년        월        일        확인자:                     (서명)`;
     const confirmWidth = font.widthOfTextAtSize(confirmText, 11);
     const confirmX = (tableWidth - confirmWidth) / 2 + tableStartX; // 테이블 너비에 맞게 중앙 정렬
     page.drawText(confirmText, { x: confirmX, y: confirmY, size: 11, font, color: rgb(0.2,0.2,0.2) });
