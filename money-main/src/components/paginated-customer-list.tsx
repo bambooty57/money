@@ -921,20 +921,53 @@ function PaginatedCustomerListInner({
                       
                       console.log('🗑️ 고객 삭제 시도:', { customerId: customer.id, customerName: customer.name });
                       
-                      const res = await fetch(`/api/customers?id=${customer.id}`, { 
-                        method: 'DELETE',
-                        headers: {
-                          'Authorization': `Bearer ${token}`,
-                          'Content-Type': 'application/json'
-                        },
-                        cache: 'no-store', // Service Worker 캐시 방지
-                        credentials: 'include' // 쿠키 포함
+                      // Service Worker가 DELETE 요청을 캐시하지 않도록 직접 XMLHttpRequest 사용
+                      // fetch API는 Service Worker를 거치지만 XMLHttpRequest는 직접 네트워크로 전송
+                      console.log('🔧 XMLHttpRequest로 DELETE 요청 전송 (Service Worker 우회)');
+                      
+                      const deletePromise = new Promise<Response>((resolve, reject) => {
+                        const xhr = new XMLHttpRequest();
+                        const deleteUrl = `/api/customers?id=${customer.id}`;
+                        
+                        xhr.open('DELETE', deleteUrl, true);
+                        xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+                        xhr.setRequestHeader('Content-Type', 'application/json');
+                        xhr.setRequestHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+                        xhr.setRequestHeader('Pragma', 'no-cache');
+                        
+                        xhr.onload = () => {
+                          const response = new Response(xhr.responseText, {
+                            status: xhr.status,
+                            statusText: xhr.statusText,
+                            headers: {
+                              'Content-Type': xhr.getResponseHeader('Content-Type') || 'application/json'
+                            }
+                          });
+                          resolve(response);
+                        };
+                        
+                        xhr.onerror = () => {
+                          reject(new Error('Network error'));
+                        };
+                        
+                        xhr.send();
                       });
+                      
+                      const res = await deletePromise;
                       
                       console.log('📡 삭제 API 응답:', { status: res.status, ok: res.ok });
                       
+                      // XMLHttpRequest 응답 처리
+                      let result: any;
+                      try {
+                        const responseText = await res.text();
+                        result = responseText ? JSON.parse(responseText) : {};
+                      } catch (e) {
+                        console.error('응답 파싱 오류:', e);
+                        result = {};
+                      }
+                      
                       if (res.ok) {
-                        const result = await res.json();
                         console.log('✅ 삭제 성공 응답:', result);
                         
                         // 삭제된 고객을 즉시 목록에서 제거 (UI 즉시 반영)
