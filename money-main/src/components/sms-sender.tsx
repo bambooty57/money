@@ -6,7 +6,7 @@ import type { Database } from '@/types/database';
 import { smsTemplates } from '@/types/sms';
 import type { SmsTemplateCategory, SmsTemplateKey } from '@/types/sms';
 import clsx from 'clsx';
-import { Copy, MessageSquare } from 'lucide-react';
+import { Copy, MessageSquare, Plus, Trash2, X, Save } from 'lucide-react';
 
 interface SmsSenderProps {
   selectedCustomer?: Customer | null;
@@ -19,12 +19,57 @@ type Customer = CustomerBase & {
   transaction_count?: number;
 };
 
+interface SmsTemplate {
+  id: string;
+  category: string;
+  key: string;
+  content: string;
+}
+
 export default function SmsSender({ selectedCustomer, onSuccess }: SmsSenderProps) {
   const [loading, setLoading] = useState(false);
   const [category, setCategory] = useState<SmsTemplateCategory | ''>('');
   const [templateKey, setTemplateKey] = useState<SmsTemplateKey | ''>('');
   const [message, setMessage] = useState('');
   const [copied, setCopied] = useState(false);
+  const [dbTemplates, setDbTemplates] = useState<Record<string, Record<string, string>>>({});
+  const [dbTemplateIds, setDbTemplateIds] = useState<Record<string, Record<string, string>>>({}); // category -> key -> id
+  const [templatesLoading, setTemplatesLoading] = useState(true);
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [addFormData, setAddFormData] = useState({ key: '', content: '' });
+  const [error, setError] = useState('');
+
+  // DB에서 템플릿 로드
+  const loadTemplates = async () => {
+    try {
+      setTemplatesLoading(true);
+      const response = await fetch('/api/sms-templates');
+      const result = await response.json();
+      if (result.data && Array.isArray(result.data)) {
+        // DB 템플릿을 카테고리별로 그룹화
+        const grouped: Record<string, Record<string, string>> = {};
+        const ids: Record<string, Record<string, string>> = {};
+        result.data.forEach((template: SmsTemplate) => {
+          if (!grouped[template.category]) {
+            grouped[template.category] = {};
+            ids[template.category] = {};
+          }
+          grouped[template.category][template.key] = template.content;
+          ids[template.category][template.key] = template.id;
+        });
+        setDbTemplates(grouped);
+        setDbTemplateIds(ids);
+      }
+    } catch (err) {
+      console.error('템플릿 로드 실패:', err);
+    } finally {
+      setTemplatesLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadTemplates();
+  }, []);
 
   // 고객이 바뀌면 모든 선택값 초기화
   useEffect(() => {
@@ -39,7 +84,16 @@ export default function SmsSender({ selectedCustomer, onSuccess }: SmsSenderProp
       setMessage('');
       return;
     }
-    let template = smsTemplates[category as SmsTemplateCategory][templateKey];
+    
+    // DB 템플릿 우선, 없으면 하드코딩된 템플릿 사용
+    let template = dbTemplates[category]?.[templateKey] || 
+                   smsTemplates[category as SmsTemplateCategory]?.[templateKey] || '';
+    
+    if (!template) {
+      setMessage('');
+      return;
+    }
+    
     // 반드시 selectedCustomer.name을 직접 치환 (null 체크 추가)
     template = template.replace(/\{고객명\}/g, selectedCustomer.name || '');
     template = template.replace(/\{미수금\}/g, selectedCustomer.total_unpaid?.toLocaleString() ?? '0');
@@ -48,13 +102,14 @@ export default function SmsSender({ selectedCustomer, onSuccess }: SmsSenderProp
     template = template.replace(/\{납부기한\}/g, '');
     template = template.replace(/\{분할금액\}/g, '');
     setMessage(template);
-  }, [selectedCustomer, category, templateKey]);
+  }, [selectedCustomer, category, templateKey, dbTemplates]);
 
   // 템플릿 선택 시 메시지 자동 입력
   const handleTemplateSelect = (key: SmsTemplateKey) => {
     setTemplateKey(key);
     if (!category || !key) return;
-    const template = smsTemplates[category as SmsTemplateCategory][key];
+    const template = dbTemplates[category]?.[key] || 
+                     smsTemplates[category as SmsTemplateCategory]?.[key] || '';
     setMessage(template);
   };
 
@@ -82,8 +137,75 @@ export default function SmsSender({ selectedCustomer, onSuccess }: SmsSenderProp
     window.location.href = smsUrl;
   };
 
-  // 카테고리별 템플릿 목록
-  const templateOptions = category ? Object.entries(smsTemplates[category as SmsTemplateCategory]) : [];
+  const handleAddTemplate = async () => {
+    if (!category || !addFormData.key || !addFormData.content) {
+      setError('템플릿 키와 내용을 입력해주세요.');
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/sms-templates', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          category,
+          key: addFormData.key,
+          content: addFormData.content
+        })
+      });
+
+      const result = await response.json();
+      if (result.error) {
+        setError(result.error);
+      } else {
+        setShowAddForm(false);
+        setAddFormData({ key: '', content: '' });
+        setError('');
+        loadTemplates();
+      }
+    } catch (err) {
+      setError('템플릿 추가에 실패했습니다.');
+    }
+  };
+
+  const handleDeleteTemplate = async (key: string) => {
+    if (!category) return;
+    
+    const templateId = dbTemplateIds[category]?.[key];
+    if (!templateId) {
+      setError('DB에 저장된 템플릿만 삭제할 수 있습니다.');
+      return;
+    }
+
+    if (!confirm('정말 이 템플릿을 삭제하시겠습니까?')) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/sms-templates?id=${templateId}`, {
+        method: 'DELETE'
+      });
+
+      const result = await response.json();
+      if (result.error) {
+        setError(result.error);
+      } else {
+        setError('');
+        if (templateKey === key) {
+          setTemplateKey('');
+          setMessage('');
+        }
+        loadTemplates();
+      }
+    } catch (err) {
+      setError('템플릿 삭제에 실패했습니다.');
+    }
+  };
+
+  // 카테고리별 템플릿 목록 (DB 템플릿 우선, 없으면 하드코딩된 템플릿 사용)
+  const templateOptions = category ? Object.entries(
+    dbTemplates[category] || smsTemplates[category as SmsTemplateCategory] || {}
+  ) : [];
   // 디버깅용
   // console.log('selectedCustomer:', selectedCustomer);
   // console.log('category:', category);
@@ -141,7 +263,7 @@ export default function SmsSender({ selectedCustomer, onSuccess }: SmsSenderProp
       <div>
         <label className="block text-xl font-bold text-gray-800 mb-4">📋 카테고리</label>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {Object.keys(smsTemplates).map(cat => (
+          {(Object.keys(dbTemplates).length > 0 ? Object.keys(dbTemplates) : Object.keys(smsTemplates)).map(cat => (
             <button
               type="button"
               key={cat}
@@ -162,33 +284,144 @@ export default function SmsSender({ selectedCustomer, onSuccess }: SmsSenderProp
       </div>
       {/* 템플릿 카드 섹션 */}
       <div>
-        <label className="block text-xl font-bold text-gray-800 mb-4">💬 메시지 템플릿</label>
+        <div className="flex justify-between items-center mb-4">
+          <label className="block text-xl font-bold text-gray-800">💬 메시지 템플릿</label>
+          {category && (
+            <button
+              type="button"
+              onClick={() => {
+                setShowAddForm(true);
+                setAddFormData({ key: '', content: '' });
+                setError('');
+              }}
+              className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm"
+            >
+              <Plus size={18} />
+              템플릿 추가
+            </button>
+          )}
+        </div>
+
+        {error && (
+          <div className="mb-4 p-3 bg-red-50 border-2 border-red-200 rounded-lg text-red-700 text-sm">
+            {error}
+          </div>
+        )}
+
+        {/* 템플릿 추가 폼 */}
+        {showAddForm && category && (
+          <div className="mb-4 p-4 bg-green-50 border-2 border-green-200 rounded-lg">
+            <div className="flex justify-between items-center mb-3">
+              <h3 className="text-lg font-bold text-gray-800">새 템플릿 추가</h3>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAddForm(false);
+                  setAddFormData({ key: '', content: '' });
+                  setError('');
+                }}
+                className="p-1 text-gray-600 hover:text-gray-800"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">템플릿 키 (고유 식별자)</label>
+                <input
+                  type="text"
+                  value={addFormData.key}
+                  onChange={(e) => setAddFormData({ ...addFormData, key: e.target.value })}
+                  placeholder="예: 구보다_새템플릿"
+                  className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">메시지 내용</label>
+                <textarea
+                  value={addFormData.content}
+                  onChange={(e) => setAddFormData({ ...addFormData, content: e.target.value })}
+                  placeholder="메시지 내용을 입력하세요. {고객명}, {미수금}, {거래건수} 등의 변수를 사용할 수 있습니다."
+                  rows={4}
+                  className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200"
+                />
+                <div className="mt-1 text-xs text-gray-500">
+                  사용 가능한 변수: {'{고객명}'}, {'{미수금}'}, {'{거래건수}'}, {'{납부기한}'}, {'{분할금액}'}
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={handleAddTemplate}
+                  className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                >
+                  <Save size={16} />
+                  추가
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAddForm(false);
+                    setAddFormData({ key: '', content: '' });
+                    setError('');
+                  }}
+                  className="flex items-center gap-2 px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
+                >
+                  <X size={16} />
+                  취소
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {templateOptions.length === 0 && (
+          {templateOptions.length === 0 && !showAddForm && (
             <div className="col-span-full bg-yellow-50 border-2 border-yellow-200 rounded-lg p-6 text-center">
               <div className="text-yellow-600 text-lg font-medium">⚠️ 카테고리를 먼저 선택하세요</div>
             </div>
           )}
-          {templateOptions.map(([key, label]) => (
-            <button
-              type="button"
-              key={key}
-              className={clsx(
-                'p-6 rounded-xl border-2 shadow-lg bg-white text-left hover:bg-blue-50 transition-all transform hover:scale-105',
-                templateKey === key ? 'border-blue-600 ring-4 ring-blue-200 bg-blue-50' : 'border-gray-300'
-              )}
-              onClick={() => handleTemplateSelect(key as SmsTemplateKey)}
-              title={label}
-            >
-              <div className="whitespace-pre-line text-base leading-relaxed">
-                {label.split('\n').map((line, idx) => (
-                  <span key={idx} className={templateKey === key ? 'text-blue-800 font-medium' : 'text-gray-700'}>
-                    {line}{idx < label.split('\n').length - 1 ? <br /> : null}
-                  </span>
-                ))}
+          {templateOptions.map(([key, label]) => {
+            const isDbTemplate = !!dbTemplateIds[category]?.[key];
+            return (
+              <div
+                key={key}
+                className={clsx(
+                  'relative p-6 rounded-xl border-2 shadow-lg bg-white transition-all transform hover:scale-105',
+                  templateKey === key ? 'border-blue-600 ring-4 ring-blue-200 bg-blue-50' : 'border-gray-300'
+                )}
+              >
+                <button
+                  type="button"
+                  className="w-full text-left"
+                  onClick={() => handleTemplateSelect(key as SmsTemplateKey)}
+                  title={label}
+                >
+                  <div className="whitespace-pre-line text-base leading-relaxed pr-8">
+                    {label.split('\n').map((line, idx) => (
+                      <span key={idx} className={templateKey === key ? 'text-blue-800 font-medium' : 'text-gray-700'}>
+                        {line}{idx < label.split('\n').length - 1 ? <br /> : null}
+                      </span>
+                    ))}
+                  </div>
+                </button>
+                {/* 삭제 버튼 (DB 템플릿만) */}
+                {isDbTemplate && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDeleteTemplate(key);
+                    }}
+                    className="absolute top-2 right-2 p-2 text-red-600 hover:bg-red-100 rounded-lg transition-colors"
+                    title="템플릿 삭제"
+                  >
+                    <Trash2 size={18} />
+                  </button>
+                )}
               </div>
-            </button>
-          ))}
+            );
+          })}
         </div>
       </div>
       {/* 메시지 입력 및 액션 버튼 */}
