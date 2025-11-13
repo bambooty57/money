@@ -870,25 +870,39 @@ function PaginatedCustomerListInner({
             </div>
             
             {enableActions && (
-              <div className="absolute top-4 right-4 z-10 flex space-x-2">
+              <div className="absolute top-4 right-4 z-20 flex space-x-2" onClick={(e) => e.stopPropagation()}>
                 <button
                   onClick={(e) => {
+                    console.log('🟢 수정 버튼 클릭됨!', { customerId: customer.id });
                     e.stopPropagation(); // 이벤트 전파 방지
+                    e.preventDefault(); // 기본 동작 방지
                     if (onEdit) {
                       onEdit(customer);
                     }
                   }}
-                  className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors duration-200 text-base font-semibold shadow-lg"
+                  className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors duration-200 text-base font-semibold shadow-lg relative z-30"
                   title="수정"
                 >
                   ✏️ 수정
                 </button>
                 <button
                   onClick={async (e) => {
+                    console.log('🔴 삭제 버튼 클릭됨!', { customerId: customer.id, customerName: customer.name });
                     e.stopPropagation(); // 이벤트 전파 방지
+                    e.preventDefault(); // 기본 동작 방지
+                    
                     const confirmMessage = `⚠️ 정말로 이 고객을 삭제하시겠습니까?\n\n고객명: ${customer.name}\n거래건수: ${customer.transaction_count ?? 0}건\n미수금: ${customer.total_unpaid ? customer.total_unpaid.toLocaleString() + '원' : '0원'}\n\n⚠️ 고객을 삭제하면 해당 고객의 모든 거래내역도 함께 삭제됩니다!\n이 작업은 되돌릴 수 없습니다.`;
                     
-                    if (!window.confirm(confirmMessage)) return;
+                    console.log('📋 확인 대화상자 표시 전');
+                    const confirmed = window.confirm(confirmMessage);
+                    console.log('📋 확인 대화상자 결과:', confirmed);
+                    
+                    if (!confirmed) {
+                      console.log('❌ 사용자가 삭제를 취소했습니다.');
+                      return;
+                    }
+                    
+                    console.log('✅ 사용자가 삭제를 확인했습니다. 삭제 프로세스 시작...');
                     
                     try {
                       // Supabase 세션에서 토큰 가져오기
@@ -905,23 +919,36 @@ function PaginatedCustomerListInner({
                         return;
                       }
                       
+                      console.log('🗑️ 고객 삭제 시도:', { customerId: customer.id, customerName: customer.name });
+                      
                       const res = await fetch(`/api/customers?id=${customer.id}`, { 
                         method: 'DELETE',
                         headers: {
                           'Authorization': `Bearer ${token}`,
                           'Content-Type': 'application/json'
-                        }
+                        },
+                        cache: 'no-store', // Service Worker 캐시 방지
+                        credentials: 'include' // 쿠키 포함
                       });
+                      
+                      console.log('📡 삭제 API 응답:', { status: res.status, ok: res.ok });
                       
                       if (res.ok) {
                         const result = await res.json();
+                        console.log('✅ 삭제 성공 응답:', result);
                         
                         // 삭제된 고객을 즉시 목록에서 제거 (UI 즉시 반영)
                         setData(prevData => {
                           if (!prevData) return prevData;
+                          const filteredData = prevData.data.filter(c => c.id !== customer.id);
+                          console.log('🔄 목록 업데이트:', { 
+                            before: prevData.data.length, 
+                            after: filteredData.length,
+                            removed: customer.id 
+                          });
                           return {
                             ...prevData,
-                            data: prevData.data.filter(c => c.id !== customer.id),
+                            data: filteredData,
                             pagination: {
                               ...prevData.pagination,
                               total: Math.max(0, (prevData.pagination.total || 0) - 1)
@@ -932,23 +959,26 @@ function PaginatedCustomerListInner({
                         alert(`고객과 관련된 모든 데이터가 삭제되었습니다.${result.deletedFiles ? ` (파일 ${result.deletedFiles}개 삭제)` : ''}`);
                         
                         // 삭제 후 목록 강제 새로고침 (백엔드 동기화)
+                        console.log('🔄 목록 새로고침 시작...');
                         await fetchCustomers(true);
+                        console.log('✅ 목록 새로고침 완료');
                         
                         // 페이지 새로고침으로 확실히 갱신
                         router.refresh();
                       } else {
                         const errorData = await res.json().catch(() => ({ error: '알 수 없는 오류가 발생했습니다.' }));
                         const errorMessage = errorData.error || errorData.message || '삭제에 실패했습니다.';
-                        console.error('삭제 실패 응답:', errorData);
-                        alert(`삭제 실패: ${errorMessage}`);
+                        console.error('❌ 삭제 실패 응답:', { status: res.status, errorData });
+                        alert(`삭제 실패: ${errorMessage}${errorData.warning ? `\n\n경고: ${errorData.warning}` : ''}`);
                       }
                     } catch (error) {
                       console.error('삭제 중 오류:', error);
                       alert('삭제 중 오류가 발생했습니다.');
                     }
                   }}
-                  className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors duration-200 text-base font-semibold shadow-lg"
+                  className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors duration-200 text-base font-semibold shadow-lg relative z-30"
                   title="삭제"
+                  type="button"
                 >
                   🗑️ 삭제
                 </button>
