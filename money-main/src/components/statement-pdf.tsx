@@ -114,72 +114,128 @@ function splitTextByWidth(text: string, maxWidth: number, font: any, fontSize: n
   return lines.length > 0 ? lines : [''];
 }
 
-// 완전한 PDF 생성 함수 (이전 양식 복원)
+// 헤더 그리기 함수 (로고, 제목, 출력일, 페이지 번호)
+async function drawPageHeader(page: any, font: any, title: string, printDate: string, pageNum: number, totalPages: number, logoImg?: any) {
+  const headerY = 550;
+  
+  // 로고 이미지
+  if (logoImg) {
+    page.drawImage(logoImg, { x: 50, y: headerY - 20, width: 150, height: 60 });
+  }
+
+  // 제목
+  page.drawText(title, { 
+    x: 320,
+    y: headerY, 
+    size: 28, 
+    font, 
+    color: rgb(0,0,0) 
+  });
+  
+  // 출력일 및 페이지 번호
+  const outputDateText = `출력일: ${printDate}`;
+  const pageNumberText = `${pageNum}/${totalPages}`;
+  const outputDateWidth = font.widthOfTextAtSize(outputDateText, 11);
+  const pageNumberWidth = font.widthOfTextAtSize(pageNumberText, 11);
+  const rightMargin = 50;
+  
+  // 출력일
+  page.drawText(outputDateText, { 
+    x: 792 - rightMargin - pageNumberWidth - 10 - outputDateWidth,
+    y: headerY, 
+    size: 11, 
+    font, 
+    color: rgb(0.5,0.5,0.5) 
+  });
+  
+  // 페이지 번호
+  page.drawText(pageNumberText, { 
+    x: 792 - rightMargin - pageNumberWidth,
+    y: headerY, 
+    size: 11, 
+    font, 
+    color: rgb(0.5,0.5,0.5) 
+  });
+  
+  return 530; // y 시작 위치 반환
+}
+
+// 테이블 헤더 그리기 함수
+function drawTableHeader(page: any, font: any, y: number, headers: string[], colWidths: number[], tableStartX: number, tableWidth: number) {
+  // 테이블 헤더 배경
+  page.drawRectangle({
+    x: tableStartX,
+    y: y - 20,
+    width: tableWidth,
+    height: 20,
+    color: rgb(0.9, 0.95, 1.0),
+    borderColor: rgb(0.2, 0.4, 0.8),
+    borderWidth: 1
+  });
+  
+  // 헤더 텍스트 및 수직 구분선
+  let headerX = tableStartX;
+  headers.forEach((header, i) => {
+    page.drawText(header, {
+      x: headerX + 5,
+      y: y - 15,
+      size: 10,
+      font,
+      color: rgb(0,0,0)
+    });
+    
+    if (i < headers.length - 1) {
+      const lineX = headerX + colWidths[i];
+      page.drawLine({
+        start: { x: lineX, y: y - 20 },
+        end: { x: lineX, y: y },
+        thickness: 0.5,
+        color: rgb(0.2, 0.4, 0.8)
+      });
+    }
+    
+    headerX += colWidths[i];
+  });
+  
+  return y - 20;
+}
+
+// 완전한 PDF 생성 함수 (페이지 분할 지원)
 export async function generateStatementPdf({ customer, transactions, payments, supplier, title = '거래명세서', printDate, photoUrl }: StatementPdfOptions): Promise<Blob> {
   try {
   const pdfDoc = await PDFDocument.create();
   pdfDoc.registerFontkit(fontkit);
-    const page = pdfDoc.addPage([842, 595]); // A4 가로 모드 (Landscape)
 
     // 폰트 로드
   const fontUrl = '/Noto_Sans_KR/static/NotoSansKR-Regular.ttf';
   const fontBytes = await fetch(fontUrl).then(res => res.arrayBuffer());
   const font = await pdfDoc.embedFont(fontBytes);
-
-    // 1. 상단 헤더 (로고, 제목, 출력일) - 가로 모드에 맞게 조정
-    const headerY = 550; // 가로 모드에 맞게 y 위치 조정
   
-    // 로고 이미지
+  // 로고 이미지 로드
+  let logoImg: any = null;
   try {
     const logoUrl = '/kubotalogo5.png';
     const logoResponse = await fetch(logoUrl);
     if (logoResponse.ok) {
       const logoBytes = await logoResponse.arrayBuffer();
-      const logoImg = await pdfDoc.embedPng(logoBytes);
-        page.drawImage(logoImg, { x: 50, y: headerY - 20, width: 150, height: 60 });
-      }
-    } catch (logoError) {
-      console.error('로고 로드 실패:', logoError);
+      logoImg = await pdfDoc.embedPng(logoBytes);
     }
-
-    // 제목 (가로 모드에서 중앙에 맞게 조정)
-    page.drawText(title, { 
-      x: 320, // 가로 모드 중앙으로 이동
-      y: headerY, 
-      size: 28, 
-      font, 
-      color: rgb(0,0,0) 
-    });
-    
-    // 출력일 및 페이지 번호 (가로 모드에서 우측으로 이동)
+  } catch (logoError) {
+    console.error('로고 로드 실패:', logoError);
+  }
+  
+  // 출력일
   const today = printDate || `${new Date().getFullYear()}.${String(new Date().getMonth() + 1).padStart(2, '0')}.${String(new Date().getDate()).padStart(2, '0')}`;
-    const outputDateText = `출력일: ${today}`;
-    const pageNumberText = '1/1'; // 현재는 단일 페이지
-    const outputDateWidth = font.widthOfTextAtSize(outputDateText, 11);
-    const pageNumberWidth = font.widthOfTextAtSize(pageNumberText, 11);
-    const rightMargin = 50;
-    
-    // 출력일
-    page.drawText(outputDateText, { 
-      x: 792 - rightMargin - pageNumberWidth - 10 - outputDateWidth, // 페이지 번호 왼쪽에 배치
-      y: headerY, 
-      size: 11, 
-      font, 
-      color: rgb(0.5,0.5,0.5) 
-    });
-    
-    // 페이지 번호
-    page.drawText(pageNumberText, { 
-      x: 792 - rightMargin - pageNumberWidth, // 우측 끝에서 여백 제외
-      y: headerY, 
-      size: 11, 
-      font, 
-      color: rgb(0.5,0.5,0.5) 
-    });
-    
-    let y = 530; // 가로 모드에 맞게 y 위치 조정
-    page.drawLine({ start: {x: 50, y}, end: {x: 792, y}, thickness: 2, color: rgb(0.7,0.7,0.8) });
-    y -= 25;
+  
+  // 페이지 관리 변수
+  let currentPage = pdfDoc.addPage([842, 595]); // 첫 페이지
+  let pageNum = 1;
+  const minY = 100; // 최소 y 위치 (이 아래로 내려가면 새 페이지)
+  
+  // 첫 페이지에 헤더와 고객/공급자 정보 그리기
+  let y = await drawPageHeader(currentPage, font, title, today, pageNum, 1, logoImg);
+  currentPage.drawLine({ start: {x: 50, y}, end: {x: 792, y}, thickness: 2, color: rgb(0.7,0.7,0.8) });
+  y -= 25;
   
   // 2. 고객정보 박스
     const getField = (...fields: string[]) => {
@@ -205,7 +261,7 @@ export async function generateStatementPdf({ customer, transactions, payments, s
   const customerBoxHeight = 126;
   
     // 고객정보 박스 그리기
-    page.drawRectangle({
+    currentPage.drawRectangle({
       x: customerBoxX,
       y: customerBoxY - customerBoxHeight,
       width: customerBoxWidth,
@@ -218,7 +274,7 @@ export async function generateStatementPdf({ customer, transactions, payments, s
   customerTable.forEach(([k, v], i) => {
     const rowY = customerBoxY - 15 - (i * 15);
       // 라벨
-      page.drawText(`${k}:`, { 
+      currentPage.drawText(`${k}:`, { 
         x: customerBoxX + 10, 
         y: rowY, 
         size: 9, 
@@ -226,7 +282,7 @@ export async function generateStatementPdf({ customer, transactions, payments, s
         color: rgb(0.3,0.3,0.3) 
       });
       // 값
-      page.drawText(v, { 
+      currentPage.drawText(v, { 
         x: customerBoxX + 100, 
         y: rowY, 
         size: 9, 
@@ -235,7 +291,7 @@ export async function generateStatementPdf({ customer, transactions, payments, s
       });
       // 구분선
     if (i < customerTable.length - 1) {
-        page.drawLine({ 
+        currentPage.drawLine({ 
           start: {x: customerBoxX + 5, y: rowY - 3}, 
           end: {x: customerBoxX + customerBoxWidth - 5, y: rowY - 3}, 
           thickness: 0.3, 
@@ -259,7 +315,7 @@ export async function generateStatementPdf({ customer, transactions, payments, s
     ];
     
     // 공급자정보 박스 그리기
-    page.drawRectangle({
+    currentPage.drawRectangle({
       x: supplierBoxX,
       y: customerBoxY - customerBoxHeight,
       width: supplierBoxWidth,
@@ -272,7 +328,7 @@ export async function generateStatementPdf({ customer, transactions, payments, s
     supplierTable.forEach(([k, v], i) => {
       const rowY = customerBoxY - 15 - (i * 15);
       // 라벨
-      page.drawText(`${k}:`, { 
+      currentPage.drawText(`${k}:`, { 
         x: supplierBoxX + 10, 
         y: rowY, 
         size: 9, 
@@ -280,7 +336,7 @@ export async function generateStatementPdf({ customer, transactions, payments, s
         color: rgb(0.3,0.3,0.3) 
       });
       // 값
-      page.drawText(v, { 
+      currentPage.drawText(v, { 
         x: supplierBoxX + 100, 
         y: rowY, 
         size: 9, 
@@ -289,7 +345,7 @@ export async function generateStatementPdf({ customer, transactions, payments, s
       });
       // 구분선
       if (i < supplierTable.length - 1) {
-        page.drawLine({ 
+        currentPage.drawLine({ 
           start: {x: supplierBoxX + 5, y: rowY - 3}, 
           end: {x: supplierBoxX + supplierBoxWidth - 5, y: rowY - 3}, 
           thickness: 0.3, 
@@ -305,48 +361,25 @@ export async function generateStatementPdf({ customer, transactions, payments, s
     const colWidths = [35, 90, 120, 120, 90, 90, 90, 107]; // 총 742px (페이지 안에 맞게 조정)
     const tableStartX = 50;
   const tableWidth = colWidths.reduce((a,b)=>a+b,0);
+  
+  // 페이지 분할을 위한 함수
+  const checkAndCreateNewPage = async (requiredHeight: number) => {
+    if (y - requiredHeight < minY) {
+      // 새 페이지 생성
+      pageNum++;
+      currentPage = pdfDoc.addPage([842, 595]);
+      y = await drawPageHeader(currentPage, font, title, today, pageNum, 999, logoImg); // totalPages는 나중에 업데이트
+      y = drawTableHeader(currentPage, font, y - 25, headers, colWidths, tableStartX, tableWidth);
+    }
+  };
+  
+  // 첫 페이지에 테이블 헤더 그리기
+  y = drawTableHeader(currentPage, font, y, headers, colWidths, tableStartX, tableWidth);
     
-    // 테이블 헤더 배경
-    page.drawRectangle({
-      x: tableStartX,
-      y: y - 20,
-      width: tableWidth,
-      height: 20,
-      color: rgb(0.9, 0.95, 1.0),
-      borderColor: rgb(0.2, 0.4, 0.8),
-      borderWidth: 1
-    });
-    
-    // 헤더 텍스트 및 수직 구분선 (모두 동일하게)
-    let headerX = tableStartX;
-    headers.forEach((header, i) => {
-      // 헤더 텍스트
-      page.drawText(header, {
-        x: headerX + 5,
-        y: y - 15,
-        size: 10,
-        font,
-        color: rgb(0,0,0)
-      });
+    // 거래 데이터 행 (비고 2줄 지원 및 구분선 추가, 페이지 분할 지원)
+    for (let idx = 0; idx < transactions.length; idx++) {
+      const tx = transactions[idx];
       
-      // 컬럼 사이 수직 구분선 (모두 동일)
-      if (i < headers.length - 1) {
-        const lineX = headerX + colWidths[i];
-        page.drawLine({
-          start: { x: lineX, y: y - 20 },
-          end: { x: lineX, y: y },
-          thickness: 0.5,
-          color: rgb(0.2, 0.4, 0.8)
-        });
-      }
-      
-      headerX += colWidths[i];
-    });
-    
-    y -= 20;
-    
-    // 거래 데이터 행 (비고 2줄 지원 및 구분선 추가)
-    transactions.forEach((tx, idx) => {
       // 기존 로직 사용: 거래별 입금액과 잔액 계산
       const paid = (tx.payments || []).reduce((sum: number, p: any) => sum + (p.amount || 0), 0);
       const unpaid = (tx.amount || 0) - paid;
@@ -357,11 +390,19 @@ export async function generateStatementPdf({ customer, transactions, payments, s
       const remarksLines = wrapText(remarksText, font, 9, remarksMaxWidth, 2);
       const remarksRowHeight = Math.max(20, remarksLines.length * 12 + 8); // 최소 20px, 줄당 12px + 여백
       
+      // 입금내역 높이 계산
+      const paymentRows = Array.isArray(tx.payments) ? tx.payments.length : 0;
+      const paymentHeight = paymentRows * 15;
+      
       const rowHeight = remarksRowHeight;
+      const totalRowHeight = rowHeight + paymentHeight;
+      
+      // 페이지 분할 체크
+      await checkAndCreateNewPage(totalRowHeight + 10);
       
       // 행 배경 (홀수/짝수 구분)
       if (idx % 2 === 0) {
-        page.drawRectangle({
+        currentPage.drawRectangle({
           x: tableStartX,
           y: y - rowHeight,
           width: tableWidth,
@@ -371,7 +412,7 @@ export async function generateStatementPdf({ customer, transactions, payments, s
       }
       
       // 행 테두리
-      page.drawRectangle({
+      currentPage.drawRectangle({
         x: tableStartX,
         y: y - rowHeight,
         width: tableWidth,
@@ -416,7 +457,7 @@ export async function generateStatementPdf({ customer, transactions, payments, s
               displayText = truncated + (lineIdx === cellData.length - 1 ? '' : '');
             }
             
-            page.drawText(displayText, {
+            currentPage.drawText(displayText, {
               x: cellX + 5,
               y: y - 12 - (lineIdx * 12), // 줄 간격 12px
               size: 9,
@@ -453,7 +494,7 @@ export async function generateStatementPdf({ customer, transactions, payments, s
             ? cellX + colWidths[cellIdx] - 10 - font.widthOfTextAtSize(displayText, 9) // 우측 정렬
             : cellX + 5; // 좌측 정렬
           
-          page.drawText(displayText, {
+          currentPage.drawText(displayText, {
             x: textX,
             y: y - 15,
             size: 9,
@@ -465,7 +506,7 @@ export async function generateStatementPdf({ customer, transactions, payments, s
         // 컬럼 사이 수직 구분선 (모두 동일하게)
         if (cellIdx < rowData.length - 1) {
           const lineX = cellX + colWidths[cellIdx];
-          page.drawLine({
+          currentPage.drawLine({
             start: { x: lineX, y: y - rowHeight },
             end: { x: lineX, y: y },
             thickness: 0.5,
@@ -480,11 +521,14 @@ export async function generateStatementPdf({ customer, transactions, payments, s
       
       // 입금내역 표시 (기존 방식으로 간단하게)
       if (Array.isArray(tx.payments) && tx.payments.length > 0) {
-        tx.payments.forEach((payment: any) => {
+        for (const payment of tx.payments) {
           const paymentHeight = 15;
           
+          // 페이지 분할 체크 (입금 행 추가 전)
+          await checkAndCreateNewPage(paymentHeight + 10);
+          
           // 입금행 배경
-          page.drawRectangle({
+          currentPage.drawRectangle({
             x: tableStartX,
             y: y - paymentHeight,
             width: tableWidth,
@@ -494,18 +538,18 @@ export async function generateStatementPdf({ customer, transactions, payments, s
             borderWidth: 0.5
           });
           
-          // 입금 정보 - 비고 내용을 () 안에 포함
+          // 입금 정보 - 입금내역의 비고 내용만 () 안에 포함
           const paymentDate = payment.paid_at?.slice(0, 10) || '';
           const paymentMethod = payment.method || '';
           const paymentAmount = (payment.amount || 0).toLocaleString();
           const payerName = payment.payer_name || '';
           
-          // 비고 내용 가져오기 (거래의 비고 또는 입금의 비고)
-          const paymentNote = payment.note || payment.description || tx.description || tx.notes || tx.note || '';
+          // 입금내역의 비고만 사용 (거래의 비고는 사용하지 않음)
+          const paymentNote = payment.note || '';
           
           // 입금 정보 형식: └ 날짜 방법 금액원 (입금자명 비고내용)
           const paymentInfo = `      └ ${paymentDate} ${paymentMethod} ${paymentAmount}원 (${payerName}${paymentNote ? ' ' + paymentNote : ''})`;
-          page.drawText(paymentInfo, {
+          currentPage.drawText(paymentInfo, {
             x: tableStartX + 5,
             y: y - 12,
             size: 8,
@@ -514,11 +558,12 @@ export async function generateStatementPdf({ customer, transactions, payments, s
           });
           
           y -= paymentHeight;
-        });
+        }
       }
-    });
+    }
     
-    // 합계 행 (기존 로직 사용)
+    // 합계 행 (페이지 분할 체크)
+    await checkAndCreateNewPage(25 + 10);
     y -= 10;
     
     // 기존 방식으로 합계 계산
@@ -535,7 +580,7 @@ export async function generateStatementPdf({ customer, transactions, payments, s
       }, 0)
     };
     
-    page.drawRectangle({
+    currentPage.drawRectangle({
       x: tableStartX,
       y: y - 25,
       width: tableWidth,
@@ -549,7 +594,7 @@ export async function generateStatementPdf({ customer, transactions, payments, s
     let summaryCellX = tableStartX;
     for (let i = 0; i < colWidths.length - 1; i++) {
       summaryCellX += colWidths[i];
-      page.drawLine({
+      currentPage.drawLine({
         start: { x: summaryCellX, y: y - 25 },
         end: { x: summaryCellX, y: y },
         thickness: 0.5,
@@ -559,7 +604,7 @@ export async function generateStatementPdf({ customer, transactions, payments, s
     
     // 합계 텍스트
     const summaryLabelStart = tableStartX + colWidths.slice(0, 4).reduce((sum, width) => sum + width, 0);
-    page.drawText('합계', {
+    currentPage.drawText('합계', {
       x: summaryLabelStart + 5,
       y: y - 18,
       size: 11,
@@ -582,7 +627,7 @@ export async function generateStatementPdf({ customer, transactions, payments, s
       // 우측 정렬 (금액은 항상 우측 정렬)
       const textX = columnStart + cellWidth - textWidth;
       
-      page.drawText(value, {
+      currentPage.drawText(value, {
         x: textX,
         y: y - 18,
         size: 10,
@@ -591,11 +636,13 @@ export async function generateStatementPdf({ customer, transactions, payments, s
       });
     });
     
+    // 서명란 (페이지 분할 체크)
+    await checkAndCreateNewPage(80 + 10);
     y -= 50;
     
     // 고객 확인 서명란 (테이블 너비에 맞게 조정)
     const confirmBoxHeight = 80;
-    page.drawRectangle({
+    currentPage.drawRectangle({
       x: 50,
       y: y - confirmBoxHeight,
       width: tableWidth, // 테이블과 동일한 너비
@@ -605,7 +652,7 @@ export async function generateStatementPdf({ customer, transactions, payments, s
       borderWidth: 1
     });
     
-    page.drawText('위 거래내용이 틀림없음을 확인하며 잔액에 대하여                      년                      월                      일까지  완납하겠음을 확인합니다', {
+    currentPage.drawText('위 거래내용이 틀림없음을 확인하며 잔액에 대하여                      년                      월                      일까지  완납하겠음을 확인합니다', {
       x: 70,
       y: y - 25,
       size: 11,
@@ -617,7 +664,46 @@ export async function generateStatementPdf({ customer, transactions, payments, s
     const confirmText = `년        월        일        확인자:                     (서명)`;
     const confirmWidth = font.widthOfTextAtSize(confirmText, 11);
     const confirmX = (tableWidth - confirmWidth) / 2 + tableStartX; // 테이블 너비에 맞게 중앙 정렬
-    page.drawText(confirmText, { x: confirmX, y: confirmY, size: 11, font, color: rgb(0.2,0.2,0.2) });
+    currentPage.drawText(confirmText, { x: confirmX, y: confirmY, size: 11, font, color: rgb(0.2,0.2,0.2) });
+  
+  // 모든 페이지의 페이지 번호 업데이트
+  const totalPages = pdfDoc.getPageCount();
+  for (let p = 0; p < totalPages; p++) {
+    const pg = pdfDoc.getPage(p);
+    const headerY = 550;
+    const outputDateText = `출력일: ${today}`;
+    const pageNumberText = `${p + 1}/${totalPages}`;
+    const outputDateWidth = font.widthOfTextAtSize(outputDateText, 11);
+    const pageNumberWidth = font.widthOfTextAtSize(pageNumberText, 11);
+    const rightMargin = 50;
+    
+    // 기존 페이지 번호 덮어쓰기 (배경으로 덮기)
+    pg.drawRectangle({
+      x: 792 - rightMargin - pageNumberWidth - 10 - outputDateWidth,
+      y: headerY - 5,
+      width: outputDateWidth + 10 + pageNumberWidth + 10,
+      height: 15,
+      color: rgb(1, 1, 1)
+    });
+    
+    // 출력일
+    pg.drawText(outputDateText, { 
+      x: 792 - rightMargin - pageNumberWidth - 10 - outputDateWidth,
+      y: headerY, 
+      size: 11, 
+      font, 
+      color: rgb(0.5,0.5,0.5) 
+    });
+    
+    // 페이지 번호
+    pg.drawText(pageNumberText, { 
+      x: 792 - rightMargin - pageNumberWidth,
+      y: headerY, 
+      size: 11, 
+      font, 
+      color: rgb(0.5,0.5,0.5) 
+    });
+  }
   
   // PDF 저장
   const pdfBytes = await pdfDoc.save();
