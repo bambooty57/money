@@ -921,51 +921,21 @@ function PaginatedCustomerListInner({
                       
                       console.log('🗑️ 고객 삭제 시도:', { customerId: customer.id, customerName: customer.name });
                       
-                      // Service Worker가 DELETE 요청을 캐시하지 않도록 직접 XMLHttpRequest 사용
-                      // fetch API는 Service Worker를 거치지만 XMLHttpRequest는 직접 네트워크로 전송
-                      console.log('🔧 XMLHttpRequest로 DELETE 요청 전송 (Service Worker 우회)');
+                      // Service Worker가 DELETE를 차단하므로 POST로 변경
+                      console.log('🗑️ POST 방식으로 삭제 요청 전송');
                       
-                      const deletePromise = new Promise<Response>((resolve, reject) => {
-                        const xhr = new XMLHttpRequest();
-                        const deleteUrl = `/api/customers?id=${customer.id}`;
-                        
-                        xhr.open('DELETE', deleteUrl, true);
-                        xhr.setRequestHeader('Authorization', `Bearer ${token}`);
-                        xhr.setRequestHeader('Content-Type', 'application/json');
-                        xhr.setRequestHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-                        xhr.setRequestHeader('Pragma', 'no-cache');
-                        
-                        xhr.onload = () => {
-                          const response = new Response(xhr.responseText, {
-                            status: xhr.status,
-                            statusText: xhr.statusText,
-                            headers: {
-                              'Content-Type': xhr.getResponseHeader('Content-Type') || 'application/json'
-                            }
-                          });
-                          resolve(response);
-                        };
-                        
-                        xhr.onerror = () => {
-                          reject(new Error('Network error'));
-                        };
-                        
-                        xhr.send();
+                      const res = await fetch(`/api/customers/delete`, { 
+                        method: 'POST',
+                        headers: {
+                          'Authorization': `Bearer ${token}`,
+                          'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ customerId: customer.id })
                       });
-                      
-                      const res = await deletePromise;
                       
                       console.log('📡 삭제 API 응답:', { status: res.status, ok: res.ok });
                       
-                      // XMLHttpRequest 응답 처리
-                      let result: any;
-                      try {
-                        const responseText = await res.text();
-                        result = responseText ? JSON.parse(responseText) : {};
-                      } catch (e) {
-                        console.error('응답 파싱 오류:', e);
-                        result = {};
-                      }
+                      const result = await res.json().catch(() => ({}))
                       
                       if (res.ok) {
                         console.log('✅ 삭제 성공 응답:', result);

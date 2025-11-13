@@ -365,6 +365,8 @@ export async function DELETE(request: Request) {
   const id = searchParams.get('id');
   if (!id) return NextResponse.json({ error: '고객 ID가 필요합니다.' }, { status: 400 });
 
+  console.log('🗑️ DELETE 요청 수신:', { customerId: id, url: request.url });
+
   try {
     // 1. 고객의 거래 ID 목록 조회
     const { data: transactions, error: txError } = await authenticatedSupabase.from('transactions').select('id').eq('customer_id', id);
@@ -422,11 +424,18 @@ export async function DELETE(request: Request) {
     }
 
     // 9. 고객 삭제
+    console.log('🗑️ 고객 삭제 시도:', { customerId: id });
     const { data: deletedCustomer, error } = await authenticatedSupabase
       .from('customers')
       .delete()
       .eq('id', id)
       .select();
+    
+    console.log('📊 삭제 결과:', { 
+      deletedCustomer, 
+      error, 
+      deletedCount: deletedCustomer?.length || 0 
+    });
     
     if (error) {
       console.error('❌ 고객 삭제 실패:', error);
@@ -436,9 +445,18 @@ export async function DELETE(request: Request) {
     // 삭제 확인: 실제로 삭제되었는지 확인
     if (!deletedCustomer || deletedCustomer.length === 0) {
       console.warn('⚠️ 고객 삭제 확인: 삭제된 레코드가 없습니다. RLS 정책을 확인하세요.');
+      // 삭제 전 고객 존재 여부 확인
+      const { data: checkCustomer } = await authenticatedSupabase
+        .from('customers')
+        .select('id, name')
+        .eq('id', id)
+        .single();
+      console.log('🔍 삭제 후 고객 확인:', { checkCustomer, stillExists: !!checkCustomer });
+      
       return NextResponse.json({ 
         error: '고객 삭제에 실패했습니다. 권한을 확인하세요.',
-        warning: 'RLS 정책으로 인해 삭제되지 않았을 수 있습니다.'
+        warning: 'RLS 정책으로 인해 삭제되지 않았을 수 있습니다.',
+        stillExists: !!checkCustomer
       }, { status: 403 });
     }
     
