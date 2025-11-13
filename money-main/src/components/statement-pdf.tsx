@@ -544,8 +544,25 @@ export async function generateStatementPdf({ customer, transactions, payments, s
           const paymentAmount = (payment.amount || 0).toLocaleString();
           const payerName = payment.payer_name || '';
           
-          // 입금내역의 비고만 사용 (거래의 비고는 사용하지 않음)
-          const paymentNote = payment.note || '';
+          // 입금내역의 비고 내용 수집 (detail, cash_detail, note 모두 확인)
+          let paymentNoteParts: string[] = [];
+          
+          // detail 필드 (기타, 융자 방법)
+          if (payment.detail) {
+            paymentNoteParts.push(`상세:${payment.detail}`);
+          }
+          
+          // cash_detail 필드 (현금 방법)
+          if (payment.cash_detail) {
+            paymentNoteParts.push(`상세:${payment.cash_detail}`);
+          }
+          
+          // note 필드 (모든 방법)
+          if (payment.note) {
+            paymentNoteParts.push(payment.note);
+          }
+          
+          const paymentNote = paymentNoteParts.join(' ');
           
           // 입금 정보 형식: └ 날짜 방법 금액원 (입금자명 비고내용)
           const paymentInfo = `      └ ${paymentDate} ${paymentMethod} ${paymentAmount}원 (${payerName}${paymentNote ? ' ' + paymentNote : ''})`;
