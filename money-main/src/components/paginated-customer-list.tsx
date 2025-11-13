@@ -970,34 +970,20 @@ function PaginatedCustomerListInner({
                       if (res.ok) {
                         console.log('✅ 삭제 성공 응답:', result);
                         
-                        // 삭제된 고객을 즉시 목록에서 제거 (UI 즉시 반영)
-                        setData(prevData => {
-                          if (!prevData) return prevData;
-                          const filteredData = prevData.data.filter(c => c.id !== customer.id);
-                          console.log('🔄 목록 업데이트:', { 
-                            before: prevData.data.length, 
-                            after: filteredData.length,
-                            removed: customer.id 
-                          });
-                          return {
-                            ...prevData,
-                            data: filteredData,
-                            pagination: {
-                              ...prevData.pagination,
-                              total: Math.max(0, (prevData.pagination.total || 0) - 1)
-                            }
-                          };
-                        });
+                        // 낙관적 업데이트 제거 - fetchCustomers만 사용하여 경합 조건 방지
+                        // 이유: useCustomersRealtime이 실시간으로 데이터를 가져오므로
+                        // setData와 fetchCustomers가 동시에 실행되면 UI가 깜빡이거나 업데이트되지 않음
                         
                         alert(`고객과 관련된 모든 데이터가 삭제되었습니다.${result.deletedFiles ? ` (파일 ${result.deletedFiles}개 삭제)` : ''}`);
                         
-                        // 삭제 후 목록 강제 새로고침 (백엔드 동기화)
-                        console.log('🔄 목록 새로고침 시작...');
-                        await fetchCustomers(true);
-                        console.log('✅ 목록 새로고침 완료');
+                        // 삭제 후 즉시 데이터 새로고침 (실시간 구독이 자동으로 처리)
+                        console.log('🔄 삭제 완료 - 실시간 구독이 자동으로 UI를 업데이트합니다');
                         
-                        // 페이지 새로고침으로 확실히 갱신
-                        router.refresh();
+                        // 실시간 구독이 처리할 시간을 주기 위해 약간의 지연
+                        await new Promise(resolve => setTimeout(resolve, 300));
+                        
+                        // 강제 새로고침 (실시간 구독이 실패할 경우를 대비)
+                        await fetchCustomers(true);
                       } else {
                         const errorData = await res.json().catch(() => ({ error: '알 수 없는 오류가 발생했습니다.' }));
                         const errorMessage = errorData.error || errorData.message || '삭제에 실패했습니다.';
