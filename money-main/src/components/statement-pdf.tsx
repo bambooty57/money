@@ -544,28 +544,24 @@ export async function generateStatementPdf({ customer, transactions, payments, s
           const paymentAmount = (payment.amount || 0).toLocaleString();
           const payerName = payment.payer_name || '';
           
-          // 입금내역의 비고 내용 수집 (detail, cash_detail, note 모두 확인)
-          let paymentNoteParts: string[] = [];
+          // 입금내역의 비고 내용 수집 (거래명세서 페이지와 동일한 형식)
+          const paymentNoteParts = [
+            payment.payer_name && `입금자:${payment.payer_name}`,
+            payment.bank_name && `은행:${payment.bank_name}`,
+            payment.account_number && `계좌:${payment.account_number}`,
+            payment.account_holder && `예금주:${payment.account_holder}`,
+            payment.cash_place && `장소:${payment.cash_place}`,
+            payment.cash_receiver && `수령자:${payment.cash_receiver}`,
+            payment.detail && `상세:${payment.detail}`,
+            payment.cash_detail && `상세:${payment.cash_detail}`,
+            payment.note && `비고:${payment.note}`
+          ].filter(Boolean);
           
-          // detail 필드 (기타, 융자 방법)
-          if (payment.detail) {
-            paymentNoteParts.push(`상세:${payment.detail}`);
-          }
+          const paymentNote = paymentNoteParts.join(' / ');
           
-          // cash_detail 필드 (현금 방법)
-          if (payment.cash_detail) {
-            paymentNoteParts.push(`상세:${payment.cash_detail}`);
-          }
-          
-          // note 필드 (모든 방법)
-          if (payment.note) {
-            paymentNoteParts.push(payment.note);
-          }
-          
-          const paymentNote = paymentNoteParts.join(' ');
-          
-          // 입금 정보 형식: └ 날짜 방법 금액원 (입금자명 비고내용)
-          const paymentInfo = `      └ ${paymentDate} ${paymentMethod} ${paymentAmount}원 (${payerName}${paymentNote ? ' ' + paymentNote : ''})`;
+          // 입금 정보 형식: └ 날짜 방법 금액원 (비고내용)
+          // 입금자명은 이미 비고에 포함되므로 중복 제거
+          const paymentInfo = `      └ ${paymentDate} ${paymentMethod} ${paymentAmount}원${paymentNote ? ` (${paymentNote})` : ''}`;
           currentPage.drawText(paymentInfo, {
             x: tableStartX + 5,
             y: y - 12,
