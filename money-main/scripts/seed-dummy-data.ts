@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { Database } from '../src/types/supabase';
+import { Database } from '../src/types/database';
 import dotenv from 'dotenv';
 
 // 환경 변수 로드
