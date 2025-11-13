@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { smsTemplates, SmsPayload, SmsTemplateKey } from '@/types/sms';
+import { smsTemplates, SmsPayload } from '@/types/sms';
 import { createClient } from '@/lib/supabase';
 
 function fillTemplate(template: string, variables: Record<string, string | number>) {
@@ -14,7 +14,7 @@ export async function POST(request: Request) {
   const supabase = createClient();
   let template = '';
   
-  const { data: dbTemplate } = await supabase
+  const { data: dbTemplate } = await (supabase as any)
     .from('sms_templates')
     .select('content')
     .eq('category', category)

@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase';
 
-export async function GET(request: Request) {
+export async function GET(_request: Request) {
   try {
     const supabase = createClient();
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from('sms_templates')
       .select('*')
       .order('category', { ascending: true })
@@ -15,7 +15,7 @@ export async function GET(request: Request) {
     }
     
     return NextResponse.json({ data });
-  } catch (err) {
+  } catch {
     return NextResponse.json({ error: 'Failed to fetch templates' }, { status: 500 });
   }
 }
@@ -30,7 +30,7 @@ export async function POST(request: Request) {
     }
     
     const supabase = createClient();
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from('sms_templates')
       .insert([{ category, key, content }])
       .select()
@@ -41,7 +41,7 @@ export async function POST(request: Request) {
     }
     
     return NextResponse.json({ data });
-  } catch (err) {
+  } catch {
     return NextResponse.json({ error: 'Failed to create template' }, { status: 500 });
   }
 }
@@ -56,7 +56,7 @@ export async function DELETE(request: Request) {
     }
     
     const supabase = createClient();
-    const { error } = await supabase
+    const { error } = await (supabase as any)
       .from('sms_templates')
       .delete()
       .eq('id', id);
@@ -66,7 +66,7 @@ export async function DELETE(request: Request) {
     }
     
     return NextResponse.json({ success: true });
-  } catch (err) {
+  } catch {
     return NextResponse.json({ error: 'Failed to delete template' }, { status: 500 });
   }
 }
@@ -81,7 +81,7 @@ export async function PUT(request: Request) {
     }
     
     const supabase = createClient();
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from('sms_templates')
       .update({ category, key, content })
       .eq('id', id)
@@ -93,7 +93,7 @@ export async function PUT(request: Request) {
     }
     
     return NextResponse.json({ data });
-  } catch (err) {
+  } catch {
     return NextResponse.json({ error: 'Failed to update template' }, { status: 500 });
   }
 }
