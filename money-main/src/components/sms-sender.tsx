@@ -128,7 +128,7 @@ export default function SmsSender({ selectedCustomer, onSuccess }: SmsSenderProp
 
   // 고객/카테고리/템플릿이 바뀔 때마다 message를 자동 생성
   useEffect(() => {
-    if (!selectedCustomer || !category || !templateKey) {
+    if (!category || !templateKey) {
       setMessage('');
       return;
     }
@@ -142,13 +142,19 @@ export default function SmsSender({ selectedCustomer, onSuccess }: SmsSenderProp
       return;
     }
     
-    // 반드시 selectedCustomer.name을 직접 치환 (null 체크 추가)
-    template = template.replace(/\{고객명\}/g, selectedCustomer.name || '');
-    template = template.replace(/\{미수금\}/g, selectedCustomer.total_unpaid?.toLocaleString() ?? '0');
-    template = template.replace(/\{거래건수\}/g, String(selectedCustomer.transaction_count ?? 0));
-    // 기타 변수는 빈값
-    template = template.replace(/\{납부기한\}/g, '');
-    template = template.replace(/\{분할금액\}/g, '');
+    // selectedCustomer가 있으면 변수 치환, 없으면 템플릿 내용만 표시
+    if (selectedCustomer) {
+      // 반드시 selectedCustomer.name을 직접 치환 (null 체크 추가)
+      template = template.replace(/\{고객명\}/g, selectedCustomer.name || '');
+      template = template.replace(/\{미수금\}/g, selectedCustomer.total_unpaid?.toLocaleString() ?? '0');
+      template = template.replace(/\{거래건수\}/g, String(selectedCustomer.transaction_count ?? 0));
+      // 기타 변수는 빈값
+      template = template.replace(/\{납부기한\}/g, '');
+      template = template.replace(/\{분할금액\}/g, '');
+    } else {
+      // 고객이 선택되지 않았으면 변수는 그대로 표시
+      // (나중에 고객을 선택하면 자동으로 치환됨)
+    }
     
     // \n을 실제 줄바꿈으로 변환 (DB에 문자열로 저장된 \n을 실제 줄바꿈 문자로 변환)
     template = template.replace(/\\n/g, '\n');
@@ -158,9 +164,33 @@ export default function SmsSender({ selectedCustomer, onSuccess }: SmsSenderProp
 
   // 템플릿 선택 시 메시지 자동 입력
   const handleTemplateSelect = (key: SmsTemplateKey) => {
+    console.log('템플릿 선택:', { category, key, dbTemplates: dbTemplates[category] });
+    
+    // 템플릿 키 설정
     setTemplateKey(key);
-    // useEffect에서 자동으로 메시지를 생성하므로 여기서는 키만 설정
-    // 변수 치환은 useEffect에서 처리됨
+    
+    // 즉시 메시지 생성 (useEffect가 실행되기 전에 미리 생성)
+    if (category && dbTemplates[category]?.[key]) {
+      let template = dbTemplates[category][key];
+      
+      // selectedCustomer가 있으면 변수 치환
+      if (selectedCustomer) {
+        template = template.replace(/\{고객명\}/g, selectedCustomer.name || '');
+        template = template.replace(/\{미수금\}/g, selectedCustomer.total_unpaid?.toLocaleString() ?? '0');
+        template = template.replace(/\{거래건수\}/g, String(selectedCustomer.transaction_count ?? 0));
+        template = template.replace(/\{납부기한\}/g, '');
+        template = template.replace(/\{분할금액\}/g, '');
+      }
+      
+      // \n을 실제 줄바꿈으로 변환
+      template = template.replace(/\\n/g, '\n');
+      
+      setMessage(template);
+      console.log('템플릿 선택 후 메시지 생성 완료:', { key, messageLength: template.length });
+    } else {
+      console.warn('템플릿을 찾을 수 없습니다:', { category, key, availableTemplates: Object.keys(dbTemplates[category] || {}) });
+      // useEffect가 처리하도록 함
+    }
   };
 
   const handleCopy = async () => {
@@ -188,9 +218,16 @@ export default function SmsSender({ selectedCustomer, onSuccess }: SmsSenderProp
   };
 
   const handleAddTemplate = async () => {
-    if (!category || !addFormData.key || !addFormData.content) {
-      setError('템플릿 키와 내용을 입력해주세요.');
+    if (!category || !addFormData.content) {
+      setError('메시지 내용을 입력해주세요.');
       return;
+    }
+
+    // 템플릿 키가 비어있으면 자동 생성 (타임스탬프 기반)
+    let templateKey = addFormData.key.trim();
+    if (!templateKey) {
+      // 타임스탬프를 기반으로 고유한 키 생성
+      templateKey = `template_${Date.now()}`;
     }
 
     try {
@@ -200,7 +237,7 @@ export default function SmsSender({ selectedCustomer, onSuccess }: SmsSenderProp
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           category,
-          key: addFormData.key,
+          key: templateKey,
           content: addFormData.content
         })
       });
@@ -210,21 +247,56 @@ export default function SmsSender({ selectedCustomer, onSuccess }: SmsSenderProp
         setError(result.error);
         console.error('템플릿 추가 에러:', result.error);
       } else {
-        const newKey = addFormData.key;
+        const newKey = templateKey;
+        const newContent = addFormData.content; // 추가된 템플릿 내용 저장
         setShowAddForm(false);
         setAddFormData({ key: '', content: '' });
         setError('');
         // 템플릿 목록 새로고침
         const loadedData = await loadTemplates();
         // 새로 추가된 템플릿을 자동으로 선택하여 메시지 생성
-        // loadTemplates가 반환한 그룹화된 데이터를 사용하여 즉시 템플릿 키 설정
         if (loadedData && loadedData.grouped[category]?.[newKey]) {
-          // 상태가 업데이트되었으므로 바로 템플릿 키 설정
-          // useEffect가 dbTemplates 변경을 감지하여 메시지를 생성함
+          // loadTemplates가 반환한 데이터를 직접 사용하여 메시지 생성
+          const templateContent = loadedData.grouped[category][newKey];
+          
+          // 템플릿 키 설정 (useEffect가 메시지를 생성하도록 함)
           setTemplateKey(newKey);
-          console.log('새 템플릿 선택:', { category, newKey, exists: !!loadedData.grouped[category]?.[newKey] });
+          
+          // selectedCustomer가 있으면 변수 치환하여 메시지 생성
+          if (selectedCustomer) {
+            let message = templateContent;
+            message = message.replace(/\{고객명\}/g, selectedCustomer.name || '');
+            message = message.replace(/\{미수금\}/g, selectedCustomer.total_unpaid?.toLocaleString() ?? '0');
+            message = message.replace(/\{거래건수\}/g, String(selectedCustomer.transaction_count ?? 0));
+            message = message.replace(/\{납부기한\}/g, '');
+            message = message.replace(/\{분할금액\}/g, '');
+            message = message.replace(/\\n/g, '\n');
+            setMessage(message);
+          } else {
+            // 고객이 선택되지 않았으면 템플릿 내용만 표시 (변수 치환 없이)
+            setMessage(templateContent.replace(/\\n/g, '\n'));
+          }
+          
+          console.log('새 템플릿 선택 및 메시지 생성 완료:', { category, newKey });
         } else {
           console.warn('새 템플릿을 찾을 수 없습니다:', { category, newKey, loadedData });
+          // 템플릿을 찾을 수 없어도 직접 메시지 설정 시도
+          if (selectedCustomer) {
+            // 변수 치환하여 메시지 생성
+            let message = newContent;
+            message = message.replace(/\{고객명\}/g, selectedCustomer.name || '');
+            message = message.replace(/\{미수금\}/g, selectedCustomer.total_unpaid?.toLocaleString() ?? '0');
+            message = message.replace(/\{거래건수\}/g, String(selectedCustomer.transaction_count ?? 0));
+            message = message.replace(/\{납부기한\}/g, '');
+            message = message.replace(/\{분할금액\}/g, '');
+            message = message.replace(/\\n/g, '\n');
+            setMessage(message);
+            setTemplateKey(newKey);
+          } else {
+            // 고객이 없으면 템플릿 내용만 표시
+            setMessage(newContent.replace(/\\n/g, '\n'));
+            setTemplateKey(newKey);
+          }
         }
       }
     } catch (err: any) {
@@ -251,8 +323,16 @@ export default function SmsSender({ selectedCustomer, onSuccess }: SmsSenderProp
   };
 
   const handleUpdateTemplate = async () => {
-    if (!category || !editingTemplateId || !addFormData.key || !addFormData.content) {
-      setError('모든 필드를 입력해주세요.');
+    if (!category || !editingTemplateId || !addFormData.content) {
+      setError('메시지 내용을 입력해주세요.');
+      return;
+    }
+
+    // 템플릿 키가 비어있으면 기존 키 유지
+    const templateKey = addFormData.key.trim() || dbTemplates[category] ? Object.keys(dbTemplates[category]).find(k => dbTemplateIds[category]?.[k] === editingTemplateId) || '' : '';
+    
+    if (!templateKey) {
+      setError('템플릿 키를 찾을 수 없습니다.');
       return;
     }
 
@@ -264,17 +344,24 @@ export default function SmsSender({ selectedCustomer, onSuccess }: SmsSenderProp
         body: JSON.stringify({
           id: editingTemplateId,
           category,
-          key: addFormData.key,
+          key: templateKey,
           content: addFormData.content
         })
       });
 
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: `HTTP ${response.status}: ${response.statusText}` }));
+        setError(errorData.error || `템플릿 수정 실패 (${response.status})`);
+        console.error('템플릿 수정 HTTP 에러:', { status: response.status, error: errorData });
+        return;
+      }
+      
       const result = await response.json();
       if (result.error) {
         setError(result.error);
         console.error('템플릿 수정 에러:', result.error);
-      } else {
-        const updatedKey = addFormData.key;
+      } else if (result.data) {
+        const updatedKey = templateKey;
         const wasSelected = templateKey === updatedKey;
         setShowAddForm(false);
         setEditingTemplateId(null);
@@ -321,13 +408,24 @@ export default function SmsSender({ selectedCustomer, onSuccess }: SmsSenderProp
         method: 'DELETE'
       });
 
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: `HTTP ${response.status}: ${response.statusText}` }));
+        setError(errorData.error || `템플릿 삭제 실패 (${response.status})`);
+        console.error('템플릿 삭제 HTTP 에러:', { status: response.status, error: errorData, templateId, key });
+        // 에러 발생 시에도 목록 새로고침하여 최신 상태 확인
+        await loadTemplates();
+        return;
+      }
+
       const result = await response.json();
       console.log('삭제 응답:', result);
       
       if (result.error) {
         setError(result.error);
         console.error('템플릿 삭제 에러:', result.error);
-      } else if (result.success || result.deleted) {
+        await loadTemplates();
+        return; // 에러 발생 시 중단
+      } else if (result.success && result.deleted && result.deleted.length > 0) {
         // 삭제된 템플릿이 현재 선택된 템플릿이었다면 상태 초기화
         if (templateKey === key) {
           setTemplateKey('');
@@ -366,8 +464,12 @@ export default function SmsSender({ selectedCustomer, onSuccess }: SmsSenderProp
         await loadTemplates();
         console.log('템플릿 삭제 완료, 목록 새로고침됨');
       } else {
-        setError('삭제 응답을 확인할 수 없습니다.');
-        console.error('예상치 못한 삭제 응답:', result);
+        // 삭제가 실제로 이루어지지 않음
+        const errorMsg = result.error || '템플릿을 삭제할 수 없습니다. 권한이 없거나 이미 삭제되었을 수 있습니다.';
+        setError(errorMsg);
+        console.error('삭제 실패:', { result, templateId, key, category });
+        // 삭제 실패 시에도 목록 새로고침하여 최신 상태 확인
+        await loadTemplates();
       }
     } catch (err: any) {
       const errorMsg = err?.message || '템플릿 삭제에 실패했습니다.';
@@ -511,15 +613,20 @@ export default function SmsSender({ selectedCustomer, onSuccess }: SmsSenderProp
             </div>
             <div className="space-y-3">
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">템플릿 키 (고유 식별자)</label>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">
+                  템플릿 이름 {!editingTemplateId && <span className="text-xs text-gray-500">(선택사항, 자동 생성됨)</span>}
+                </label>
                 <input
                   type="text"
                   value={addFormData.key}
                   onChange={(e) => setAddFormData({ ...addFormData, key: e.target.value })}
-                  placeholder="예: 구보다_새템플릿"
-                  disabled={!!editingTemplateId}
-                  className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                  placeholder={editingTemplateId ? "템플릿 이름을 입력하세요" : "비워두면 자동으로 생성됩니다"}
+                  className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200"
                 />
+                <div className="mt-1 text-xs text-gray-500">
+                  {!editingTemplateId && "💡 템플릿 이름을 비워두면 메시지 내용의 첫 줄을 기반으로 자동 생성됩니다."}
+                  {editingTemplateId && "템플릿 이름을 변경하면 기존 템플릿이 새 이름으로 업데이트됩니다."}
+                </div>
               </div>
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1">메시지 내용</label>

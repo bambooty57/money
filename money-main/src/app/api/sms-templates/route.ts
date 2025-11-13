@@ -71,11 +71,32 @@ export async function DELETE(request: Request) {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
     
+    console.log('DELETE 요청:', { id, url: request.url });
+    
     if (!id) {
       return NextResponse.json({ error: 'id는 필수입니다.' }, { status: 400 });
     }
     
     const supabase = createClient();
+    
+    // 먼저 템플릿이 존재하는지 확인
+    const { data: existing, error: checkError } = await supabase
+      .from('sms_templates')
+      .select('id, category, key')
+      .eq('id', id)
+      .single();
+    
+    if (checkError || !existing) {
+      console.error('템플릿 조회 실패:', checkError);
+      return NextResponse.json({ 
+        error: `템플릿을 찾을 수 없습니다. (ID: ${id})`,
+        details: checkError?.message 
+      }, { status: 404 });
+    }
+    
+    console.log('삭제할 템플릿:', existing);
+    
+    // 삭제 실행
     const { data, error } = await supabase
       .from('sms_templates')
       .delete()
@@ -93,6 +114,17 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
     
+    // 실제로 삭제된 행이 있는지 확인
+    if (!data || data.length === 0) {
+      console.warn('삭제된 행이 없습니다:', { id, data });
+      return NextResponse.json({ 
+        error: '템플릿을 삭제할 수 없습니다. 권한이 없거나 이미 삭제되었을 수 있습니다.',
+        success: false,
+        deleted: []
+      }, { status: 404 });
+    }
+    
+    console.log('삭제 성공:', { deleted: data });
     return NextResponse.json({ success: true, deleted: data });
   } catch (err: any) {
     console.error('템플릿 삭제 중 오류:', err);
@@ -105,11 +137,35 @@ export async function PUT(request: Request) {
     const body = await request.json();
     const { id, category, key, content } = body;
     
+    console.log('PUT 요청:', { id, category, key, contentLength: content?.length });
+    
     if (!id || !category || !key || !content) {
-      return NextResponse.json({ error: 'id, category, key, content는 필수입니다.' }, { status: 400 });
+      return NextResponse.json({ 
+        error: 'id, category, key, content는 필수입니다.',
+        received: { id: !!id, category: !!category, key: !!key, content: !!content }
+      }, { status: 400 });
     }
     
     const supabase = createClient();
+    
+    // 먼저 템플릿이 존재하는지 확인
+    const { data: existing, error: checkError } = await supabase
+      .from('sms_templates')
+      .select('id, category, key')
+      .eq('id', id)
+      .single();
+    
+    if (checkError || !existing) {
+      console.error('템플릿 조회 실패:', checkError);
+      return NextResponse.json({ 
+        error: `수정할 템플릿을 찾을 수 없습니다. (ID: ${id})`,
+        details: checkError?.message 
+      }, { status: 404 });
+    }
+    
+    console.log('수정할 템플릿:', existing);
+    
+    // 업데이트 실행
     const { data, error } = await supabase
       .from('sms_templates')
       .update({ category, key, content })
@@ -122,9 +178,14 @@ export async function PUT(request: Request) {
     }
     
     if (!data || data.length === 0) {
-      return NextResponse.json({ error: '수정할 템플릿을 찾을 수 없습니다.' }, { status: 404 });
+      console.warn('수정된 행이 없습니다:', { id, data });
+      return NextResponse.json({ 
+        error: '템플릿을 수정할 수 없습니다. 권한이 없거나 이미 삭제되었을 수 있습니다.',
+        details: `ID: ${id}`
+      }, { status: 404 });
     }
     
+    console.log('수정 성공:', { updated: data[0] });
     return NextResponse.json({ data: data[0] });
   } catch (err: any) {
     console.error('템플릿 수정 중 오류:', err);
