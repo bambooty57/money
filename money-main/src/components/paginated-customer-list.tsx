@@ -915,9 +915,22 @@ function PaginatedCustomerListInner({
                       
                       if (res.ok) {
                         const result = await res.json();
+                        
+                        // 삭제된 고객을 즉시 목록에서 제거 (UI 즉시 반영)
+                        setData(prevData => {
+                          if (!prevData) return prevData;
+                          return {
+                            ...prevData,
+                            data: prevData.data.filter(c => c.id !== customer.id),
+                            total: Math.max(0, (prevData.total || 0) - 1)
+                          };
+                        });
+                        
                         alert(`고객과 관련된 모든 데이터가 삭제되었습니다.${result.deletedFiles ? ` (파일 ${result.deletedFiles}개 삭제)` : ''}`);
-                        // 삭제 후 목록 강제 새로고침
+                        
+                        // 삭제 후 목록 강제 새로고침 (백엔드 동기화)
                         await fetchCustomers(true);
+                        
                         // 페이지 새로고침으로 확실히 갱신
                         router.refresh();
                       } else {

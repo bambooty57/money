@@ -422,11 +422,32 @@ export async function DELETE(request: Request) {
     }
 
     // 9. 고객 삭제
-    const { error } = await authenticatedSupabase.from('customers').delete().eq('id', id);
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    const { data: deletedCustomer, error } = await authenticatedSupabase
+      .from('customers')
+      .delete()
+      .eq('id', id)
+      .select();
     
-    console.log(`✅ 고객 및 관련 데이터 완전 삭제 완료 (파일 ${allFiles.length}개)`);
-    return NextResponse.json({ success: true, deletedFiles: allFiles.length });
+    if (error) {
+      console.error('❌ 고객 삭제 실패:', error);
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+    
+    // 삭제 확인: 실제로 삭제되었는지 확인
+    if (!deletedCustomer || deletedCustomer.length === 0) {
+      console.warn('⚠️ 고객 삭제 확인: 삭제된 레코드가 없습니다. RLS 정책을 확인하세요.');
+      return NextResponse.json({ 
+        error: '고객 삭제에 실패했습니다. 권한을 확인하세요.',
+        warning: 'RLS 정책으로 인해 삭제되지 않았을 수 있습니다.'
+      }, { status: 403 });
+    }
+    
+    console.log(`✅ 고객 및 관련 데이터 완전 삭제 완료 (파일 ${allFiles.length}개, 고객 ID: ${id})`);
+    return NextResponse.json({ 
+      success: true, 
+      deletedFiles: allFiles.length,
+      deletedCustomerId: id
+    });
   } catch (error) {
     console.error('❌ 고객 삭제 중 오류:', error);
     return NextResponse.json({ error: error instanceof Error ? error.message : '고객 삭제 중 오류가 발생했습니다.' }, { status: 500 });
