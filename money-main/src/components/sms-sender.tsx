@@ -60,8 +60,13 @@ export default function SmsSender({ selectedCustomer, onSuccess }: SmsSenderProp
         setDbTemplates(grouped);
         setDbTemplateIds(ids);
       }
+      // 에러가 있으면 콘솔에만 표시 (하드코딩된 템플릿 사용)
+      if (result.error) {
+        console.warn('템플릿 로드 경고:', result.error);
+      }
     } catch (err) {
       console.error('템플릿 로드 실패:', err);
+      // 에러가 발생해도 하드코딩된 템플릿 사용 가능
     } finally {
       setTemplatesLoading(false);
     }
@@ -144,6 +149,7 @@ export default function SmsSender({ selectedCustomer, onSuccess }: SmsSenderProp
     }
 
     try {
+      setError(''); // 에러 초기화
       const response = await fetch('/api/sms-templates', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -157,14 +163,17 @@ export default function SmsSender({ selectedCustomer, onSuccess }: SmsSenderProp
       const result = await response.json();
       if (result.error) {
         setError(result.error);
+        console.error('템플릿 추가 에러:', result.error);
       } else {
         setShowAddForm(false);
         setAddFormData({ key: '', content: '' });
         setError('');
-        loadTemplates();
+        await loadTemplates();
       }
-    } catch (err) {
-      setError('템플릿 추가에 실패했습니다.');
+    } catch (err: any) {
+      const errorMsg = err?.message || '템플릿 추가에 실패했습니다.';
+      setError(errorMsg);
+      console.error('템플릿 추가 실패:', err);
     }
   };
 
@@ -303,8 +312,14 @@ export default function SmsSender({ selectedCustomer, onSuccess }: SmsSenderProp
         </div>
 
         {error && (
-          <div className="mb-4 p-3 bg-red-50 border-2 border-red-200 rounded-lg text-red-700 text-sm">
-            {error}
+          <div className="mb-4 p-4 bg-red-50 border-2 border-red-200 rounded-lg text-red-700 text-sm">
+            <div className="font-semibold mb-1">⚠️ 오류</div>
+            <div className="whitespace-pre-line">{error}</div>
+            {error.includes('sms_templates 테이블') && (
+              <div className="mt-2 p-2 bg-yellow-50 border border-yellow-300 rounded text-yellow-800 text-xs">
+                💡 해결 방법: Supabase SQL Editor에서 <code className="bg-white px-1 rounded">sql/create_sms_templates_table.sql</code> 파일의 내용을 실행하세요.
+              </div>
+            )}
           </div>
         )}
 

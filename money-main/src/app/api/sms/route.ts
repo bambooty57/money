@@ -14,7 +14,7 @@ export async function POST(request: Request) {
   const supabase = createClient();
   let template = '';
   
-  const { data: dbTemplate } = await (supabase as any)
+  const { data: dbTemplate } = await supabase
     .from('sms_templates')
     .select('content')
     .eq('category', category)
