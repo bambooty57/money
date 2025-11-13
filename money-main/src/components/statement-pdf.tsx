@@ -266,9 +266,10 @@ export async function generateStatementPdf({ customer, transactions, payments, s
       borderWidth: 1
     });
     
-    // 헤더 텍스트
+    // 헤더 텍스트 및 수직 구분선
     let headerX = tableStartX;
     headers.forEach((header, i) => {
+      // 헤더 텍스트
       page.drawText(header, {
         x: headerX + 5,
         y: y - 15,
@@ -276,14 +277,36 @@ export async function generateStatementPdf({ customer, transactions, payments, s
         font,
         color: rgb(0,0,0)
       });
+      
+      // 컬럼 사이 수직 구분선 (매출/입금/잔액 컬럼은 더 두껍게)
+      if (i < headers.length - 1) {
+        const lineX = headerX + colWidths[i];
+        const lineThickness = (i >= 4) ? 1.5 : 0.5; // 비고 이후 컬럼은 더 두껍게
+        page.drawLine({
+          start: { x: lineX, y: y - 20 },
+          end: { x: lineX, y: y },
+          thickness: lineThickness,
+          color: rgb(0.2, 0.4, 0.8)
+        });
+      }
+      
       headerX += colWidths[i];
     });
     
     y -= 20;
     
-    // 거래 데이터 행 (기존 로직 사용)
+    // 거래 데이터 행 (비고 2줄 지원 및 구분선 추가)
     transactions.forEach((tx, idx) => {
-      const rowHeight = 20;
+      // 기존 로직 사용: 거래별 입금액과 잔액 계산
+      const paid = (tx.payments || []).reduce((sum: number, p: any) => sum + (p.amount || 0), 0);
+      const unpaid = (tx.amount || 0) - paid;
+      
+      // 비고 텍스트를 2줄로 제한
+      const remarksText = tx.description || tx.notes || tx.note || '';
+      const remarksLines = wrapText(remarksText, font, 9, colWidths[4] - 10, 2); // 비고 컬럼 너비에서 패딩 제외
+      const remarksRowHeight = Math.max(20, remarksLines.length * 10 + 10); // 최소 20px, 2줄이면 더 높게
+      
+      const rowHeight = remarksRowHeight;
       
       // 행 배경 (홀수/짝수 구분)
       if (idx % 2 === 0) {
@@ -306,20 +329,13 @@ export async function generateStatementPdf({ customer, transactions, payments, s
         borderWidth: 0.5
       });
       
-      // 기존 로직 사용: 거래별 입금액과 잔액 계산
-      const paid = (tx.payments || []).reduce((sum: number, p: any) => sum + (p.amount || 0), 0);
-      const unpaid = (tx.amount || 0) - paid;
-      
-      // 디버그 정보 출력
-      console.log(`거래 ${idx + 1}: 매출=${tx.amount}, 입금=${paid}, 잔액=${unpaid}`);
-      
       // 셀 데이터 (정확한 컬럼 배치)
       const rowData = [
         String(idx + 1),                          // # 컬럼
         tx.created_at?.slice(0, 10) || '',        // 일자 컬럼
         tx.type || '',                            // 거래명 컬럼
         `${tx.model || tx.models_types?.model || ''}${(tx.model || tx.models_types?.model) && (tx.model_type || tx.models_types?.type) ? '/' : ''}${tx.model_type || tx.models_types?.type || ''}`, // 기종/모델 컬럼
-        tx.description || tx.notes || tx.note || '', // 비고 컬럼
+        remarksLines,                             // 비고 컬럼 (줄바꿈된 배열)
         (tx.amount || 0).toLocaleString(),        // 매출 컬럼 (매출액)
         paid.toLocaleString(),                    // 입금 컬럼 (입금액)
         unpaid.toLocaleString()                   // 잔액 컬럼 (잔액)
@@ -328,17 +344,44 @@ export async function generateStatementPdf({ customer, transactions, payments, s
       // 헤더와 동일한 방식으로 위치 계산
       let cellX = tableStartX;
       rowData.forEach((cellData, cellIdx) => {
-        // 텍스트 정렬 (금액은 우측, 나머지는 좌측)
-        const isAmount = cellIdx >= 5; // 금액 관련 컬럼
-        const textX = isAmount ? cellX + colWidths[cellIdx] - 10 : cellX + 5;
+        // 비고 컬럼은 여러 줄 처리
+        if (cellIdx === 4 && Array.isArray(cellData)) {
+          // 비고 컬럼: 여러 줄 텍스트
+          cellData.forEach((line, lineIdx) => {
+            page.drawText(line, {
+              x: cellX + 5,
+              y: y - 10 - (lineIdx * 10),
+              size: 9,
+              font,
+              color: rgb(0,0,0)
+            });
+          });
+        } else {
+          // 일반 컬럼: 단일 텍스트
+          const text = String(cellData);
+          const isAmount = cellIdx >= 5; // 금액 관련 컬럼
+          const textX = isAmount ? cellX + colWidths[cellIdx] - 10 : cellX + 5;
+          
+          page.drawText(text, {
+            x: textX,
+            y: y - 15,
+            size: 9,
+            font,
+            color: rgb(0,0,0)
+          });
+        }
         
-        page.drawText(cellData, {
-          x: textX,
-          y: y - 15,
-          size: 9,
-          font,
-          color: rgb(0,0,0)
-        });
+        // 컬럼 사이 수직 구분선 (매출/입금/잔액 컬럼은 더 두껍게)
+        if (cellIdx < rowData.length - 1) {
+          const lineX = cellX + colWidths[cellIdx];
+          const lineThickness = (cellIdx >= 4) ? 1.5 : 0.5; // 비고 이후 컬럼은 더 두껍게
+          page.drawLine({
+            start: { x: lineX, y: y - rowHeight },
+            end: { x: lineX, y: y },
+            thickness: lineThickness,
+            color: rgb(0.5, 0.5, 0.5)
+          });
+        }
         
         cellX += colWidths[cellIdx]; // 헤더와 동일한 방식
       });
@@ -402,6 +445,19 @@ export async function generateStatementPdf({ customer, transactions, payments, s
       borderColor: rgb(0.2, 0.4, 0.8),
       borderWidth: 1
     });
+    
+    // 합계 행 수직 구분선
+    let summaryCellX = tableStartX;
+    for (let i = 0; i < colWidths.length - 1; i++) {
+      summaryCellX += colWidths[i];
+      const lineThickness = (i >= 4) ? 1.5 : 0.5; // 비고 이후 컬럼은 더 두껍게
+      page.drawLine({
+        start: { x: summaryCellX, y: y - 25 },
+        end: { x: summaryCellX, y: y },
+        thickness: lineThickness,
+        color: rgb(0.2, 0.4, 0.8)
+      });
+    }
     
     // 합계 텍스트
     const summaryLabelStart = tableStartX + colWidths.slice(0, 4).reduce((sum, width) => sum + width, 0);
