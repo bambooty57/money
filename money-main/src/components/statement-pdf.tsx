@@ -11,32 +11,67 @@ export interface StatementPdfOptions {
   photoUrl?: string; // 고객 사진 URL 추가
 }
 
-// 유틸: 셀 내 텍스트 줄바꿈(셀 너비, 폰트, 폰트크기, 최대줄수)
+// 유틸: 셀 내 텍스트 줄바꿈(셀 너비, 폰트, 폰트크기, 최대줄수) - 한글 지원 개선
 function wrapText(text: string, font: any, fontSize: number, maxWidth: number, maxLines: number = 3): string[] {
   if (!text) return [''];
-  const words = String(text).split(/\s+/);
+  const textStr = String(text);
+  
+  // 공백으로 단어 분리 시도
+  const words = textStr.split(/\s+/);
   let lines: string[] = [];
   let current = '';
+  
   for (let word of words) {
     const test = current ? current + ' ' + word : word;
-    if (font.widthOfTextAtSize(test, fontSize) > maxWidth) {
-      if (current) lines.push(current);
+    const testWidth = font.widthOfTextAtSize(test, fontSize);
+    
+    if (testWidth > maxWidth) {
+      if (current) {
+        lines.push(current);
+        if (lines.length >= maxLines) break;
+      }
       current = word;
-      if (lines.length >= maxLines - 1) break;
+      
+      // 단어 자체가 너무 길면 문자 단위로 자르기 (한글 지원)
+      const wordWidth = font.widthOfTextAtSize(word, fontSize);
+      if (wordWidth > maxWidth) {
+        let charLine = '';
+        for (let i = 0; i < word.length; i++) {
+          const char = word[i];
+          const testCharLine = charLine + char;
+          if (font.widthOfTextAtSize(testCharLine, fontSize) > maxWidth) {
+            if (charLine) {
+              lines.push(charLine);
+              if (lines.length >= maxLines) break;
+            }
+            charLine = char;
+          } else {
+            charLine = testCharLine;
+          }
+        }
+        current = charLine;
+        if (lines.length >= maxLines) break;
+      }
     } else {
       current = test;
     }
   }
-  if (current && lines.length < maxLines) lines.push(current);
-  if (lines.length === maxLines && words.length > 0) {
-    // 마지막 줄 ... 처리
+  
+  if (current && lines.length < maxLines) {
+    lines.push(current);
+  }
+  
+  // 최대 줄 수 초과 시 마지막 줄 자르기
+  if (lines.length > maxLines) {
+    lines = lines.slice(0, maxLines);
     let last = lines[maxLines - 1];
     while (font.widthOfTextAtSize(last + '...', fontSize) > maxWidth && last.length > 0) {
       last = last.slice(0, -1);
     }
     lines[maxLines - 1] = last + '...';
   }
-  return lines;
+  
+  return lines.length > 0 ? lines : [''];
 }
 
 // 값 표시 유틸리티 함수
@@ -303,8 +338,9 @@ export async function generateStatementPdf({ customer, transactions, payments, s
       
       // 비고 텍스트를 2줄로 제한
       const remarksText = tx.description || tx.notes || tx.note || '';
-      const remarksLines = wrapText(remarksText, font, 9, colWidths[4] - 10, 2); // 비고 컬럼 너비에서 패딩 제외
-      const remarksRowHeight = Math.max(20, remarksLines.length * 10 + 10); // 최소 20px, 2줄이면 더 높게
+      const remarksMaxWidth = colWidths[4] - 10; // 비고 컬럼 너비에서 패딩 제외
+      const remarksLines = wrapText(remarksText, font, 9, remarksMaxWidth, 2);
+      const remarksRowHeight = Math.max(20, remarksLines.length * 12 + 8); // 최소 20px, 줄당 12px + 여백
       
       const rowHeight = remarksRowHeight;
       
@@ -346,11 +382,28 @@ export async function generateStatementPdf({ customer, transactions, payments, s
       rowData.forEach((cellData, cellIdx) => {
         // 비고 컬럼은 여러 줄 처리
         if (cellIdx === 4 && Array.isArray(cellData)) {
-          // 비고 컬럼: 여러 줄 텍스트
+          // 비고 컬럼: 여러 줄 텍스트 (각 줄을 셀 안에 제한)
           cellData.forEach((line, lineIdx) => {
-            page.drawText(line, {
+            // 텍스트가 셀 너비를 초과하지 않도록 확인
+            const maxTextWidth = colWidths[4] - 10;
+            let displayText = line;
+            if (font.widthOfTextAtSize(line, 9) > maxTextWidth) {
+              // 텍스트가 너무 길면 자르기
+              let truncated = '';
+              for (let i = 0; i < line.length; i++) {
+                const test = truncated + line[i];
+                if (font.widthOfTextAtSize(test, 9) <= maxTextWidth) {
+                  truncated = test;
+                } else {
+                  break;
+                }
+              }
+              displayText = truncated + (lineIdx === cellData.length - 1 ? '' : '');
+            }
+            
+            page.drawText(displayText, {
               x: cellX + 5,
-              y: y - 10 - (lineIdx * 10),
+              y: y - 12 - (lineIdx * 12), // 줄 간격 12px
               size: 9,
               font,
               color: rgb(0,0,0)
@@ -371,15 +424,17 @@ export async function generateStatementPdf({ customer, transactions, payments, s
           });
         }
         
-        // 컬럼 사이 수직 구분선 (매출/입금/잔액 컬럼은 더 두껍게)
+        // 컬럼 사이 수직 구분선 (매출/입금/잔액 컬럼은 더 두껍고 진하게)
         if (cellIdx < rowData.length - 1) {
           const lineX = cellX + colWidths[cellIdx];
-          const lineThickness = (cellIdx >= 4) ? 1.5 : 0.5; // 비고 이후 컬럼은 더 두껍게
+          const isImportantColumn = cellIdx >= 4; // 비고 이후 컬럼
+          const lineThickness = isImportantColumn ? 2 : 0.5;
+          const lineColor = isImportantColumn ? rgb(0.2, 0.2, 0.2) : rgb(0.6, 0.6, 0.6);
           page.drawLine({
             start: { x: lineX, y: y - rowHeight },
             end: { x: lineX, y: y },
             thickness: lineThickness,
-            color: rgb(0.5, 0.5, 0.5)
+            color: lineColor
           });
         }
         
@@ -446,16 +501,18 @@ export async function generateStatementPdf({ customer, transactions, payments, s
       borderWidth: 1
     });
     
-    // 합계 행 수직 구분선
+    // 합계 행 수직 구분선 (더 명확하게)
     let summaryCellX = tableStartX;
     for (let i = 0; i < colWidths.length - 1; i++) {
       summaryCellX += colWidths[i];
-      const lineThickness = (i >= 4) ? 1.5 : 0.5; // 비고 이후 컬럼은 더 두껍게
+      const isImportantColumn = i >= 4; // 비고 이후 컬럼
+      const lineThickness = isImportantColumn ? 2 : 0.5;
+      const lineColor = isImportantColumn ? rgb(0.2, 0.2, 0.2) : rgb(0.2, 0.4, 0.8);
       page.drawLine({
         start: { x: summaryCellX, y: y - 25 },
         end: { x: summaryCellX, y: y },
         thickness: lineThickness,
-        color: rgb(0.2, 0.4, 0.8)
+        color: lineColor
       });
     }
     
