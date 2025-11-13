@@ -6,7 +6,7 @@ import type { Database } from '@/types/database';
 import { smsTemplates } from '@/types/sms';
 import type { SmsTemplateCategory, SmsTemplateKey } from '@/types/sms';
 import clsx from 'clsx';
-import { Copy, MessageSquare, Plus, Trash2, X, Save } from 'lucide-react';
+import { Copy, MessageSquare, Plus, Trash2, X, Save, Edit2 } from 'lucide-react';
 
 interface SmsSenderProps {
   selectedCustomer?: Customer | null;
@@ -36,6 +36,7 @@ export default function SmsSender({ selectedCustomer, onSuccess }: SmsSenderProp
   const [dbTemplateIds, setDbTemplateIds] = useState<Record<string, Record<string, string>>>({}); // category -> key -> id
   const [templatesLoading, setTemplatesLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
+  const [editingTemplateId, setEditingTemplateId] = useState<string | null>(null);
   const [addFormData, setAddFormData] = useState({ key: '', content: '' });
   const [error, setError] = useState('');
 
@@ -177,6 +178,59 @@ export default function SmsSender({ selectedCustomer, onSuccess }: SmsSenderProp
     }
   };
 
+  const handleEditTemplate = (key: string) => {
+    if (!category) return;
+    
+    const templateId = dbTemplateIds[category]?.[key];
+    if (!templateId) {
+      setError('DB에 저장된 템플릿만 수정할 수 있습니다.');
+      return;
+    }
+
+    const templateContent = dbTemplates[category]?.[key] || '';
+    setEditingTemplateId(templateId);
+    setAddFormData({ key, content: templateContent });
+    setShowAddForm(true);
+    setError('');
+  };
+
+  const handleUpdateTemplate = async () => {
+    if (!category || !editingTemplateId || !addFormData.key || !addFormData.content) {
+      setError('모든 필드를 입력해주세요.');
+      return;
+    }
+
+    try {
+      setError('');
+      const response = await fetch('/api/sms-templates', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: editingTemplateId,
+          category,
+          key: addFormData.key,
+          content: addFormData.content
+        })
+      });
+
+      const result = await response.json();
+      if (result.error) {
+        setError(result.error);
+        console.error('템플릿 수정 에러:', result.error);
+      } else {
+        setShowAddForm(false);
+        setEditingTemplateId(null);
+        setAddFormData({ key: '', content: '' });
+        setError('');
+        await loadTemplates();
+      }
+    } catch (err: any) {
+      const errorMsg = err?.message || '템플릿 수정에 실패했습니다.';
+      setError(errorMsg);
+      console.error('템플릿 수정 실패:', err);
+    }
+  };
+
   const handleDeleteTemplate = async (key: string) => {
     if (!category) return;
     
@@ -300,6 +354,7 @@ export default function SmsSender({ selectedCustomer, onSuccess }: SmsSenderProp
               type="button"
               onClick={() => {
                 setShowAddForm(true);
+                setEditingTemplateId(null);
                 setAddFormData({ key: '', content: '' });
                 setError('');
               }}
@@ -323,15 +378,18 @@ export default function SmsSender({ selectedCustomer, onSuccess }: SmsSenderProp
           </div>
         )}
 
-        {/* 템플릿 추가 폼 */}
+        {/* 템플릿 추가/수정 폼 */}
         {showAddForm && category && (
           <div className="mb-4 p-4 bg-green-50 border-2 border-green-200 rounded-lg">
             <div className="flex justify-between items-center mb-3">
-              <h3 className="text-lg font-bold text-gray-800">새 템플릿 추가</h3>
+              <h3 className="text-lg font-bold text-gray-800">
+                {editingTemplateId ? '템플릿 수정' : '새 템플릿 추가'}
+              </h3>
               <button
                 type="button"
                 onClick={() => {
                   setShowAddForm(false);
+                  setEditingTemplateId(null);
                   setAddFormData({ key: '', content: '' });
                   setError('');
                 }}
@@ -348,7 +406,8 @@ export default function SmsSender({ selectedCustomer, onSuccess }: SmsSenderProp
                   value={addFormData.key}
                   onChange={(e) => setAddFormData({ ...addFormData, key: e.target.value })}
                   placeholder="예: 구보다_새템플릿"
-                  className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200"
+                  disabled={!!editingTemplateId}
+                  className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200 disabled:bg-gray-100 disabled:cursor-not-allowed"
                 />
               </div>
               <div>
@@ -367,16 +426,17 @@ export default function SmsSender({ selectedCustomer, onSuccess }: SmsSenderProp
               <div className="flex gap-2">
                 <button
                   type="button"
-                  onClick={handleAddTemplate}
+                  onClick={editingTemplateId ? handleUpdateTemplate : handleAddTemplate}
                   className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
                 >
                   <Save size={16} />
-                  추가
+                  {editingTemplateId ? '저장' : '추가'}
                 </button>
                 <button
                   type="button"
                   onClick={() => {
                     setShowAddForm(false);
+                    setEditingTemplateId(null);
                     setAddFormData({ key: '', content: '' });
                     setError('');
                   }}
@@ -413,26 +473,40 @@ export default function SmsSender({ selectedCustomer, onSuccess }: SmsSenderProp
                   title={label}
                 >
                   <div className="whitespace-pre-line text-base leading-relaxed pr-8">
-                    {label.split('\n').map((line, idx) => (
+                    {/* \n을 실제 줄바꿈으로 처리 */}
+                    {label.replace(/\\n/g, '\n').split('\n').map((line, idx, arr) => (
                       <span key={idx} className={templateKey === key ? 'text-blue-800 font-medium' : 'text-gray-700'}>
-                        {line}{idx < label.split('\n').length - 1 ? <br /> : null}
+                        {line}{idx < arr.length - 1 ? <br /> : null}
                       </span>
                     ))}
                   </div>
                 </button>
-                {/* 삭제 버튼 (DB 템플릿만) */}
+                {/* 수정/삭제 버튼 (DB 템플릿만) */}
                 {isDbTemplate && (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleDeleteTemplate(key);
-                    }}
-                    className="absolute top-2 right-2 p-2 text-red-600 hover:bg-red-100 rounded-lg transition-colors"
-                    title="템플릿 삭제"
-                  >
-                    <Trash2 size={18} />
-                  </button>
+                  <div className="absolute top-2 right-2 flex gap-1">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleEditTemplate(key);
+                      }}
+                      className="p-2 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors"
+                      title="템플릿 수정"
+                    >
+                      <Edit2 size={18} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteTemplate(key);
+                      }}
+                      className="p-2 text-red-600 hover:bg-red-100 rounded-lg transition-colors"
+                      title="템플릿 삭제"
+                    >
+                      <Trash2 size={18} />
+                    </button>
+                  </div>
                 )}
               </div>
             );
