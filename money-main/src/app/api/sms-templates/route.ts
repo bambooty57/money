@@ -46,7 +46,17 @@ export async function POST(request: Request) {
           error: 'sms_templates 테이블이 존재하지 않습니다. Supabase에서 테이블을 먼저 생성해주세요. SQL 파일: sql/create_sms_templates_table.sql' 
         }, { status: 500 });
       }
+      // 중복 키 에러 처리
+      if (error.code === '23505' || error.message?.includes('duplicate') || error.message?.includes('unique')) {
+        return NextResponse.json({ 
+          error: `이미 존재하는 템플릿입니다. (카테고리: ${category}, 키: ${key})` 
+        }, { status: 409 });
+      }
       return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+    
+    if (!data) {
+      return NextResponse.json({ error: '템플릿 추가에 실패했습니다.' }, { status: 500 });
     }
     
     return NextResponse.json({ data });

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { smsTemplates, SmsPayload } from '@/types/sms';
+import { SmsPayload } from '@/types/sms';
 import { createClient } from '@/lib/supabase';
 
 function fillTemplate(template: string, variables: Record<string, string | number>) {
@@ -10,27 +10,23 @@ export async function POST(request: Request) {
   const body = await request.json();
   const { to, templateKey, category, variables, scheduledAt, customerId }: SmsPayload & { customerId?: string } = body;
 
-  // DB에서 템플릿 로드 시도
+  // DB에서 템플릿 로드 (DB만 사용)
   const supabase = createClient();
-  let template = '';
   
-  const { data: dbTemplate } = await supabase
+  const { data: dbTemplate, error: templateError } = await supabase
     .from('sms_templates')
     .select('content')
     .eq('category', category)
     .eq('key', templateKey)
     .single();
   
-  if (dbTemplate) {
-    template = dbTemplate.content;
-  } else {
-    // DB에 없으면 하드코딩된 템플릿 사용
-    template = smsTemplates[category]?.[templateKey] || '';
+  if (templateError || !dbTemplate) {
+    return NextResponse.json({ 
+      error: `템플릿을 찾을 수 없습니다. (카테고리: ${category}, 키: ${templateKey})` 
+    }, { status: 404 });
   }
   
-  if (!template) {
-    return NextResponse.json({ error: '템플릿을 찾을 수 없습니다.' }, { status: 404 });
-  }
+  const template = dbTemplate.content;
   
   const message = fillTemplate(template, variables);
 

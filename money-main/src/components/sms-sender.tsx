@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase';
 import type { Database } from '@/types/database';
-import { smsTemplates } from '@/types/sms';
 import type { SmsTemplateCategory, SmsTemplateKey } from '@/types/sms';
 import clsx from 'clsx';
 import { Copy, MessageSquare, Plus, Trash2, X, Save, Edit2 } from 'lucide-react';
@@ -45,6 +44,11 @@ export default function SmsSender({ selectedCustomer, onSuccess }: SmsSenderProp
     try {
       setTemplatesLoading(true);
       const response = await fetch('/api/sms-templates');
+      
+      if (!response.ok) {
+        throw new Error(`템플릿 로드 실패: ${response.status} ${response.statusText}`);
+      }
+      
       const result = await response.json();
       console.log('템플릿 로드 응답:', result);
       
@@ -61,23 +65,47 @@ export default function SmsSender({ selectedCustomer, onSuccess }: SmsSenderProp
           ids[template.category][template.key] = template.id;
         });
         console.log('템플릿 그룹화 완료:', { grouped, ids });
+        
+        // 현재 선택된 템플릿이 여전히 유효한지 확인
+        const currentTemplateExists = category && templateKey 
+          ? grouped[category]?.[templateKey] !== undefined
+          : false;
+        
+        // 템플릿 상태 업데이트
         setDbTemplates(grouped);
         setDbTemplateIds(ids);
+        
+        // 현재 선택된 템플릿이 더 이상 존재하지 않으면 상태 초기화
+        if (category && templateKey && !currentTemplateExists) {
+          console.warn('현재 선택된 템플릿이 더 이상 존재하지 않습니다:', { category, templateKey });
+          setTemplateKey('');
+          setMessage('');
+        }
       } else {
         console.warn('템플릿 데이터가 없거나 배열이 아닙니다:', result);
         // 데이터가 없으면 초기화
         setDbTemplates({});
         setDbTemplateIds({});
+        // 현재 선택된 템플릿이 있으면 초기화
+        if (templateKey) {
+          setTemplateKey('');
+          setMessage('');
+        }
       }
-      // 에러가 있으면 콘솔에만 표시 (하드코딩된 템플릿 사용)
+      // 에러가 있으면 콘솔에만 표시
       if (result.error) {
         console.warn('템플릿 로드 경고:', result.error);
       }
     } catch (err) {
       console.error('템플릿 로드 실패:', err);
-      // 에러가 발생해도 하드코딩된 템플릿 사용 가능
+      // 에러가 발생하면 초기화
       setDbTemplates({});
       setDbTemplateIds({});
+      // 현재 선택된 템플릿이 있으면 초기화
+      if (templateKey) {
+        setTemplateKey('');
+        setMessage('');
+      }
     } finally {
       setTemplatesLoading(false);
     }
@@ -101,11 +129,11 @@ export default function SmsSender({ selectedCustomer, onSuccess }: SmsSenderProp
       return;
     }
     
-    // DB 템플릿 우선, 없으면 하드코딩된 템플릿 사용
-    let template = dbTemplates[category]?.[templateKey] || 
-                   smsTemplates[category as SmsTemplateCategory]?.[templateKey] || '';
+    // DB 템플릿만 사용 (하드코딩된 템플릿은 DB에 저장 후 사용)
+    let template = dbTemplates[category]?.[templateKey] || '';
     
     if (!template) {
+      console.warn('템플릿을 찾을 수 없습니다:', { category, templateKey, availableKeys: Object.keys(dbTemplates[category] || {}) });
       setMessage('');
       return;
     }
@@ -123,10 +151,8 @@ export default function SmsSender({ selectedCustomer, onSuccess }: SmsSenderProp
   // 템플릿 선택 시 메시지 자동 입력
   const handleTemplateSelect = (key: SmsTemplateKey) => {
     setTemplateKey(key);
-    if (!category || !key) return;
-    const template = dbTemplates[category]?.[key] || 
-                     smsTemplates[category as SmsTemplateCategory]?.[key] || '';
-    setMessage(template);
+    // useEffect에서 자동으로 메시지를 생성하므로 여기서는 키만 설정
+    // 변수 치환은 useEffect에서 처리됨
   };
 
   const handleCopy = async () => {
@@ -176,10 +202,17 @@ export default function SmsSender({ selectedCustomer, onSuccess }: SmsSenderProp
         setError(result.error);
         console.error('템플릿 추가 에러:', result.error);
       } else {
+        const newKey = addFormData.key;
         setShowAddForm(false);
         setAddFormData({ key: '', content: '' });
         setError('');
+        // 템플릿 목록 새로고침
         await loadTemplates();
+        // 새로 추가된 템플릿을 자동으로 선택하여 메시지 생성
+        // loadTemplates가 완료된 후 상태가 업데이트되므로 약간의 지연 필요
+        setTimeout(() => {
+          setTemplateKey(newKey);
+        }, 100);
       }
     } catch (err: any) {
       const errorMsg = err?.message || '템플릿 추가에 실패했습니다.';
@@ -228,11 +261,20 @@ export default function SmsSender({ selectedCustomer, onSuccess }: SmsSenderProp
         setError(result.error);
         console.error('템플릿 수정 에러:', result.error);
       } else {
+        const updatedKey = addFormData.key;
+        const wasSelected = templateKey === updatedKey;
         setShowAddForm(false);
         setEditingTemplateId(null);
         setAddFormData({ key: '', content: '' });
         setError('');
+        // 템플릿 목록 새로고침
         await loadTemplates();
+        // 수정된 템플릿이 현재 선택된 템플릿이었다면 메시지 다시 생성
+        if (wasSelected) {
+          setTimeout(() => {
+            setTemplateKey(updatedKey);
+          }, 100);
+        }
       }
     } catch (err: any) {
       const errorMsg = err?.message || '템플릿 수정에 실패했습니다.';
@@ -251,7 +293,8 @@ export default function SmsSender({ selectedCustomer, onSuccess }: SmsSenderProp
     console.log('삭제 시도:', { category, key, templateId, dbTemplateIds });
     
     if (!templateId) {
-      setError('DB에 저장된 템플릿만 삭제할 수 있습니다. (하드코딩된 템플릿은 삭제할 수 없습니다)');
+      setError('DB에 저장된 템플릿만 삭제할 수 있습니다.');
+      console.warn('템플릿 ID를 찾을 수 없습니다:', { category, key, dbTemplateIds });
       return;
     }
 
@@ -271,12 +314,13 @@ export default function SmsSender({ selectedCustomer, onSuccess }: SmsSenderProp
       if (result.error) {
         setError(result.error);
         console.error('템플릿 삭제 에러:', result.error);
-      } else if (result.success) {
-        setError('');
+      } else if (result.success || result.deleted) {
+        // 삭제된 템플릿이 현재 선택된 템플릿이었다면 상태 초기화
         if (templateKey === key) {
           setTemplateKey('');
           setMessage('');
         }
+        setError('');
         // 템플릿 목록 새로고침
         await loadTemplates();
         console.log('템플릿 삭제 완료, 목록 새로고침됨');
@@ -291,9 +335,9 @@ export default function SmsSender({ selectedCustomer, onSuccess }: SmsSenderProp
     }
   };
 
-  // 카테고리별 템플릿 목록 (DB 템플릿 우선, 없으면 하드코딩된 템플릿 사용)
+  // 카테고리별 템플릿 목록 (DB 템플릿만 사용, 하드코딩된 템플릿은 DB에 저장 후 사용)
   const templateOptions = category ? Object.entries(
-    dbTemplates[category] || smsTemplates[category as SmsTemplateCategory] || {}
+    dbTemplates[category] || {}
   ) : [];
   // 디버깅용
   // console.log('selectedCustomer:', selectedCustomer);
@@ -352,7 +396,7 @@ export default function SmsSender({ selectedCustomer, onSuccess }: SmsSenderProp
       <div>
         <label className="block text-xl font-bold text-gray-800 mb-4">📋 카테고리</label>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {(Object.keys(dbTemplates).length > 0 ? Object.keys(dbTemplates) : Object.keys(smsTemplates)).map(cat => (
+          {(['미수금 독촉', '상환/입금 안내', '분할납부/약정', '법적 조치/최종', '감사/일상', '기타'] as SmsTemplateCategory[]).map(cat => (
             <button
               type="button"
               key={cat}
@@ -477,13 +521,21 @@ export default function SmsSender({ selectedCustomer, onSuccess }: SmsSenderProp
         )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {templateOptions.length === 0 && !showAddForm && (
+          {!category && (
             <div className="col-span-full bg-yellow-50 border-2 border-yellow-200 rounded-lg p-6 text-center">
               <div className="text-yellow-600 text-lg font-medium">⚠️ 카테고리를 먼저 선택하세요</div>
             </div>
           )}
+          {category && templateOptions.length === 0 && !showAddForm && (
+            <div className="col-span-full bg-yellow-50 border-2 border-yellow-200 rounded-lg p-6 text-center">
+              <div className="text-yellow-600 text-lg font-medium">
+                ⚠️ {category} 카테고리에 템플릿이 없습니다. 템플릿을 추가해주세요.
+              </div>
+            </div>
+          )}
           {templateOptions.map(([key, label]) => {
-            const isDbTemplate = !!dbTemplateIds[category]?.[key];
+            // DB 템플릿만 표시되므로 모든 템플릿에 수정/삭제 버튼 표시
+            const templateId = dbTemplateIds[category]?.[key];
             return (
               <div
                 key={key}
@@ -498,7 +550,7 @@ export default function SmsSender({ selectedCustomer, onSuccess }: SmsSenderProp
                   onClick={() => handleTemplateSelect(key as SmsTemplateKey)}
                   title={label}
                 >
-                  <div className="whitespace-pre-line text-base leading-relaxed pr-8">
+                  <div className="whitespace-pre-line text-base leading-relaxed pr-16">
                     {/* \n을 실제 줄바꿈으로 처리 */}
                     {label.replace(/\\n/g, '\n').split('\n').map((line, idx, arr) => (
                       <span key={idx} className={templateKey === key ? 'text-blue-800 font-medium' : 'text-gray-700'}>
@@ -507,8 +559,8 @@ export default function SmsSender({ selectedCustomer, onSuccess }: SmsSenderProp
                     ))}
                   </div>
                 </button>
-                {/* 수정/삭제 버튼 (DB 템플릿만) */}
-                {isDbTemplate && (
+                {/* 수정/삭제 버튼 (모든 DB 템플릿에 표시) */}
+                {templateId && (
                   <div className="absolute top-2 right-2 flex gap-1">
                     <button
                       type="button"
