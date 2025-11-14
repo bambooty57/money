@@ -77,18 +77,18 @@ export async function GET() {
     // 3. 상위 미수금 고객 (최적화된 단일 쿼리)
     let topCustomers = [];
     try {
-      // 모든 데이터를 한 번에 조회하여 N+1 쿼리 문제 해결
+      // 모든 고객을 조회하고 거래 데이터를 함께 가져오기
       const { data: customersWithData, error: customerError } = await supabase
         .from('customers')
         .select(`
           *,
-          transactions!inner(
+          transactions(
             id, 
             amount, 
             status, 
             payments(amount)
           ),
-          files!left(
+          files(
             url
           )
         `)
@@ -100,55 +100,42 @@ export async function GET() {
       }
       
       if (customersWithData && customersWithData.length > 0) {
-        // 고객별로 데이터 그룹화 및 미수금 계산
-        const customerMap = new Map();
-        
-        customersWithData.forEach((item: any) => {
-          const customerId = item.id;
+        // 고객별로 미수금 계산
+        topCustomers = customersWithData.map((customer: any) => {
+          // transactions는 배열로 반환됨
+          const transactions = Array.isArray(customer.transactions) ? customer.transactions : [];
+          // files도 배열로 반환됨
+          const files = Array.isArray(customer.files) ? customer.files : [];
           
-          if (!customerMap.has(customerId)) {
-            customerMap.set(customerId, {
-              ...item,
-              transactions: [],
-              photos: [],
-              unpaidAmount: 0
-            });
-          }
-          
-          // 거래 데이터 추가
-          if (item.transactions) {
-            customerMap.get(customerId).transactions.push(item.transactions);
-          }
-          
-          // 사진 데이터 추가 (중복 제거)
-          if (item.files && item.files.url) {
-            const existingPhotos = customerMap.get(customerId).photos;
-            if (!existingPhotos.some((photo: any) => photo.url === item.files.url)) {
-              existingPhotos.push(item.files);
-            }
-          }
-        });
-        
-        // 미수금 계산 및 정렬
-        topCustomers = Array.from(customerMap.values()).map(customer => {
+          // 미수금 계산 (미수금이 있는 거래만)
           let unpaidAmount = 0;
-          if (customer.transactions) {
-            customer.transactions.forEach((tx: any) => {
-              const paid = (tx.payments || []).reduce((sum: any, p: any) => sum + (p.amount || 0), 0);
+          transactions.forEach((tx: any) => {
+            // status가 'paid'가 아닌 거래만 계산
+            if (tx.status !== 'paid') {
+              const paid = Array.isArray(tx.payments) 
+                ? tx.payments.reduce((sum: any, p: any) => sum + (p.amount || 0), 0)
+                : 0;
               const unpaid = (tx.amount || 0) - paid;
-              unpaidAmount += unpaid > 0 ? unpaid : 0;
-            });
-          }
+              if (unpaid > 0) {
+                unpaidAmount += unpaid;
+              }
+            }
+          });
           
           return {
             ...customer,
-            unpaidAmount,
-            photos: customer.photos.slice(0, 3) // 최대 3개만
+            transactions: transactions.filter((tx: any) => tx.status !== 'paid'), // 미수금 거래만
+            photos: files.map((f: any) => ({ url: f.url })).slice(0, 3), // 최대 3개만
+            unpaidAmount
           };
-        }).sort((a, b) => b.unpaidAmount - a.unpaidAmount);
+        })
+        .filter(customer => customer.unpaidAmount > 0) // 미수금이 있는 고객만 필터링
+        .sort((a, b) => b.unpaidAmount - a.unpaidAmount); // 미수금 많은 순으로 정렬
         
-        console.log('✅ 최적화된 고객 데이터:', topCustomers.length, '명');
+        console.log('✅ 최적화된 고객 데이터:', topCustomers.length, '명 (미수금 있는 고객)');
+        console.log('📊 상위 5명 미수금:', topCustomers.slice(0, 5).map(c => ({ name: c.name, unpaid: c.unpaidAmount })));
       } else {
+        console.log('⚠️ 고객 데이터가 없습니다');
         throw new Error('고객 데이터가 없습니다');
       }
     } catch (error) {

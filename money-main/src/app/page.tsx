@@ -572,6 +572,7 @@ export default function DashboardPage() {
               <span>💰 총 미수금액:</span>
               <span className="text-xl md:text-3xl text-red-600">₩{data.topCustomers.reduce((sum, c) => sum + (c.unpaidAmount || 0), 0).toLocaleString()}</span>
             </div>
+            {top10.length > 0 ? (
             <Bar
               data={{
                 labels: customerLabels,
@@ -629,6 +630,12 @@ export default function DashboardPage() {
               }}
               plugins={[ChartDataLabels]}
             />
+            ) : (
+              <div className="bg-yellow-50 border-2 border-yellow-200 rounded-lg p-8 text-center">
+                <p className="text-xl md:text-2xl font-bold text-yellow-700 mb-2">⚠️ 미수금이 있는 고객이 없습니다</p>
+                <p className="text-lg text-yellow-600">거래 데이터를 확인해주세요.</p>
+              </div>
+            )}
           </div>
 
         {/* 상위 고객 상세 테이블 */}
@@ -636,6 +643,7 @@ export default function DashboardPage() {
           <h3 className="text-xl md:text-2xl font-bold mb-4 md:mb-6 text-gray-800 flex items-center gap-2">
             📋 상위 고객 상세 정보
           </h3>
+          {data.topCustomers && data.topCustomers.length > 0 ? (
           <div className="overflow-x-auto -mx-4 md:mx-0">
             <table className="w-full text-sm md:text-lg border-collapse min-w-[800px]">
               <thead>
@@ -731,6 +739,12 @@ export default function DashboardPage() {
               </tbody>
             </table>
           </div>
+          ) : (
+            <div className="bg-yellow-50 border-2 border-yellow-200 rounded-lg p-8 text-center">
+              <p className="text-xl md:text-2xl font-bold text-yellow-700 mb-2">⚠️ 미수금이 있는 고객이 없습니다</p>
+              <p className="text-lg text-yellow-600">거래 데이터를 확인해주세요.</p>
+            </div>
+          )}
         </div>
 
         {/* 거래 상태별 합계 차트 - 임시 비활성화 */}
