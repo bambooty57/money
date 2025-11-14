@@ -144,6 +144,20 @@ export default function StatementPage() {
 
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // 📅 거래목록을 일자별로 정렬 (오름차순: 오래된 것부터)
+  const sortedTransactions = useMemo(() => {
+    return [...transactions].sort((a, b) => {
+      const dateA = a.created_at || a.date || '';
+      const dateB = b.created_at || b.date || '';
+      // 일자가 없으면 맨 뒤로
+      if (!dateA && !dateB) return 0;
+      if (!dateA) return 1;
+      if (!dateB) return -1;
+      // 일자 오름차순 정렬
+      return dateA.localeCompare(dateB);
+    });
+  }, [transactions]);
+
   // 🆕 데이터 변경 시 입금 선택 상태 초기화
   useEffect(() => {
     setSelectedPaymentIds(new Set());
@@ -153,7 +167,7 @@ export default function StatementPage() {
   // 🆕 선택된 입금에 따라 전체 선택 체크박스 상태 업데이트
   useEffect(() => {
     const allPaymentIds = new Set<string>();
-    transactions.forEach(tx => {
+    sortedTransactions.forEach(tx => {
       if (Array.isArray(tx.payments)) {
         tx.payments.forEach(p => {
           if (p.id) allPaymentIds.add(p.id);
@@ -166,7 +180,7 @@ export default function StatementPage() {
     } else {
       setSelectAllPayments(false);
     }
-  }, [selectedPaymentIds, transactions]);
+  }, [selectedPaymentIds, sortedTransactions]);
 
   // 1. 고객 목록 불러오기 (refreshKey 변경 시에도 갱신)
   useEffect(() => {
@@ -448,7 +462,7 @@ export default function StatementPage() {
   const handleSelectAllPayments = (checked: boolean) => {
     if (checked) {
       const allPaymentIds = new Set<string>();
-      transactions.forEach(tx => {
+      sortedTransactions.forEach(tx => {
         if (Array.isArray(tx.payments)) {
           tx.payments.forEach(p => {
             if (p.id) allPaymentIds.add(p.id);
@@ -503,7 +517,7 @@ export default function StatementPage() {
 
   // 🆕 PDF 다운로드 핸들러
   const handlePdfDownload = useCallback(async () => {
-    if (!selectedCustomer || !customerData || !transactions.length) {
+    if (!selectedCustomer || !customerData || !sortedTransactions.length) {
       alert('고객을 선택하고 거래내역이 있어야 PDF를 생성할 수 있습니다.');
       return;
     }
@@ -521,13 +535,13 @@ export default function StatementPage() {
       };
 
       // 입금내역 수집
-      const allPayments = transactions.flatMap(tx => 
+      const allPayments = sortedTransactions.flatMap(tx => 
         Array.isArray(tx.payments) ? tx.payments : []
       );
 
       const pdfBlob = await generateStatementPdf({
         customer: customerData,
-        transactions,
+        transactions: sortedTransactions,
         payments: allPayments,
         supplier: supplierInfo,
         title: '거래명세서',
@@ -548,13 +562,13 @@ export default function StatementPage() {
       console.error('PDF 생성 오류:', error);
       alert('PDF 생성 중 오류가 발생했습니다: ' + (error as Error).message);
     }
-  }, [selectedCustomer, customerData, transactions]);
+  }, [selectedCustomer, customerData, sortedTransactions]);
 
   // 3. 엑셀 다운로드
   const handleExcelDownload = () => {
-    if (!transactions.length) return;
+    if (!sortedTransactions.length) return;
     const excelRows: any[] = [];
-    transactions.forEach((tx) => {
+    sortedTransactions.forEach((tx) => {
       // 거래 기본 정보 행
       excelRows.push({
         일자: tx.created_at?.slice(0, 10) || "",
@@ -754,7 +768,7 @@ export default function StatementPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {transactions.map((tx, idx) => (
+              {sortedTransactions.map((tx, idx) => (
                 <React.Fragment key={tx.id}>
                   <TableRow className="bg-red-50 ring-2 ring-red-200 rounded-xl shadow hover:bg-red-100 min-h-[72px] transition-all duration-200">
                     <TableCell className="text-center align-middle px-4 py-8 bg-red-50 w-16"></TableCell>
