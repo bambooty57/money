@@ -573,6 +573,7 @@ export default function DashboardPage() {
               <span className="text-xl md:text-3xl text-red-600">₩{data.topCustomers.reduce((sum, c) => sum + (c.unpaidAmount || 0), 0).toLocaleString()}</span>
             </div>
             {top10.length > 0 ? (
+            <div className="w-full overflow-x-auto" style={{ height: '500px', minHeight: '400px', maxHeight: '600px' }}>
             <Bar
               data={{
                 labels: customerLabels,
@@ -630,6 +631,7 @@ export default function DashboardPage() {
               }}
               plugins={[ChartDataLabels]}
             />
+            </div>
             ) : (
               <div className="bg-yellow-50 border-2 border-yellow-200 rounded-lg p-8 text-center">
                 <p className="text-xl md:text-2xl font-bold text-yellow-700 mb-2">⚠️ 미수금이 있는 고객이 없습니다</p>
