@@ -165,14 +165,28 @@ export async function GET(request: Request) {
         }
       });
 
-      // 미수금 계산
+      // 미수금 계산: 고객별 총매출과 총입금을 계산한 후 차이를 구함 (음수 잔액 포함)
+      const customerTotals = new Map<string, { total_amount: number; total_paid: number }>();
+      
       (allTransactions || []).forEach(tx => {
+        if (!tx.customer_id) return;
+        
         const paid = (tx.payments || []).reduce((sum: number, p: any) => sum + (p.amount || 0), 0);
-        const unpaid = (tx.amount || 0) - paid;
-        if (unpaid > 0 && tx.customer_id) {
-          const currentUnpaid = unpaidByCustomer.get(tx.customer_id) || 0;
-          unpaidByCustomer.set(tx.customer_id, currentUnpaid + unpaid);
+        const amount = tx.amount || 0;
+        
+        if (!customerTotals.has(tx.customer_id)) {
+          customerTotals.set(tx.customer_id, { total_amount: 0, total_paid: 0 });
         }
+        
+        const totals = customerTotals.get(tx.customer_id)!;
+        totals.total_amount += amount;
+        totals.total_paid += paid;
+      });
+      
+      // 고객별 미수금 계산 (총매출 - 총입금, 음수 포함)
+      customerTotals.forEach((totals, customerId) => {
+        const unpaid = totals.total_amount - totals.total_paid;
+        unpaidByCustomer.set(customerId, unpaid);
       });
 
       // 고객 데이터에 정보 추가
