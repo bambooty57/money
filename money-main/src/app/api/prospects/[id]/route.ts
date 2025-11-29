@@ -7,7 +7,7 @@ const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
 export async function PUT(
   request: Request,
-  { params }: { params: { id: string } }
+  context: any
 ) {
   try {
     const body = await request.json();
@@ -29,7 +29,7 @@ export async function PUT(
     const { data, error } = await supabase
       .from('customer_prospects')
       .update(updateData)
-      .eq('id', params.id)
+      .eq('id', context.params.id)
       .select()
       .single();
 
@@ -53,7 +53,7 @@ export async function PUT(
 
 export async function DELETE(
   request: Request,
-  { params }: { params: { id: string } }
+  context: any
 ) {
   try {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
@@ -61,7 +61,7 @@ export async function DELETE(
     const { error } = await supabase
       .from('customer_prospects')
       .delete()
-      .eq('id', params.id);
+      .eq('id', context.params.id);
 
     if (error) {
       console.error('Delete error:', error);
