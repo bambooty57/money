@@ -631,7 +631,7 @@ export function CustomerForm({ onSuccess, open, setOpen, customer }: CustomerFor
               ))}
               {(!formData.prospects || formData.prospects.length === 0) && (
                 <div className="text-center py-8 text-gray-500">
-                  가망기종 정보가 없습니다. "➕ 가망기종 추가" 버튼을 클릭하여 추가하세요.
+                  가망기종 정보가 없습니다. &quot;➕ 가망기종 추가&quot; 버튼을 클릭하여 추가하세요.
                 </div>
               )}
             </div>
