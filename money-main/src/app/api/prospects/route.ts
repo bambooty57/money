@@ -2,8 +2,34 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '@/types/database';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+// 하드코딩된 Supabase 설정 (환경 변수 문제 해결)
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://jcqdjkxllgiedjqxryoq.supabase.co';
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpjcWRqa3hsbGdpZWRqcXhyeW9xIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTAwNzI0NTMsImV4cCI6MjA2NTY0ODQ1M30.WQA3Ycqeq8f-4RsWOCwP12iZ4HE-U1oAIpnHh63VJeA';
+// Service Role Key는 환경변수에서만 가져옴 (보안상 하드코딩 금지)
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+// 인증된 Supabase 클라이언트 생성 헬퍼 함수
+function createAuthenticatedClient(accessToken?: string) {
+  // Service Role Key가 있으면 사용 (RLS 우회)
+  if (supabaseServiceKey) {
+    return createClient<Database>(supabaseUrl, supabaseServiceKey);
+  }
+  // 없으면 anon key + access token 사용
+  return createClient<Database>(supabaseUrl, supabaseAnonKey, {
+    global: {
+      headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
+    },
+  });
+}
+
+// Authorization 헤더에서 토큰 추출
+function extractToken(request: Request): string | undefined {
+  const authHeader = request.headers.get('Authorization');
+  if (authHeader?.startsWith('Bearer ')) {
+    return authHeader.substring(7);
+  }
+  return undefined;
+}
 
 export async function GET(request: Request) {
   try {
@@ -16,7 +42,8 @@ export async function GET(request: Request) {
     const sortBy = searchParams.get('sortBy') || 'created_at';
     const sortOrder = searchParams.get('sortOrder') || 'desc';
 
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const accessToken = extractToken(request);
+    const supabase = createAuthenticatedClient(accessToken);
 
     // 기본 쿼리 구성 (관계 조회는 별도로 처리)
     let query = supabase
@@ -129,7 +156,12 @@ export async function POST(request: Request) {
       );
     }
 
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const accessToken = extractToken(request);
+    const supabase = createAuthenticatedClient(accessToken);
+    
+    console.log('🔍 가망고객 저장 요청:', { customer_id, prospect_device_type, prospect_device_model, current_device_model });
+    console.log('🔑 Service Role Key 존재:', !!supabaseServiceKey);
+    console.log('🎫 Access Token 존재:', !!accessToken);
 
     // 항상 새 레코드 생성 (같은 고객이 같은 기종을 여러 개 등록할 수 있도록)
     const insertData: Database['public']['Tables']['customer_prospects']['Insert'] = {
@@ -147,13 +179,17 @@ export async function POST(request: Request) {
       .single();
 
     if (error) {
-      console.error('Insert error:', error);
+      console.error('❌ Insert error:', error);
+      console.error('❌ Error code:', error.code);
+      console.error('❌ Error details:', error.details);
+      console.error('❌ Error hint:', error.hint);
       return NextResponse.json(
-        { error: 'Failed to create prospect', details: error.message },
+        { error: 'Failed to create prospect', details: error.message, code: error.code, hint: error.hint },
         { status: 500 }
       );
     }
 
+    console.log('✅ 가망고객 저장 성공:', data);
     return NextResponse.json(data, { status: 201 });
   } catch (error) {
     console.error('API error:', error);
@@ -176,7 +212,8 @@ export async function DELETE(request: Request) {
       );
     }
 
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const accessToken = extractToken(request);
+    const supabase = createAuthenticatedClient(accessToken);
 
     const { error } = await supabase
       .from('customer_prospects')

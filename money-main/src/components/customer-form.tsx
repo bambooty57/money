@@ -368,7 +368,7 @@ export function CustomerForm({ onSuccess, open, setOpen, customer }: CustomerFor
           // 각 가망기종 정보를 개별 레코드로 저장
           for (const prospect of (formData.prospects || [])) {
             if (prospect.device_type) {
-              await fetch('/api/prospects', {
+              const prospectResponse = await fetch('/api/prospects', {
                 method: 'POST',
                 headers: { 
                   'Content-Type': 'application/json',
@@ -382,11 +382,20 @@ export function CustomerForm({ onSuccess, open, setOpen, customer }: CustomerFor
                   current_device_model_id: null,
                 }),
               });
+              
+              if (!prospectResponse.ok) {
+                const errorData = await prospectResponse.text();
+                console.error('가망고객 저장 API 에러:', prospectResponse.status, errorData);
+                throw new Error(`가망고객 정보 저장 실패: ${errorData}`);
+              }
+              
+              console.log('✅ 가망고객 정보 저장 성공:', prospect.device_type);
             }
           }
         } catch (prospectError) {
           console.error('가망고객 정보 저장 실패:', prospectError);
-          // 가망고객 정보 저장 실패는 경고만 하고 계속 진행
+          // 가망고객 정보 저장 실패 시 사용자에게 알림
+          alert('가망고객 정보 저장에 실패했습니다. 고객 정보는 저장되었습니다.');
         }
       } else if (customerResult.id && customer && customer.id) {
         // 가망기종이 비어있고 수정 모드인 경우, 기존 가망고객 정보 삭제

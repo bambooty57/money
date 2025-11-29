@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase';
+import { createClient, createServerClient } from '@/lib/supabase';
 
 export async function GET(_request: Request) {
   try {
@@ -25,14 +25,26 @@ export async function GET(_request: Request) {
 
 export async function POST(request: Request) {
   try {
+    // Authorization 헤더에서 토큰 추출
+    const authHeader = request.headers.get('authorization');
+    const token = authHeader?.replace('Bearer ', '');
+    
+    if (!token) {
+      return NextResponse.json(
+        { error: 'Authorization token required' }, 
+        { status: 401 }
+      );
+    }
+    
+    // 인증된 Supabase 클라이언트 생성
+    const supabase = createServerClient(token);
+    
     const body = await request.json();
     const { category, key, content } = body;
     
     if (!category || !key || !content) {
       return NextResponse.json({ error: 'category, key, content는 필수입니다.' }, { status: 400 });
     }
-    
-    const supabase = createClient();
     const { data, error } = await supabase
       .from('sms_templates')
       .insert([{ category, key, content }])
@@ -68,6 +80,20 @@ export async function POST(request: Request) {
 
 export async function DELETE(request: Request) {
   try {
+    // Authorization 헤더에서 토큰 추출
+    const authHeader = request.headers.get('authorization');
+    const token = authHeader?.replace('Bearer ', '');
+    
+    if (!token) {
+      return NextResponse.json(
+        { error: 'Authorization token required' }, 
+        { status: 401 }
+      );
+    }
+    
+    // 인증된 Supabase 클라이언트 생성
+    const supabase = createServerClient(token);
+    
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
     
@@ -76,8 +102,6 @@ export async function DELETE(request: Request) {
     if (!id) {
       return NextResponse.json({ error: 'id는 필수입니다.' }, { status: 400 });
     }
-    
-    const supabase = createClient();
     
     // 먼저 템플릿이 존재하는지 확인
     const { data: existing, error: checkError } = await supabase
@@ -134,6 +158,20 @@ export async function DELETE(request: Request) {
 
 export async function PUT(request: Request) {
   try {
+    // Authorization 헤더에서 토큰 추출
+    const authHeader = request.headers.get('authorization');
+    const token = authHeader?.replace('Bearer ', '');
+    
+    if (!token) {
+      return NextResponse.json(
+        { error: 'Authorization token required' }, 
+        { status: 401 }
+      );
+    }
+    
+    // 인증된 Supabase 클라이언트 생성
+    const supabase = createServerClient(token);
+    
     const body = await request.json();
     const { id, category, key, content } = body;
     
@@ -145,8 +183,6 @@ export async function PUT(request: Request) {
         received: { id: !!id, category: !!category, key: !!key, content: !!content }
       }, { status: 400 });
     }
-    
-    const supabase = createClient();
     
     // 먼저 템플릿이 존재하는지 확인
     const { data: existing, error: checkError } = await supabase

@@ -232,9 +232,22 @@ export default function SmsSender({ selectedCustomer, onSuccess }: SmsSenderProp
 
     try {
       setError(''); // 에러 초기화
+      
+      // Supabase 세션에서 액세스 토큰 가져오기
+      const supabase = createClient();
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session?.access_token) {
+        setError('로그인이 필요합니다.');
+        return;
+      }
+      
       const response = await fetch('/api/sms-templates', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
         body: JSON.stringify({
           category,
           key: templateKey,
@@ -338,9 +351,22 @@ export default function SmsSender({ selectedCustomer, onSuccess }: SmsSenderProp
 
     try {
       setError('');
+      
+      // Supabase 세션에서 액세스 토큰 가져오기
+      const supabase = createClient();
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session?.access_token) {
+        setError('로그인이 필요합니다.');
+        return;
+      }
+      
       const response = await fetch('/api/sms-templates', {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
         body: JSON.stringify({
           id: editingTemplateId,
           category,
@@ -404,8 +430,21 @@ export default function SmsSender({ selectedCustomer, onSuccess }: SmsSenderProp
 
     try {
       setError(''); // 에러 초기화
+      
+      // Supabase 세션에서 액세스 토큰 가져오기
+      const supabase = createClient();
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session?.access_token) {
+        setError('로그인이 필요합니다.');
+        return;
+      }
+      
       const response = await fetch(`/api/sms-templates?id=${templateId}`, {
-        method: 'DELETE'
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`
+        }
       });
 
       if (!response.ok) {

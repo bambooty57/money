@@ -2,8 +2,31 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '@/types/database';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+// 하드코딩된 Supabase 설정 (환경 변수 문제 해결)
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://jcqdjkxllgiedjqxryoq.supabase.co';
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpjcWRqa3hsbGdpZWRqcXhyeW9xIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTAwNzI0NTMsImV4cCI6MjA2NTY0ODQ1M30.WQA3Ycqeq8f-4RsWOCwP12iZ4HE-U1oAIpnHh63VJeA';
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+// 인증된 Supabase 클라이언트 생성 헬퍼 함수
+function createAuthenticatedClient(accessToken?: string) {
+  if (supabaseServiceKey) {
+    return createClient<Database>(supabaseUrl, supabaseServiceKey);
+  }
+  return createClient<Database>(supabaseUrl, supabaseAnonKey, {
+    global: {
+      headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
+    },
+  });
+}
+
+// Authorization 헤더에서 토큰 추출
+function extractToken(request: Request): string | undefined {
+  const authHeader = request.headers.get('Authorization');
+  if (authHeader?.startsWith('Bearer ')) {
+    return authHeader.substring(7);
+  }
+  return undefined;
+}
 
 export async function PUT(
   request: Request,
@@ -13,7 +36,8 @@ export async function PUT(
     const body = await request.json();
     const { prospect_device_type, current_device_model_id } = body;
 
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const accessToken = extractToken(request);
+    const supabase = createAuthenticatedClient(accessToken);
 
     const updateData: Database['public']['Tables']['customer_prospects']['Update'] = {
       updated_at: new Date().toISOString(),
@@ -56,7 +80,8 @@ export async function DELETE(
   context: any
 ) {
   try {
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const accessToken = extractToken(request);
+    const supabase = createAuthenticatedClient(accessToken);
 
     const { error } = await supabase
       .from('customer_prospects')

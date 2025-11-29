@@ -38,3 +38,26 @@ VALUES
   ('기타', '구보다_콤바인점검', '{고객명}님, 구보다농기계 영암대리점입니다.\n가을 수확 준비되셨나요?\n콤바인 사전점검으로 고장 없이 수확하세요!\n점검 상담은 010-2602-3276으로 연락 부탁드립니다.')
 ON CONFLICT (category, key) DO NOTHING;
 
+-- RLS 정책 설정
+ALTER TABLE sms_templates ENABLE ROW LEVEL SECURITY;
+
+-- 조회 정책 (모든 사용자 허용)
+CREATE POLICY "모든 사용자는 SMS 템플릿을 조회할 수 있습니다"
+  ON sms_templates FOR SELECT
+  USING (true);
+
+-- 생성 정책 (인증된 사용자만)
+CREATE POLICY "인증된 사용자는 SMS 템플릿을 생성할 수 있습니다"
+  ON sms_templates FOR INSERT
+  WITH CHECK (auth.role() = 'authenticated');
+
+-- 수정 정책 (인증된 사용자만)
+CREATE POLICY "인증된 사용자는 SMS 템플릿을 수정할 수 있습니다"
+  ON sms_templates FOR UPDATE
+  USING (auth.role() = 'authenticated');
+
+-- 삭제 정책 (인증된 사용자만)
+CREATE POLICY "인증된 사용자는 SMS 템플릿을 삭제할 수 있습니다"
+  ON sms_templates FOR DELETE
+  USING (auth.role() = 'authenticated');
+
