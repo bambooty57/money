@@ -256,6 +256,18 @@ function CustomerDetailModal({ customer, open, onClose }: { customer: any, open:
             </div>
           )}
 
+          {/* 메모 */}
+          {customer.memo && (
+            <div className="bg-indigo-50 p-6 rounded-lg border-2 border-indigo-200">
+              <h3 className="text-xl font-bold text-indigo-800 mb-4 flex items-center gap-2">
+                📝 메모
+              </h3>
+              <p className="text-base text-gray-800 whitespace-pre-wrap break-words bg-white p-4 rounded-lg border border-indigo-200">
+                {customer.memo}
+              </p>
+            </div>
+          )}
+
           {/* SMS 발송 내역 */}
           <div className="bg-yellow-50 p-6 rounded-lg border-2 border-yellow-200">
             <h3 className="text-xl font-bold text-yellow-800 mb-4 flex items-center gap-2">
@@ -312,6 +324,7 @@ function PaginatedCustomerListInner({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+  const [prospectsMap, setProspectsMap] = useState<Record<string, Array<{prospect_device_type: string, current_device_model: {model: string, type: string} | null}>>>({});
   
   // 개선된 검색 관련 상태
   const [searchHistory, setSearchHistory] = useState<SearchHistory[]>([]);
@@ -578,6 +591,48 @@ function PaginatedCustomerListInner({
       setRefreshing(false);
     }
   }, [searchParams, router, pageSize, sortBy, sortOrder]);
+
+  // 가망고객 정보 로드
+  useEffect(() => {
+    async function fetchProspects() {
+      if (!data?.data) return;
+      
+      const map: Record<string, Array<{
+        prospect_device_type: string;
+        prospect_device_model: string[] | null;
+        current_device_model: string | null;
+        current_device_model_id: {model: string, type: string} | null;
+      }>> = {};
+      
+      // 각 고객의 가망고객 정보 조회
+      for (const customer of data.data) {
+        try {
+          const res = await fetch(`/api/prospects?customer_id=${customer.id}`);
+          const prospectsData = await res.json();
+          if (prospectsData.data && prospectsData.data.length > 0) {
+            map[customer.id] = prospectsData.data.map((p: any) => ({
+              prospect_device_type: p.prospect_device_type,
+              prospect_device_model: Array.isArray(p.prospect_device_model) ? p.prospect_device_model : 
+                (p.prospect_device_model ? [p.prospect_device_model] : null),
+              current_device_model: p.current_device_model || null,
+              current_device_model_id: p.models_types ? {
+                model: p.models_types.model,
+                type: p.models_types.type,
+              } : null,
+            }));
+          }
+        } catch (error) {
+          console.error(`고객 ${customer.id}의 가망고객 정보 로드 실패:`, error);
+        }
+      }
+      
+      setProspectsMap(map);
+    }
+    
+    if (data?.data) {
+      fetchProspects();
+    }
+  }, [data]);
 
   // 초기 로딩 및 의존성 변경 시 데이터 페칭
   useEffect(() => {
@@ -970,6 +1025,41 @@ function PaginatedCustomerListInner({
                 </div>
               </div>
 
+              {/* 가망기종 현황 */}
+              {prospectsMap[customer.id] && prospectsMap[customer.id].length > 0 && (
+                <div className="bg-orange-50 p-4 rounded-lg border-2 border-orange-200 mb-4">
+                  <h4 className="text-lg font-bold text-orange-800 mb-2 flex items-center gap-2">
+                    🎯 가망기종 현황
+                  </h4>
+                  <div className="flex flex-wrap gap-2">
+                    {prospectsMap[customer.id].map((prospect, idx) => (
+                      <div key={idx} className="flex flex-col gap-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="bg-orange-200 text-orange-800 px-2 py-1 rounded text-sm font-semibold">
+                            가망기종: {prospect.prospect_device_type}
+                          </span>
+                          {prospect.prospect_device_model && prospect.prospect_device_model.length > 0 && (
+                            <>
+                              {prospect.prospect_device_model.map((model, modelIdx) => (
+                                <span key={modelIdx} className="bg-orange-300 text-orange-900 px-2 py-1 rounded text-sm font-semibold">
+                                  모델: {model}
+                                </span>
+                              ))}
+                            </>
+                          )}
+                        </div>
+                        {(prospect.current_device_model || prospect.current_device_model_id) && (
+                          <span className="bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs">
+                            현재보유 모델: {prospect.current_device_model || 
+                              (prospect.current_device_model_id ? `${prospect.current_device_model_id.model} / ${prospect.current_device_model_id.type}` : '')}
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* 미수금 정보 */}
               <div className="bg-red-50 p-4 rounded-lg border-2 border-red-200 mb-4">
                                   <div className="flex items-center justify-between">
@@ -987,6 +1077,18 @@ function PaginatedCustomerListInner({
                   </div>
                 </div>
               </div>
+
+              {/* 메모 */}
+              {customer.memo && (
+                <div className="bg-indigo-50 p-4 rounded-lg border-2 border-indigo-200 mb-4">
+                  <h4 className="text-lg font-bold text-indigo-800 mb-2 flex items-center gap-2">
+                    📝 메모
+                  </h4>
+                  <p className="text-base text-gray-800 whitespace-pre-wrap break-words">
+                    {customer.memo}
+                  </p>
+                </div>
+              )}
 
               {/* 연락처 정보 */}
               <div className="bg-indigo-50 p-4 rounded-lg border-2 border-indigo-200 mb-4">

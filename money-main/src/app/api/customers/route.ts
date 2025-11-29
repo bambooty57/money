@@ -274,6 +274,7 @@ export async function POST(request: Request) {
       customer_type: body.customer_type,
       customer_type_multi: body.customer_type_multi,
       fax: body.fax,
+      memo: body.memo,
     };
     const { data, error } = await supabase
       .from('customers')

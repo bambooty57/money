@@ -11,6 +11,7 @@ const navigationItems = [
   { href: '/statement', label: '거래명세서', prefetch: true },
   { href: '/customers', label: '고객 관리', prefetch: true },
   { href: '/transactions', label: '거래 관리', prefetch: true },
+  { href: '/prospects', label: '가망고객', prefetch: true },
 ] as const;
 
 // 성능 최적화: 로딩 스켈레톤 컴포넌트
@@ -24,7 +25,7 @@ function NavigationSkeleton() {
               <div className="h-6 w-32 bg-gray-200 rounded"></div>
             </div>
             <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
-              {Array.from({ length: 4 }).map((_, i) => (
+              {Array.from({ length: 5 }).map((_, i) => (
                 <div key={i} className="inline-flex items-center px-1 pt-1">
                   <div className="h-4 w-16 bg-gray-200 rounded"></div>
                 </div>

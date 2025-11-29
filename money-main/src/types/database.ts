@@ -54,6 +54,7 @@ export type Database = {
           fax: string | null
           id: string
           is_admin: boolean | null
+          memo: string | null
           mobile: string | null
           name: string
           phone: string
@@ -74,6 +75,7 @@ export type Database = {
           fax?: string | null
           id?: string
           is_admin?: boolean | null
+          memo?: string | null
           mobile?: string | null
           name: string
           phone: string
@@ -94,6 +96,7 @@ export type Database = {
           fax?: string | null
           id?: string
           is_admin?: boolean | null
+          memo?: string | null
           mobile?: string | null
           name?: string
           phone?: string
@@ -242,6 +245,54 @@ export type Database = {
           type?: string
         }
         Relationships: []
+      }
+      customer_prospects: {
+        Row: {
+          id: string
+          customer_id: string
+          prospect_device_type: string
+          prospect_device_model: string[] | null
+          current_device_model: string | null
+          current_device_model_id: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          customer_id: string
+          prospect_device_type: string
+          prospect_device_model?: string[] | null
+          current_device_model?: string | null
+          current_device_model_id?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          customer_id?: string
+          prospect_device_type?: string
+          prospect_device_model?: string[] | null
+          current_device_model?: string | null
+          current_device_model_id?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_prospects_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_prospects_current_device_model_id_fkey"
+            columns: ["current_device_model_id"]
+            isOneToOne: false
+            referencedRelation: "models_types"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       payments: {
         Row: {

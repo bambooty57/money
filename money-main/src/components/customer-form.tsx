@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
-import { ProductModelTypeDropdown } from './product-model-type-autocomplete'
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Alert } from './ui/alert';
@@ -37,6 +36,12 @@ export function CustomerForm({ onSuccess, open, setOpen, customer }: CustomerFor
     address_road: '',
     address_jibun: '',
     zipcode: '',
+    memo: '',
+    prospects: [] as Array<{
+      device_type: string;
+      model: string;
+      current_model: string;
+    }>,
   });
   const [photos, setPhotos] = useState<(File | { id: string; url: string })[]>([]);
   const [addressSearchOpen, setAddressSearchOpen] = useState(false);
@@ -208,6 +213,45 @@ export function CustomerForm({ onSuccess, open, setOpen, customer }: CustomerFor
       const files = await res.json();
       return Array.isArray(files) ? files.map((f: any) => ({ id: f.id, url: f.url })) : [];
     }
+
+    async function fetchProspectData(customerId: string) {
+      const prospectsRes = await fetch(`/api/prospects?customer_id=${customerId}`);
+      const prospectsData = await prospectsRes.json();
+      if (prospectsData.data && prospectsData.data.length > 0) {
+        // 모든 가망기종 정보를 배열로 변환
+        const prospects = (prospectsData.data || []).map((p: any) => {
+          // 현재보유 모델 텍스트 생성
+          let currentModel = '';
+          if (p.models_types) {
+            currentModel = `${p.models_types.model} / ${p.models_types.type}`;
+          } else if (p.current_device_model) {
+            currentModel = p.current_device_model;
+          }
+          
+          // 가망모델 처리 (배열이면 첫 번째만, 문자열이면 그대로)
+          let model = '';
+          if (p.prospect_device_model) {
+            if (Array.isArray(p.prospect_device_model) && p.prospect_device_model.length > 0) {
+              model = p.prospect_device_model[0]; // 첫 번째 모델만 사용
+            } else if (typeof p.prospect_device_model === 'string') {
+              model = p.prospect_device_model;
+            }
+          }
+          
+          return {
+            device_type: p.prospect_device_type || '',
+            model: model,
+            current_model: currentModel,
+          };
+        });
+        
+        setFormData(prev => ({
+          ...prev,
+          prospects: prospects || [],
+        }));
+      }
+    }
+
     if (customer) {
       setFormData({
         name: customer.name || '',
@@ -222,15 +266,21 @@ export function CustomerForm({ onSuccess, open, setOpen, customer }: CustomerFor
         address_road: customer.address_road || '',
         address_jibun: customer.address_jibun || '',
         zipcode: customer.zipcode || '',
+        memo: customer.memo || '',
+        prospects: [],
       });
+      
+      // 가망고객 정보 로드
       if (customer.id) {
+        fetchProspectData(customer.id);
         fetchExistingPhotos(customer.id).then(setPhotos);
       } else {
         setPhotos([]);
       }
     } else {
       setFormData({
-        name: '', customer_type: '', customer_type_custom: '', ssn: '', business_name: '', business_no: '', mobile: '', phone: '', fax: '', address_road: '', address_jibun: '', zipcode: '',
+        name: '', customer_type: '', customer_type_custom: '', ssn: '', business_name: '', business_no: '', mobile: '', phone: '', fax: '', address_road: '', address_jibun: '', zipcode: '', memo: '',
+        prospects: [],
       });
       setPhotos([]);
     }
@@ -299,7 +349,75 @@ export function CustomerForm({ onSuccess, open, setOpen, customer }: CustomerFor
       if (newFiles.length > 0 && customerResult.id) {
         await uploadPhotos(newFiles, customerResult.id);
       }
-      setFormData({ name: '', customer_type: '', customer_type_custom: '', ssn: '', business_name: '', business_no: '', mobile: '', phone: '', fax: '', address_road: '', address_jibun: '', zipcode: '', });
+      
+      // 가망고객 정보 저장/업데이트 (여러 개 저장)
+      if (customerResult.id && formData.prospects && formData.prospects.length > 0) {
+        try {
+          // 기존 가망고객 정보 삭제 (편집 시)
+          if (customer && customer.id) {
+            await fetch(`/api/prospects?customer_id=${customerResult.id}`, {
+              method: 'DELETE',
+              headers: { 
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+              },
+            }).catch(() => {}); // 삭제 실패는 무시 (없을 수도 있음)
+          }
+          
+          // 각 가망기종 정보를 개별 레코드로 저장
+          for (const prospect of (formData.prospects || [])) {
+            if (prospect.device_type) {
+              await fetch('/api/prospects', {
+                method: 'POST',
+                headers: { 
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                  customer_id: customerResult.id,
+                  prospect_device_type: prospect.device_type,
+                  prospect_device_model: prospect.model ? [prospect.model] : null,
+                  current_device_model: prospect.current_model || null,
+                  current_device_model_id: null,
+                }),
+              });
+            }
+          }
+        } catch (prospectError) {
+          console.error('가망고객 정보 저장 실패:', prospectError);
+          // 가망고객 정보 저장 실패는 경고만 하고 계속 진행
+        }
+      } else if (customerResult.id && customer && customer.id) {
+        // 가망기종이 비어있고 수정 모드인 경우, 기존 가망고객 정보 삭제
+        try {
+          await fetch(`/api/prospects?customer_id=${customerResult.id}`, {
+            method: 'DELETE',
+            headers: { 
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+          }).catch(() => {}); // 삭제 실패는 무시
+        } catch (prospectError) {
+          console.error('가망고객 정보 삭제 실패:', prospectError);
+        }
+      }
+      
+      setFormData({ 
+        name: '', 
+        customer_type: '', 
+        customer_type_custom: '', 
+        ssn: '', 
+        business_name: '', 
+        business_no: '', 
+        mobile: '', 
+        phone: '', 
+        fax: '', 
+        address_road: '', 
+        address_jibun: '', 
+        zipcode: '', 
+        memo: '',
+        prospects: [] 
+      });
       setPhotos([]);
       
       // 성공 콜백을 먼저 호출하여 데이터 새로고침
@@ -410,6 +528,113 @@ export function CustomerForm({ onSuccess, open, setOpen, customer }: CustomerFor
             <input id="address_jibun" type="text" value={formData.address_jibun} onChange={e => setFormData(prev => ({ ...prev, address_jibun: e.target.value }))} className="w-full border-2 border-yellow-300 rounded-lg px-4 py-3 text-lg mb-1 focus:border-yellow-500 focus:ring-2 focus:ring-yellow-200" placeholder="지번주소" title="지번주소" />
             <label className="text-lg font-semibold mb-1" htmlFor="zipcode">우편번호</label>
             <input id="zipcode" type="text" value={formData.zipcode} onChange={e => setFormData(prev => ({ ...prev, zipcode: e.target.value }))} className="w-full border-2 border-yellow-300 rounded-lg px-4 py-3 text-lg mb-1 focus:border-yellow-500 focus:ring-2 focus:ring-yellow-200" placeholder="우편번호" title="우편번호" />
+          </div>
+          {/* 메모 */}
+          <div className="bg-indigo-50 rounded-lg p-8 border-2 border-indigo-200 shadow-lg flex flex-col gap-4 w-full max-w-5xl mx-auto">
+            <label className="text-xl font-bold mb-2 flex items-center gap-2">📝 메모 <span className="text-gray-500 text-base font-normal">(선택사항)</span></label>
+            <textarea
+              value={formData.memo}
+              onChange={e => setFormData(prev => ({ ...prev, memo: e.target.value }))}
+              className="w-full border-2 border-indigo-300 rounded-lg px-4 py-3 text-lg min-h-[120px] focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 resize-y"
+              placeholder="고객에 대한 메모를 입력하세요..."
+              title="메모"
+            />
+          </div>
+          {/* 가망기종 정보 */}
+          <div className="bg-orange-50 rounded-lg p-8 border-2 border-orange-200 shadow-lg flex flex-col gap-4 w-full max-w-5xl mx-auto">
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-xl font-bold flex items-center gap-2">🚜 가망기종 정보 <span className="text-gray-500 text-base font-normal">(선택사항)</span></label>
+              <button
+                type="button"
+                onClick={() => {
+                  setFormData(prev => ({
+                    ...prev,
+                    prospects: [...(prev.prospects || []), { device_type: '', model: '', current_model: '' }]
+                  }));
+                }}
+                className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 text-lg font-bold"
+                title="가망기종 정보 추가"
+              >
+                ➕ 가망기종 추가
+              </button>
+            </div>
+            <div className="flex flex-col gap-4">
+              {(formData.prospects || []).map((prospect, index) => (
+                <div key={index} className="bg-white rounded-lg p-6 border-2 border-orange-300 shadow-md">
+                  <div className="flex items-center justify-between mb-4">
+                    <h4 className="text-lg font-bold text-orange-800">가망기종 정보 {index + 1}</h4>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const newProspects = (formData.prospects || []).filter((_, i) => i !== index);
+                        setFormData(prev => ({ ...prev, prospects: newProspects }));
+                      }}
+                      className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 text-base font-bold"
+                      title="삭제"
+                    >
+                      삭제
+                    </button>
+                  </div>
+                  <div className="flex flex-col gap-4">
+                    <div>
+                      <label className="text-lg font-semibold mb-2 flex items-center gap-2">가망기종</label>
+                      <select
+                        value={prospect.device_type}
+                        onChange={e => {
+                          const newProspects = [...(formData.prospects || [])];
+                          newProspects[index] = { ...newProspects[index], device_type: e.target.value };
+                          setFormData(prev => ({ ...prev, prospects: newProspects }));
+                        }}
+                        className="w-full border-2 border-orange-300 rounded-lg px-4 py-3 text-lg focus:border-orange-500 focus:ring-2 focus:ring-orange-200"
+                        title="가망기종 선택"
+                      >
+                        <option value="">선택하세요</option>
+                        <option value="트랙터">트랙터</option>
+                        <option value="콤바인">콤바인</option>
+                        <option value="이앙기">이앙기</option>
+                        <option value="작업기">작업기</option>
+                        <option value="기타">기타</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-lg font-semibold mb-2 flex items-center gap-2">가망모델</label>
+                      <input
+                        type="text"
+                        value={prospect.model}
+                        onChange={e => {
+                          const newProspects = [...(formData.prospects || [])];
+                          newProspects[index] = { ...newProspects[index], model: e.target.value };
+                          setFormData(prev => ({ ...prev, prospects: newProspects }));
+                        }}
+                        className="w-full border-2 border-orange-300 rounded-lg px-4 py-3 text-lg focus:border-orange-500 focus:ring-2 focus:ring-orange-200"
+                        placeholder="가망모델 입력 (예: L47H, ER575K 등)"
+                        title="가망모델 입력"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-lg font-semibold mb-2 flex items-center gap-2">현재보유 모델</label>
+                      <input
+                        type="text"
+                        value={prospect.current_model}
+                        onChange={e => {
+                          const newProspects = [...(formData.prospects || [])];
+                          newProspects[index] = { ...newProspects[index], current_model: e.target.value };
+                          setFormData(prev => ({ ...prev, prospects: newProspects }));
+                        }}
+                        className="w-full border-2 border-orange-300 rounded-lg px-4 py-3 text-lg focus:border-orange-500 focus:ring-2 focus:ring-orange-200"
+                        placeholder="현재보유 모델을 입력하세요 (예: L45SV / 트랙터)"
+                        title="현재보유 모델 입력"
+                      />
+                    </div>
+                  </div>
+                </div>
+              ))}
+              {(!formData.prospects || formData.prospects.length === 0) && (
+                <div className="text-center py-8 text-gray-500">
+                  가망기종 정보가 없습니다. "➕ 가망기종 추가" 버튼을 클릭하여 추가하세요.
+                </div>
+              )}
+            </div>
           </div>
           {/* 사진 */}
           <div className="bg-indigo-50 rounded-lg p-8 border-2 border-indigo-200 shadow-lg flex flex-col gap-4 w-full max-w-5xl mx-auto">
