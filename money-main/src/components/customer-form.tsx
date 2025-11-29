@@ -309,9 +309,10 @@ export function CustomerForm({ onSuccess, open, setOpen, customer }: CustomerFor
         throw new Error('인증이 필요합니다. 다시 로그인해주세요.');
       }
 
-      // payload 정제: undefined/null → ''
+      // payload 정제: undefined/null → '', prospects 제외
+      const { prospects, ...customerData } = formData;
       const rawPayload = {
-        ...formData,
+        ...customerData,
         customer_type: formData.customer_type === '직접입력' ? formData.customer_type_custom : formData.customer_type,
       };
       const payload = Object.fromEntries(
