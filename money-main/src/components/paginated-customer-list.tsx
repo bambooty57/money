@@ -324,7 +324,12 @@ function PaginatedCustomerListInner({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
-  const [prospectsMap, setProspectsMap] = useState<Record<string, Array<{prospect_device_type: string, current_device_model: {model: string, type: string} | null}>>>({});
+  const [prospectsMap, setProspectsMap] = useState<Record<string, Array<{
+    prospect_device_type: string;
+    prospect_device_model: string[] | null;
+    current_device_model: string | null;
+    current_device_model_id: {model: string, type: string} | null;
+  }>>>({});
   
   // 개선된 검색 관련 상태
   const [searchHistory, setSearchHistory] = useState<SearchHistory[]>([]);
