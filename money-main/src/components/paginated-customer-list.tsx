@@ -329,7 +329,18 @@ function PaginatedCustomerListInner({
     prospect_device_model: string[] | null;
     current_device_model: string | null;
     current_device_model_id: {model: string, type: string} | null;
+    memo: string | null;
+    created_at: string | null;
   }>>>({});
+  
+  // 기종 정렬 순서 정의
+  const DEVICE_ORDER: Record<string, number> = {
+    '트랙터': 1,
+    '콤바인': 2,
+    '이앙기': 3,
+    '작업기': 4,
+    '기타': 5,
+  };
   
   // 개선된 검색 관련 상태
   const [searchHistory, setSearchHistory] = useState<SearchHistory[]>([]);
@@ -607,6 +618,8 @@ function PaginatedCustomerListInner({
         prospect_device_model: string[] | null;
         current_device_model: string | null;
         current_device_model_id: {model: string, type: string} | null;
+        memo: string | null;
+        created_at: string | null;
       }>> = {};
       
       // 각 고객의 가망고객 정보 조회
@@ -615,7 +628,7 @@ function PaginatedCustomerListInner({
           const res = await fetch(`/api/prospects?customer_id=${customer.id}`);
           const prospectsData = await res.json();
           if (prospectsData.data && prospectsData.data.length > 0) {
-            map[customer.id] = prospectsData.data.map((p: any) => ({
+            const prospects = prospectsData.data.map((p: any) => ({
               prospect_device_type: p.prospect_device_type,
               prospect_device_model: Array.isArray(p.prospect_device_model) ? p.prospect_device_model : 
                 (p.prospect_device_model ? [p.prospect_device_model] : null),
@@ -624,7 +637,23 @@ function PaginatedCustomerListInner({
                 model: p.models_types.model,
                 type: p.models_types.type,
               } : null,
+              memo: p.memo || null,
+              created_at: p.created_at || null,
             }));
+            
+            // 기종 순서로 정렬 (트랙터→콤바인→이앙기→작업기→기타), 같은 기종은 등록순서
+            prospects.sort((a: any, b: any) => {
+              const orderA = DEVICE_ORDER[a.prospect_device_type] || 99;
+              const orderB = DEVICE_ORDER[b.prospect_device_type] || 99;
+              if (orderA !== orderB) return orderA - orderB;
+              // 같은 기종일 경우 등록순서(created_at)로 정렬
+              if (a.created_at && b.created_at) {
+                return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+              }
+              return 0;
+            });
+            
+            map[customer.id] = prospects;
           }
         } catch (error) {
           console.error(`고객 ${customer.id}의 가망고객 정보 로드 실패:`, error);
@@ -1012,7 +1041,7 @@ function PaginatedCustomerListInner({
                 </div>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
+                  <div className="text-center">
                     <span className="text-sm font-semibold text-blue-700 block mb-1">🏷️ 고객유형</span>
                     <span className="text-lg font-semibold text-blue-800">
                       {Array.isArray(customer.customer_type_multi) && customer.customer_type_multi.length > 0 ? 
@@ -1021,7 +1050,7 @@ function PaginatedCustomerListInner({
                       }
                     </span>
                   </div>
-                  <div>
+                  <div className="text-center">
                     <span className="text-sm font-semibold text-blue-700 block mb-1">📊 거래건수</span>
                     <span className="text-xl font-bold text-purple-800">
                       {customer.transaction_count ?? 0}건
@@ -1058,6 +1087,11 @@ function PaginatedCustomerListInner({
                             현재보유 모델: {prospect.current_device_model || 
                               (prospect.current_device_model_id ? `${prospect.current_device_model_id.model} / ${prospect.current_device_model_id.type}` : '')}
                           </span>
+                        )}
+                        {prospect.memo && (
+                          <div className="w-full mt-1 bg-yellow-100 text-yellow-800 px-2 py-1 rounded text-xs whitespace-pre-wrap">
+                            📝 {prospect.memo}
+                          </div>
                         )}
                       </div>
                     ))}

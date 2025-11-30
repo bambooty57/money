@@ -309,9 +309,12 @@ function DeleteConfirmModal({
         return;
       }
 
-      alert('삭제되었습니다.');
-      onConfirm();
+      // Supabase 동기화를 위한 딜레이 후 새로고침
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
       onClose();
+      onConfirm();
+      alert('삭제되었습니다.');
     } catch (error) {
       console.error('삭제 중 오류:', error);
       alert('삭제 중 오류가 발생했습니다.');
@@ -387,15 +390,15 @@ function ProspectsPageContent() {
   const searchTerm = searchParams.get('search') || '';
   const deviceType = searchParams.get('deviceType') || '전체';
 
-  // 데이터 fetch 함수
+  // 데이터 fetch 함수 (캐시 무시하여 항상 최신 데이터)
   const fetchData = async () => {
     try {
-      // 통계
-      const statsRes = await fetch('/api/prospects/stats');
+      // 통계 (캐시 무시)
+      const statsRes = await fetch('/api/prospects/stats', { cache: 'no-store' });
       const statsData = await statsRes.json();
       setStats(statsData);
 
-      // 목록
+      // 목록 (캐시 무시)
       const params = new URLSearchParams({
         page: currentPage.toString(),
         pageSize: pageSize.toString(),
@@ -403,7 +406,7 @@ function ProspectsPageContent() {
         deviceType: deviceType === '전체' ? '' : deviceType,
       });
 
-      const res = await fetch(`/api/prospects?${params}`);
+      const res = await fetch(`/api/prospects?${params}`, { cache: 'no-store' });
       const result = await res.json();
       
       if (result.error) {
@@ -421,11 +424,11 @@ function ProspectsPageContent() {
     }
   };
 
-  // 통계 데이터 로드
+  // 통계 데이터 로드 (캐시 무시)
   useEffect(() => {
     async function fetchStats() {
       try {
-        const res = await fetch('/api/prospects/stats');
+        const res = await fetch('/api/prospects/stats', { cache: 'no-store' });
         const statsData = await res.json();
         setStats(statsData);
       } catch (error) {
@@ -435,7 +438,7 @@ function ProspectsPageContent() {
     fetchStats();
   }, []);
 
-  // 가망고객 목록 로드
+  // 가망고객 목록 로드 (캐시 무시)
   useEffect(() => {
     async function fetchProspects() {
       setLoading(true);
@@ -448,7 +451,7 @@ function ProspectsPageContent() {
         });
 
         console.log('🔍 가망고객 목록 API 호출:', `/api/prospects?${params}`);
-        const res = await fetch(`/api/prospects?${params}`);
+        const res = await fetch(`/api/prospects?${params}`, { cache: 'no-store' });
         const result = await res.json();
         
         console.log('📦 API 응답:', result);
@@ -557,7 +560,7 @@ function ProspectsPageContent() {
     >
       {/* 고객명 */}
       <td 
-        className="px-6 py-4 cursor-pointer"
+        className="px-6 py-4 cursor-pointer text-center"
         onClick={() => handleCustomerClick(prospect.customer_id)}
       >
         <div className="text-xl font-bold text-gray-800 hover:text-blue-600">{prospect.customers.name}</div>
@@ -606,9 +609,9 @@ function ProspectsPageContent() {
         </div>
       </td>
       {/* 메모 */}
-      <td className="px-4 py-4 max-w-[200px]">
+      <td className="px-4 py-4 min-w-[200px] max-w-[300px]">
         {prospect.memo ? (
-          <div className="text-sm text-gray-600 truncate" title={prospect.memo}>
+          <div className="text-sm text-gray-600 whitespace-pre-wrap break-words leading-relaxed">
             📝 {prospect.memo}
           </div>
         ) : (
