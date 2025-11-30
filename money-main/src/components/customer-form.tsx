@@ -41,6 +41,7 @@ export function CustomerForm({ onSuccess, open, setOpen, customer }: CustomerFor
       device_type: string;
       model: string;
       current_model: string;
+      memo: string;
     }>,
   });
   const [photos, setPhotos] = useState<(File | { id: string; url: string })[]>([]);
@@ -242,6 +243,7 @@ export function CustomerForm({ onSuccess, open, setOpen, customer }: CustomerFor
             device_type: p.prospect_device_type || '',
             model: model,
             current_model: currentModel,
+            memo: p.memo || '',
           };
         });
         
@@ -380,6 +382,7 @@ export function CustomerForm({ onSuccess, open, setOpen, customer }: CustomerFor
                 prospect_device_model: prospect.model ? [prospect.model] : null,
                 current_device_model: prospect.current_model || null,
                 current_device_model_id: null,
+                memo: prospect.memo || null,
               };
               
               console.log('📝 가망고객 INSERT 데이터:', insertData);
@@ -572,7 +575,7 @@ export function CustomerForm({ onSuccess, open, setOpen, customer }: CustomerFor
                 onClick={() => {
                   setFormData(prev => ({
                     ...prev,
-                    prospects: [...(prev.prospects || []), { device_type: '', model: '', current_model: '' }]
+                    prospects: [...(prev.prospects || []), { device_type: '', model: '', current_model: '', memo: '' }]
                   }));
                 }}
                 className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 text-base font-bold whitespace-nowrap flex-shrink-0"
@@ -647,6 +650,20 @@ export function CustomerForm({ onSuccess, open, setOpen, customer }: CustomerFor
                         className="w-full border-2 border-orange-300 rounded-lg px-4 py-3 text-lg focus:border-orange-500 focus:ring-2 focus:ring-orange-200"
                         placeholder="현재보유 모델을 입력하세요 (예: L45SV / 트랙터)"
                         title="현재보유 모델 입력"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-lg font-semibold mb-2 flex items-center gap-2">📝 메모</label>
+                      <textarea
+                        value={prospect.memo || ''}
+                        onChange={e => {
+                          const newProspects = [...(formData.prospects || [])];
+                          newProspects[index] = { ...newProspects[index], memo: e.target.value };
+                          setFormData(prev => ({ ...prev, prospects: newProspects }));
+                        }}
+                        className="w-full border-2 border-orange-300 rounded-lg px-4 py-3 text-lg focus:border-orange-500 focus:ring-2 focus:ring-orange-200 min-h-[80px] resize-y"
+                        placeholder="구매 예정 시기, 예산, 특이사항 등을 메모하세요"
+                        title="메모 입력"
                       />
                     </div>
                   </div>

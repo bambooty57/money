@@ -16,6 +16,7 @@ type Prospect = {
   prospect_device_model: string[] | null;
   current_device_model: string | null;
   current_device_model_id: string | null;
+  memo: string | null;
   created_at: string;
   updated_at: string;
   customers: {
@@ -122,6 +123,7 @@ function EditProspectModal({
   const [deviceType, setDeviceType] = useState<string>('');
   const [prospectModel, setProspectModel] = useState<string>('');
   const [currentModel, setCurrentModel] = useState<string>('');
+  const [memo, setMemo] = useState<string>('');
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -129,6 +131,7 @@ function EditProspectModal({
       setDeviceType(prospect.prospect_device_type);
       setProspectModel(prospect.prospect_device_model?.join(', ') || '');
       setCurrentModel(prospect.current_device_model || '');
+      setMemo(prospect.memo || '');
     }
   }, [prospect, isOpen]);
 
@@ -141,6 +144,7 @@ function EditProspectModal({
         prospect_device_type: deviceType as '트랙터' | '콤바인' | '이앙기' | '작업기' | '기타',
         prospect_device_model: prospectModel ? prospectModel.split(',').map(m => m.trim()).filter(m => m) : null,
         current_device_model: currentModel || null,
+        memo: memo || null,
         updated_at: new Date().toISOString(),
       };
 
@@ -236,6 +240,19 @@ function EditProspectModal({
               onChange={(e) => setCurrentModel(e.target.value)}
               placeholder="예: L45SV / 트랙터"
               className="w-full border-2 border-blue-300 rounded-lg px-4 py-3 text-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+            />
+          </div>
+
+          {/* 메모 */}
+          <div>
+            <label className="block text-lg font-bold text-gray-700 mb-2">
+              📝 메모
+            </label>
+            <textarea
+              value={memo}
+              onChange={(e) => setMemo(e.target.value)}
+              placeholder="구매 예정 시기, 예산, 특이사항 등을 메모하세요"
+              className="w-full border-2 border-blue-300 rounded-lg px-4 py-3 text-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 min-h-[100px] resize-y"
             />
           </div>
         </div>
@@ -588,6 +605,16 @@ function ProspectsPageContent() {
           {prospect.customers.address_road || prospect.customers.address_jibun || '-'}
         </div>
       </td>
+      {/* 메모 */}
+      <td className="px-4 py-4 max-w-[200px]">
+        {prospect.memo ? (
+          <div className="text-sm text-gray-600 truncate" title={prospect.memo}>
+            📝 {prospect.memo}
+          </div>
+        ) : (
+          <span className="text-gray-300 text-sm">-</span>
+        )}
+      </td>
       {/* 등록일 */}
       <td className="px-6 py-4 text-base text-gray-500 text-center">
         {new Date(prospect.created_at).toLocaleDateString('ko-KR')}
@@ -623,6 +650,7 @@ function ProspectsPageContent() {
         <th className="px-6 py-4 text-center text-lg font-bold text-gray-700">📦 보유모델</th>
         <th className="px-6 py-4 text-center text-lg font-bold text-gray-700">연락처</th>
         <th className="px-6 py-4 text-center text-lg font-bold text-gray-700">주소</th>
+        <th className="px-4 py-4 text-center text-lg font-bold text-gray-700">📝 메모</th>
         <th className="px-6 py-4 text-center text-lg font-bold text-gray-700">등록일</th>
         <th className="px-4 py-4 text-center text-lg font-bold text-gray-700">관리</th>
       </tr>

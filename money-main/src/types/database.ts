@@ -254,6 +254,7 @@ export type Database = {
           prospect_device_model: string[] | null
           current_device_model: string | null
           current_device_model_id: string | null
+          memo: string | null
           created_at: string
           updated_at: string
         }
@@ -264,6 +265,7 @@ export type Database = {
           prospect_device_model?: string[] | null
           current_device_model?: string | null
           current_device_model_id?: string | null
+          memo?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -274,6 +276,7 @@ export type Database = {
           prospect_device_model?: string[] | null
           current_device_model?: string | null
           current_device_model_id?: string | null
+          memo?: string | null
           created_at?: string
           updated_at?: string
         }
