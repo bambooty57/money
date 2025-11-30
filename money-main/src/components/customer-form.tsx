@@ -561,9 +561,12 @@ export function CustomerForm({ onSuccess, open, setOpen, customer }: CustomerFor
             />
           </div>
           {/* 가망기종 정보 */}
-          <div className="bg-orange-50 rounded-lg p-8 border-2 border-orange-200 shadow-lg flex flex-col gap-4 w-full max-w-5xl mx-auto">
-            <div className="flex items-center justify-between mb-2">
-              <label className="text-xl font-bold flex items-center gap-2">🚜 가망기종 정보 <span className="text-gray-500 text-base font-normal">(선택사항)</span></label>
+          <div className="bg-orange-50 rounded-lg p-6 border-2 border-orange-200 shadow-lg flex flex-col gap-4 w-full max-w-5xl mx-auto">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-2">
+              <label className="text-xl font-bold flex items-center gap-2 whitespace-nowrap">
+                🚜 가망기종 정보
+                <span className="text-gray-500 text-sm font-normal">(선택)</span>
+              </label>
               <button
                 type="button"
                 onClick={() => {
@@ -572,10 +575,10 @@ export function CustomerForm({ onSuccess, open, setOpen, customer }: CustomerFor
                     prospects: [...(prev.prospects || []), { device_type: '', model: '', current_model: '' }]
                   }));
                 }}
-                className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 text-lg font-bold"
+                className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 text-base font-bold whitespace-nowrap flex-shrink-0"
                 title="가망기종 정보 추가"
               >
-                ➕ 가망기종 추가
+                ➕ 추가
               </button>
             </div>
             <div className="flex flex-col gap-4">

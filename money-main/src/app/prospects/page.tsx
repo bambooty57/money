@@ -430,20 +430,25 @@ function ProspectsPageContent() {
           deviceType: deviceType === '전체' ? '' : deviceType,
         });
 
+        console.log('🔍 가망고객 목록 API 호출:', `/api/prospects?${params}`);
         const res = await fetch(`/api/prospects?${params}`);
         const result = await res.json();
         
+        console.log('📦 API 응답:', result);
+        console.log('📊 데이터 개수:', result.data?.length || 0);
+        
         if (result.error) {
-          console.error('API 에러:', result.error);
+          console.error('❌ API 에러:', result.error);
           setData({ data: [], pagination: { page: 1, pageSize, total: 0, totalPages: 0 } });
         } else {
           setData({
             data: Array.isArray(result.data) ? result.data : [],
             pagination: result.pagination || { page: 1, pageSize, total: 0, totalPages: 0 },
           });
+          console.log('✅ 데이터 설정 완료:', Array.isArray(result.data) ? result.data.length : 0, '건');
         }
       } catch (error) {
-        console.error('가망고객 목록 로드 실패:', error);
+        console.error('❌ 가망고객 목록 로드 실패:', error);
         setData({ data: [], pagination: { page: 1, pageSize, total: 0, totalPages: 0 } });
       } finally {
         setLoading(false);
