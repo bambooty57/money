@@ -351,45 +351,54 @@ export function CustomerForm({ onSuccess, open, setOpen, customer }: CustomerFor
         await uploadPhotos(newFiles, customerResult.id);
       }
       
-      // 가망고객 정보 저장/업데이트 (여러 개 저장)
+      // 가망고객 정보 저장/업데이트 (여러 개 저장) - Supabase 직접 사용 (RLS 인증 보장)
       if (customerResult.id && formData.prospects && formData.prospects.length > 0) {
         try {
+          console.log('🔍 가망고객 저장 시작 - customer_id:', customerResult.id);
+          console.log('🔍 가망고객 데이터:', formData.prospects);
+          
           // 기존 가망고객 정보 삭제 (편집 시)
           if (customer && customer.id) {
-            await fetch(`/api/prospects?customer_id=${customerResult.id}`, {
-              method: 'DELETE',
-              headers: { 
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
-              },
-            }).catch(() => {}); // 삭제 실패는 무시 (없을 수도 있음)
+            const { error: deleteError } = await supabase
+              .from('customer_prospects')
+              .delete()
+              .eq('customer_id', customerResult.id);
+            
+            if (deleteError) {
+              console.warn('기존 가망고객 삭제 실패 (무시):', deleteError);
+            } else {
+              console.log('✅ 기존 가망고객 정보 삭제 완료');
+            }
           }
           
           // 각 가망기종 정보를 개별 레코드로 저장
           for (const prospect of (formData.prospects || [])) {
             if (prospect.device_type) {
-              const prospectResponse = await fetch('/api/prospects', {
-                method: 'POST',
-                headers: { 
-                  'Content-Type': 'application/json',
-                  'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify({
-                  customer_id: customerResult.id,
-                  prospect_device_type: prospect.device_type,
-                  prospect_device_model: prospect.model ? [prospect.model] : null,
-                  current_device_model: prospect.current_model || null,
-                  current_device_model_id: null,
-                }),
-              });
+              const insertData = {
+                customer_id: customerResult.id,
+                prospect_device_type: prospect.device_type,
+                prospect_device_model: prospect.model ? [prospect.model] : null,
+                current_device_model: prospect.current_model || null,
+                current_device_model_id: null,
+              };
               
-              if (!prospectResponse.ok) {
-                const errorData = await prospectResponse.text();
-                console.error('가망고객 저장 API 에러:', prospectResponse.status, errorData);
-                throw new Error(`가망고객 정보 저장 실패: ${errorData}`);
+              console.log('📝 가망고객 INSERT 데이터:', insertData);
+              
+              const { data: insertedData, error: insertError } = await supabase
+                .from('customer_prospects')
+                .insert(insertData)
+                .select()
+                .single();
+              
+              if (insertError) {
+                console.error('❌ 가망고객 저장 Supabase 에러:', insertError);
+                console.error('❌ Error code:', insertError.code);
+                console.error('❌ Error details:', insertError.details);
+                console.error('❌ Error hint:', insertError.hint);
+                throw new Error(`가망고객 정보 저장 실패: ${insertError.message}`);
               }
               
-              console.log('✅ 가망고객 정보 저장 성공:', prospect.device_type);
+              console.log('✅ 가망고객 정보 저장 성공:', prospect.device_type, insertedData);
             }
           }
         } catch (prospectError) {
@@ -400,13 +409,14 @@ export function CustomerForm({ onSuccess, open, setOpen, customer }: CustomerFor
       } else if (customerResult.id && customer && customer.id) {
         // 가망기종이 비어있고 수정 모드인 경우, 기존 가망고객 정보 삭제
         try {
-          await fetch(`/api/prospects?customer_id=${customerResult.id}`, {
-            method: 'DELETE',
-            headers: { 
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`
-            },
-          }).catch(() => {}); // 삭제 실패는 무시
+          const { error: deleteError } = await supabase
+            .from('customer_prospects')
+            .delete()
+            .eq('customer_id', customerResult.id);
+          
+          if (deleteError) {
+            console.warn('가망고객 정보 삭제 실패 (무시):', deleteError);
+          }
         } catch (prospectError) {
           console.error('가망고객 정보 삭제 실패:', prospectError);
         }

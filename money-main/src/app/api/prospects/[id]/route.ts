@@ -34,7 +34,7 @@ export async function PUT(
 ) {
   try {
     const body = await request.json();
-    const { prospect_device_type, current_device_model_id } = body;
+    const { prospect_device_type, prospect_device_model, current_device_model, current_device_model_id } = body;
 
     const accessToken = extractToken(request);
     const supabase = createAuthenticatedClient(accessToken);
@@ -46,9 +46,17 @@ export async function PUT(
     if (prospect_device_type !== undefined) {
       updateData.prospect_device_type = prospect_device_type;
     }
+    if (prospect_device_model !== undefined) {
+      updateData.prospect_device_model = prospect_device_model;
+    }
+    if (current_device_model !== undefined) {
+      updateData.current_device_model = current_device_model || null;
+    }
     if (current_device_model_id !== undefined) {
       updateData.current_device_model_id = current_device_model_id || null;
     }
+
+    console.log('🔍 가망고객 수정 요청:', { id: context.params.id, updateData });
 
     const { data, error } = await supabase
       .from('customer_prospects')
@@ -58,13 +66,14 @@ export async function PUT(
       .single();
 
     if (error) {
-      console.error('Update error:', error);
+      console.error('❌ Update error:', error);
       return NextResponse.json(
         { error: 'Failed to update prospect', details: error.message },
         { status: 500 }
       );
     }
 
+    console.log('✅ 가망고객 수정 성공:', data);
     return NextResponse.json(data);
   } catch (error) {
     console.error('API error:', error);
