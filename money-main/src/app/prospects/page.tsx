@@ -485,10 +485,17 @@ function ProspectsPageContent() {
     fetchProspects();
   }, [currentPage, pageSize, searchTerm, deviceType]);
 
-  // 새로고침
+  // 새로고침 (검색어 초기화)
   const handleRefresh = async () => {
     setRefreshing(true);
-    await fetchData();
+    // 검색어 초기화
+    setLocalSearchTerm('');
+    // URL에서 검색 파라미터 제거
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete('search');
+    params.set('page', '1');
+    router.push(`?${params.toString()}`);
+    // 데이터 새로고침은 URL 변경으로 인한 useEffect에서 자동 처리됨
     setRefreshing(false);
   };
 
