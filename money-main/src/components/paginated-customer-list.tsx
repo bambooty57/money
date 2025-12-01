@@ -909,6 +909,9 @@ function PaginatedCustomerListInner({
     setRefreshing(true);
     
     try {
+      // 검색 입력 필드 초기화
+      setSearchInputValue('');
+      
       // URL 파라미터에서 search 제거
       const params = new URLSearchParams(searchParams.toString());
       params.delete('search');
@@ -1016,6 +1019,11 @@ function PaginatedCustomerListInner({
 
   // 검색 입력 상태 관리
   const [searchInputValue, setSearchInputValue] = useState(searchTerm);
+  
+  // URL 파라미터와 검색 입력 필드 동기화
+  useEffect(() => {
+    setSearchInputValue(searchTerm);
+  }, [searchTerm]);
   
   // 수동 검색 실행 함수
   const executeSearch = useCallback(() => {
