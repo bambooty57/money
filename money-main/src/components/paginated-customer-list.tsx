@@ -17,7 +17,39 @@ import {
 } from './ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
 import { useCustomersRealtime } from '@/lib/useCustomersRealtime';
+import { supabase } from '@/lib/supabase';
 import * as XLSX from 'xlsx';
+
+// 가망고객 타입 정의
+type Prospect = {
+  id: string;
+  customer_id: string;
+  prospect_device_type: '트랙터' | '콤바인' | '이앙기' | '작업기' | '기타';
+  prospect_device_model: string[] | null;
+  current_device_model: string | null;
+  current_device_model_id: string | null;
+  memo: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+const DEVICE_TYPES = ['트랙터', '콤바인', '이앙기', '작업기', '기타'] as const;
+
+const DEVICE_ICONS: Record<string, string> = {
+  트랙터: '🚜',
+  콤바인: '🌾',
+  이앙기: '🌱',
+  작업기: '⚙️',
+  기타: '📦',
+};
+
+const DEVICE_COLORS: Record<string, { bg: string; border: string; text: string }> = {
+  트랙터: { bg: 'bg-blue-50', border: 'border-blue-300', text: 'text-blue-700' },
+  콤바인: { bg: 'bg-green-50', border: 'border-green-300', text: 'text-green-700' },
+  이앙기: { bg: 'bg-purple-50', border: 'border-purple-300', text: 'text-purple-700' },
+  작업기: { bg: 'bg-orange-50', border: 'border-orange-300', text: 'text-orange-700' },
+  기타: { bg: 'bg-gray-50', border: 'border-gray-300', text: 'text-gray-700' },
+};
 
 // 디바운싱 유틸리티 함수
 function debounce<T extends (...args: any[]) => any>(
@@ -80,6 +112,19 @@ const openKakaoMap = (address: string) => {
 function CustomerDetailModal({ customer, open, onClose }: { customer: any, open: boolean, onClose: () => void }) {
   const [smsMessages, setSmsMessages] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  
+  // 가망고객 관련 상태
+  const [prospects, setProspects] = useState<Prospect[]>([]);
+  const [prospectsLoading, setProspectsLoading] = useState(false);
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [editingProspect, setEditingProspect] = useState<Prospect | null>(null);
+  
+  // 가망고객 폼 상태
+  const [formDeviceType, setFormDeviceType] = useState<string>('트랙터');
+  const [formProspectModel, setFormProspectModel] = useState('');
+  const [formCurrentModel, setFormCurrentModel] = useState('');
+  const [formMemo, setFormMemo] = useState('');
+  const [formSaving, setFormSaving] = useState(false);
 
   // 발송내역 fetch
   useEffect(() => {
@@ -91,6 +136,120 @@ function CustomerDetailModal({ customer, open, onClose }: { customer: any, open:
         .finally(() => setLoading(false));
     }
   }, [open, customer]);
+
+  // 가망고객 목록 조회
+  const fetchProspects = useCallback(async () => {
+    if (!customer?.id) return;
+    setProspectsLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('customer_prospects')
+        .select('*')
+        .eq('customer_id', customer.id)
+        .order('created_at', { ascending: false });
+      
+      if (error) {
+        console.error('가망고객 조회 오류:', error);
+      } else {
+        setProspects(data || []);
+      }
+    } catch (error) {
+      console.error('가망고객 조회 실패:', error);
+    } finally {
+      setProspectsLoading(false);
+    }
+  }, [customer?.id]);
+
+  useEffect(() => {
+    if (open && customer?.id) {
+      fetchProspects();
+    }
+  }, [open, customer?.id, fetchProspects]);
+
+  // 폼 초기화
+  const resetForm = () => {
+    setFormDeviceType('트랙터');
+    setFormProspectModel('');
+    setFormCurrentModel('');
+    setFormMemo('');
+    setShowAddForm(false);
+    setEditingProspect(null);
+  };
+
+  // 수정 모드 시작
+  const handleEditClick = (prospect: Prospect) => {
+    setEditingProspect(prospect);
+    setFormDeviceType(prospect.prospect_device_type);
+    setFormProspectModel(prospect.prospect_device_model?.join(', ') || '');
+    setFormCurrentModel(prospect.current_device_model || '');
+    setFormMemo(prospect.memo || '');
+    setShowAddForm(true);
+  };
+
+  // 가망고객 저장 (추가/수정)
+  const handleSaveProspect = async () => {
+    if (!customer?.id) return;
+    setFormSaving(true);
+    
+    try {
+      const prospectData = {
+        customer_id: customer.id,
+        prospect_device_type: formDeviceType as '트랙터' | '콤바인' | '이앙기' | '작업기' | '기타',
+        prospect_device_model: formProspectModel ? formProspectModel.split(',').map(m => m.trim()).filter(m => m) : null,
+        current_device_model: formCurrentModel || null,
+        memo: formMemo || null,
+      };
+
+      if (editingProspect) {
+        // 수정
+        const { error } = await supabase
+          .from('customer_prospects')
+          .update({
+            ...prospectData,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', editingProspect.id);
+
+        if (error) throw error;
+        alert('가망고객 정보가 수정되었습니다.');
+      } else {
+        // 추가
+        const { error } = await supabase
+          .from('customer_prospects')
+          .insert(prospectData);
+
+        if (error) throw error;
+        alert('가망고객 정보가 추가되었습니다.');
+      }
+
+      resetForm();
+      fetchProspects();
+    } catch (error: any) {
+      console.error('가망고객 저장 실패:', error);
+      alert('저장 실패: ' + (error.message || '알 수 없는 오류'));
+    } finally {
+      setFormSaving(false);
+    }
+  };
+
+  // 가망고객 삭제
+  const handleDeleteProspect = async (prospectId: string) => {
+    if (!confirm('이 가망고객 정보를 삭제하시겠습니까?')) return;
+    
+    try {
+      const { error } = await supabase
+        .from('customer_prospects')
+        .delete()
+        .eq('id', prospectId);
+
+      if (error) throw error;
+      alert('삭제되었습니다.');
+      fetchProspects();
+    } catch (error: any) {
+      console.error('가망고객 삭제 실패:', error);
+      alert('삭제 실패: ' + (error.message || '알 수 없는 오류'));
+    }
+  };
 
   if (!customer) return null;
   
@@ -215,6 +374,179 @@ function CustomerDetailModal({ customer, open, onClose }: { customer: any, open:
                 </div>
               )}
             </div>
+          </div>
+
+          {/* 🎯 가망고객 정보 */}
+          <div className="bg-orange-50 p-6 rounded-lg border-2 border-orange-300">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xl font-bold text-orange-800 flex items-center gap-2">
+                🎯 가망고객 정보 ({prospects.length}건)
+              </h3>
+              {!showAddForm && (
+                <button
+                  onClick={() => setShowAddForm(true)}
+                  className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors font-bold text-lg flex items-center gap-2"
+                >
+                  ➕ 추가
+                </button>
+              )}
+            </div>
+
+            {/* 추가/수정 폼 */}
+            {showAddForm && (
+              <div className="bg-white p-5 rounded-lg border-2 border-orange-200 mb-4">
+                <h4 className="text-lg font-bold text-orange-700 mb-4">
+                  {editingProspect ? '✏️ 가망고객 수정' : '➕ 가망고객 추가'}
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* 희망 기종 */}
+                  <div>
+                    <label className="block text-base font-bold text-orange-700 mb-2">희망 기종 *</label>
+                    <select
+                      value={formDeviceType}
+                      onChange={(e) => setFormDeviceType(e.target.value)}
+                      className="w-full px-4 py-3 border-2 border-orange-300 rounded-lg text-lg focus:border-orange-500 focus:ring-2 focus:ring-orange-200"
+                    >
+                      {DEVICE_TYPES.map((type) => (
+                        <option key={type} value={type}>
+                          {DEVICE_ICONS[type]} {type}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* 희망 모델 */}
+                  <div>
+                    <label className="block text-base font-bold text-orange-700 mb-2">희망 모델</label>
+                    <input
+                      type="text"
+                      value={formProspectModel}
+                      onChange={(e) => setFormProspectModel(e.target.value)}
+                      placeholder="예: M7131, M6040 (쉼표로 구분)"
+                      className="w-full px-4 py-3 border-2 border-orange-300 rounded-lg text-lg focus:border-orange-500 focus:ring-2 focus:ring-orange-200"
+                    />
+                  </div>
+
+                  {/* 현재 보유 기종 */}
+                  <div>
+                    <label className="block text-base font-bold text-orange-700 mb-2">현재 보유 기종</label>
+                    <input
+                      type="text"
+                      value={formCurrentModel}
+                      onChange={(e) => setFormCurrentModel(e.target.value)}
+                      placeholder="예: 대동 DK551"
+                      className="w-full px-4 py-3 border-2 border-orange-300 rounded-lg text-lg focus:border-orange-500 focus:ring-2 focus:ring-orange-200"
+                    />
+                  </div>
+
+                  {/* 메모 */}
+                  <div>
+                    <label className="block text-base font-bold text-orange-700 mb-2">메모</label>
+                    <input
+                      type="text"
+                      value={formMemo}
+                      onChange={(e) => setFormMemo(e.target.value)}
+                      placeholder="추가 정보 입력"
+                      className="w-full px-4 py-3 border-2 border-orange-300 rounded-lg text-lg focus:border-orange-500 focus:ring-2 focus:ring-orange-200"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex gap-3 mt-4 justify-end">
+                  <button
+                    onClick={resetForm}
+                    className="px-6 py-3 bg-gray-400 text-white rounded-lg hover:bg-gray-500 transition-colors font-bold text-lg"
+                  >
+                    취소
+                  </button>
+                  <button
+                    onClick={handleSaveProspect}
+                    disabled={formSaving}
+                    className="px-6 py-3 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors font-bold text-lg disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center gap-2"
+                  >
+                    {formSaving ? (
+                      <>
+                        <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
+                        저장 중...
+                      </>
+                    ) : (
+                      <>💾 {editingProspect ? '수정' : '저장'}</>
+                    )}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* 가망고객 목록 */}
+            {prospectsLoading ? (
+              <div className="text-center py-6">
+                <div className="animate-spin rounded-full h-8 w-8 border-2 border-orange-600 border-t-transparent mx-auto mb-2"></div>
+                <div className="text-orange-600">불러오는 중...</div>
+              </div>
+            ) : prospects.length === 0 ? (
+              <div className="text-center py-6 text-gray-500 bg-white rounded-lg border border-orange-200">
+                등록된 가망고객 정보가 없습니다.
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {prospects.map((prospect) => {
+                  const colors = DEVICE_COLORS[prospect.prospect_device_type] || DEVICE_COLORS['기타'];
+                  const icon = DEVICE_ICONS[prospect.prospect_device_type] || '📦';
+                  return (
+                    <div
+                      key={prospect.id}
+                      className={`${colors.bg} p-4 rounded-lg border-2 ${colors.border}`}
+                    >
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className="text-2xl">{icon}</span>
+                            <span className={`text-lg font-bold ${colors.text}`}>
+                              {prospect.prospect_device_type}
+                            </span>
+                            <span className="text-sm text-gray-500">
+                              {new Date(prospect.created_at).toLocaleDateString('ko-KR')}
+                            </span>
+                          </div>
+                          {prospect.prospect_device_model && prospect.prospect_device_model.length > 0 && (
+                            <div className="text-base mb-1">
+                              <span className="font-semibold text-gray-700">희망 모델:</span>{' '}
+                              <span className="text-gray-800">{prospect.prospect_device_model.join(', ')}</span>
+                            </div>
+                          )}
+                          {prospect.current_device_model && (
+                            <div className="text-base mb-1">
+                              <span className="font-semibold text-gray-700">현재 보유:</span>{' '}
+                              <span className="text-gray-800">{prospect.current_device_model}</span>
+                            </div>
+                          )}
+                          {prospect.memo && (
+                            <div className="text-base">
+                              <span className="font-semibold text-gray-700">메모:</span>{' '}
+                              <span className="text-gray-600">{prospect.memo}</span>
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex gap-2 ml-4">
+                          <button
+                            onClick={() => handleEditClick(prospect)}
+                            className="px-3 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors font-bold text-sm"
+                          >
+                            ✏️ 수정
+                          </button>
+                          <button
+                            onClick={() => handleDeleteProspect(prospect.id)}
+                            className="px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors font-bold text-sm"
+                          >
+                            🗑️ 삭제
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           {/* 거래 정보 */}
