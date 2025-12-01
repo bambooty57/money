@@ -45,6 +45,32 @@ export async function GET(request: Request) {
     const accessToken = extractToken(request);
     const supabase = createAuthenticatedClient(accessToken);
 
+    // 검색어가 있으면 먼저 customers 테이블에서 고객 ID 목록을 가져옴
+    let customerIds: string[] | null = null;
+    if (search) {
+      const { data: customerSearchData, error: customerSearchError } = await supabase
+        .from('customers')
+        .select('id')
+        .or(`name.ilike.%${search}%,mobile.ilike.%${search}%,phone.ilike.%${search}%`);
+      
+      if (customerSearchError) {
+        console.error('고객 검색 오류:', customerSearchError);
+      } else if (customerSearchData && customerSearchData.length > 0) {
+        customerIds = customerSearchData.map(c => c.id);
+      } else {
+        // 검색 결과가 없으면 빈 배열 반환
+        return NextResponse.json({
+          data: [],
+          pagination: {
+            page,
+            pageSize,
+            total: 0,
+            totalPages: 0,
+          },
+        });
+      }
+    }
+
     // 기본 쿼리 구성 (관계 조회는 별도로 처리)
     let query = supabase
       .from('customer_prospects')
@@ -65,6 +91,20 @@ export async function GET(request: Request) {
     // 고객 ID 필터
     if (customerId) {
       query = query.eq('customer_id', customerId);
+    } else if (customerIds && customerIds.length > 0) {
+      // 검색어로 찾은 고객 ID 목록으로 필터링
+      query = query.in('customer_id', customerIds);
+    } else if (search && (!customerIds || customerIds.length === 0)) {
+      // 검색어가 있지만 결과가 없으면 빈 결과 반환
+      return NextResponse.json({
+        data: [],
+        pagination: {
+          page,
+          pageSize,
+          total: 0,
+          totalPages: 0,
+        },
+      });
     }
 
     // 기종 필터
@@ -72,21 +112,13 @@ export async function GET(request: Request) {
       query = query.eq('prospect_device_type', deviceType);
     }
 
-    // 검색 필터 (고객명, 연락처)
-    if (search) {
-      query = query.or(`customers.name.ilike.%${search}%,customers.mobile.ilike.%${search}%,customers.phone.ilike.%${search}%`);
+    // 정렬 (이름 정렬은 나중에 메모리에서 처리)
+    if (sortBy !== 'name') {
+      query = query.order('created_at', { ascending: sortOrder === 'asc' });
     }
 
-    // 정렬
-    const orderColumn = sortBy === 'name' ? 'customers.name' : 'created_at';
-    query = query.order(orderColumn, { ascending: sortOrder === 'asc' });
-
-    // 페이지네이션
-    const from = (page - 1) * pageSize;
-    const to = from + pageSize - 1;
-    query = query.range(from, to);
-
-    const { data, error, count } = await query;
+    // 페이지네이션은 일단 전체 데이터를 가져온 후 처리
+    const { data: allData, error, count } = await query;
 
     if (error) {
       console.error('Database error:', error);
@@ -97,7 +129,7 @@ export async function GET(request: Request) {
     }
 
     // models_types 정보를 별도로 조회하여 매핑
-    const modelIds = [...new Set((data || [])
+    const modelIds = [...new Set((allData || [])
       .map(p => p.current_device_model_id)
       .filter((id): id is string => id !== null))];
 
@@ -118,20 +150,36 @@ export async function GET(request: Request) {
     }
 
     // 결과에 models_types 정보 추가
-    const enrichedData = (data || []).map(prospect => ({
+    let enrichedData = (allData || []).map(prospect => ({
       ...prospect,
       models_types: prospect.current_device_model_id 
         ? modelsTypesMap.get(prospect.current_device_model_id) || null
         : null,
     }));
 
+    // 이름으로 정렬 (메모리에서 처리)
+    if (sortBy === 'name') {
+      enrichedData = enrichedData.sort((a, b) => {
+        const aName = (a.customers as any)?.name || '';
+        const bName = (b.customers as any)?.name || '';
+        return sortOrder === 'asc' 
+          ? aName.localeCompare(bName, 'ko')
+          : bName.localeCompare(aName, 'ko');
+      });
+    }
+
+    // 페이지네이션 적용
+    const from = (page - 1) * pageSize;
+    const to = from + pageSize;
+    const paginatedData = enrichedData.slice(from, to);
+
     return NextResponse.json({
-      data: enrichedData,
+      data: paginatedData,
       pagination: {
         page,
         pageSize,
-        total: count || 0,
-        totalPages: Math.ceil((count || 0) / pageSize),
+        total: enrichedData.length,
+        totalPages: Math.ceil(enrichedData.length / pageSize),
       },
     });
   } catch (error: any) {
