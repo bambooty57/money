@@ -390,6 +390,14 @@ function ProspectsPageContent() {
   const searchTerm = searchParams.get('search') || '';
   const deviceType = searchParams.get('deviceType') || '전체';
 
+  // 로컬 검색어 상태 (한글 IME 조합 문제 해결)
+  const [localSearchTerm, setLocalSearchTerm] = useState(searchTerm);
+
+  // URL 파라미터와 로컬 상태 동기화
+  useEffect(() => {
+    setLocalSearchTerm(searchTerm);
+  }, [searchTerm]);
+
   // 데이터 fetch 함수 (캐시 무시하여 항상 최신 데이터)
   const fetchData = async () => {
     try {
@@ -487,7 +495,7 @@ function ProspectsPageContent() {
   // 검색 실행
   const handleSearch = () => {
     const params = new URLSearchParams(searchParams.toString());
-    params.set('search', searchTerm);
+    params.set('search', localSearchTerm);
     params.set('page', '1');
     router.push(`?${params.toString()}`);
   };
@@ -734,12 +742,8 @@ function ProspectsPageContent() {
               <Input
                 type="text"
                 placeholder="🔍 고객명, 연락처로 검색..."
-                value={searchTerm}
-                onChange={(e) => {
-                  const params = new URLSearchParams(searchParams.toString());
-                  params.set('search', e.target.value);
-                  router.push(`?${params.toString()}`);
-                }}
+                value={localSearchTerm}
+                onChange={(e) => setLocalSearchTerm(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
                     handleSearch();
