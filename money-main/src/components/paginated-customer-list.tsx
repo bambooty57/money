@@ -151,7 +151,8 @@ function CustomerDetailModal({ customer, open, onClose }: { customer: any, open:
       if (error) {
         console.error('가망고객 조회 오류:', error);
       } else {
-        setProspects(data || []);
+        // 타입 단언: Supabase에서 가져온 데이터를 Prospect 타입으로 변환
+        setProspects((data || []) as Prospect[]);
       }
     } catch (error) {
       console.error('가망고객 조회 실패:', error);
