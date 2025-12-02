@@ -1065,27 +1065,64 @@ function PaginatedCustomerListInner({
     router.push(`?${params.toString()}`);
   };
 
-  // 엑셀 다운로드 핸들러
+  // 엑셀 다운로드 핸들러 (전체 데이터 다운로드)
   const handleExcelDownload = async () => {
-    if (!data?.data) return;
-    
-    const excelRows = data.data.map(customer => ({
-      '고객명': customer.name,
-      '휴대폰': customer.mobile || '',
-      '전화번호': customer.phone || '',
-      '주소': customer.address_road || customer.address_jibun || '',
-      '사업자명': customer.business_name || '',
-      '대표자명': customer.representative_name || '',
-      '사업자번호': customer.business_no || '',
-      '거래건수': customer.transaction_count || 0,
-      '미수금': customer.total_unpaid || 0,
-      '등록일': customer.created_at?.slice(0, 10) || '',
-    }));
+    try {
+      // 전체 고객 데이터 가져오기 (페이지네이션 없이)
+      const params = new URLSearchParams({
+        page: '1',
+        pageSize: '10000', // 충분히 큰 값으로 전체 데이터 가져오기
+        search: searchInputValue,
+        sortBy: sortBy,
+        sortOrder: sortOrder,
+      });
 
-    const ws = XLSX.utils.json_to_sheet(excelRows);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, '고객목록');
-    XLSX.writeFile(wb, `고객목록_${new Date().toISOString().slice(0, 10)}.xlsx`);
+      const res = await fetch(`/api/customers?${params}`, { cache: 'no-store' });
+      const result = await res.json();
+      
+      if (result.error) {
+        alert('데이터를 가져오는 중 오류가 발생했습니다: ' + result.error);
+        return;
+      }
+
+      const allCustomers = Array.isArray(result.data) ? result.data : [];
+
+      if (allCustomers.length === 0) {
+        alert('다운로드할 고객 데이터가 없습니다.');
+        return;
+      }
+
+      // 엑셀 데이터 변환
+      const excelRows = allCustomers.map(customer => ({
+        '고객명': customer.name || '',
+        '고객유형': customer.customer_type || '',
+        '휴대폰': customer.mobile || '',
+        '전화번호': customer.phone || '',
+        '도로명주소': customer.address_road || '',
+        '지번주소': customer.address_jibun || '',
+        '우편번호': customer.zipcode || '',
+        '사업자명': customer.business_name || '',
+        '대표자명': customer.representative_name || '',
+        '사업자번호': customer.business_no || '',
+        '거래건수': customer.transaction_count || 0,
+        '미수금': customer.total_unpaid || 0,
+        '등록일': customer.created_at?.slice(0, 10) || '',
+      }));
+
+      // 엑셀 파일 생성
+      const ws = XLSX.utils.json_to_sheet(excelRows);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, '고객목록');
+      
+      // 파일명 생성
+      const dateStr = new Date().toISOString().slice(0, 10);
+      const fileName = `고객목록_${dateStr}.xlsx`;
+      
+      XLSX.writeFile(wb, fileName);
+    } catch (error) {
+      console.error('엑셀 다운로드 실패:', error);
+      alert('엑셀 다운로드 중 오류가 발생했습니다.');
+    }
   };
 
   // 체크박스 핸들러
@@ -1126,6 +1163,17 @@ function PaginatedCustomerListInner({
       <div className="bg-white rounded-lg shadow-lg p-6 mb-6 border-2 border-blue-200">
         <div className="flex flex-col lg:flex-row gap-6 justify-between items-center">
           <div className="flex-1 max-w-2xl">
+            {/* 엑셀 다운로드 버튼 */}
+            <div className="flex justify-end mb-3">
+              <button
+                onClick={handleExcelDownload}
+                disabled={!data?.data || data.data.length === 0}
+                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors text-sm font-semibold shadow-sm"
+                title="고객 정보 엑셀 다운로드"
+              >
+                📥 엑셀 다운로드
+              </button>
+            </div>
             <label className="block text-xl font-bold text-gray-700 mb-3">
               🔍 고객 검색 및 선택
             </label>
