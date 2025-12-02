@@ -10,19 +10,21 @@ export async function GET() {
     // Supabase 설정 확인 (하드코딩된 값 사용)
     console.log('✅ Supabase 설정 완료 (하드코딩된 값 사용)');
     
-    // 1. 총 미수금 계산 (최적화된 쿼리)
+    // 1. 총 미수금 계산 (거래관리/거래명세서와 동일한 방식)
     console.log('📊 거래 데이터 조회 시작');
     let totalUnpaid = 0;
+    let totalAmount = 0;
+    let totalPaid = 0;
     
     try {
-      // 미수금 거래만 조회하여 성능 향상
-      const { data: unpaidTransactions, error: txError } = await supabase
+      // 모든 거래 조회 (거래관리와 동일하게)
+      const { data: allTransactions, error: txError } = await supabase
         .from('transactions')
         .select('id, amount, payments(amount)')
-        .neq('status', 'paid'); // 이미 완료된 거래는 제외
+        .neq('status', 'deleted'); // 삭제된 거래만 제외
     
-      console.log('📊 미수금 거래 조회 결과:', { 
-        count: unpaidTransactions?.length || 0, 
+      console.log('📊 거래 데이터 조회 결과:', { 
+        count: allTransactions?.length || 0, 
         error: txError?.message || '없음' 
       });
     
@@ -31,13 +33,21 @@ export async function GET() {
         throw txError;
       }
         
-      if (unpaidTransactions && unpaidTransactions.length > 0) {
-        unpaidTransactions.forEach(tx => {
+      if (allTransactions && allTransactions.length > 0) {
+        // 거래관리/거래명세서와 동일한 계산 방식: total_amount - total_paid
+        allTransactions.forEach(tx => {
+          const amount = tx.amount || 0;
           const paid = (tx.payments || []).reduce((sum, p) => sum + (p.amount || 0), 0);
-          const unpaid = (tx.amount || 0) - paid;
-          totalUnpaid += unpaid > 0 ? unpaid : 0;
+          totalAmount += amount;
+          totalPaid += paid;
         });
-        console.log('✅ 최적화된 총 미수금 계산:', totalUnpaid);
+        // 정확한 미수금 계산: 전체 매출액 - 전체 입금액
+        totalUnpaid = totalAmount - totalPaid;
+        console.log('✅ 총 미수금 계산 (거래관리와 동일):', {
+          totalAmount,
+          totalPaid,
+          totalUnpaid
+        });
       } else {
         console.log('⚠️ 거래 데이터가 없습니다. 테스트 데이터 사용');
         totalUnpaid = 15000000;
