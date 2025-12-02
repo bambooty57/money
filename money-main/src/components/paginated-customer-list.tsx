@@ -1093,7 +1093,7 @@ function PaginatedCustomerListInner({
       }
 
       // 엑셀 데이터 변환
-      const excelRows = allCustomers.map(customer => ({
+      const excelRows = allCustomers.map((customer: Customer) => ({
         '고객명': customer.name || '',
         '고객유형': customer.customer_type || '',
         '휴대폰': customer.mobile || '',
