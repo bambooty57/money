@@ -8,6 +8,7 @@ import { Pagination } from '@/components/ui/pagination';
 import ScrollToTop from '@/components/ui/scroll-to-top';
 import { useCustomersRealtime } from '@/lib/useCustomersRealtime';
 import { supabase } from '@/lib/supabase';
+import * as XLSX from 'xlsx';
 
 type Prospect = {
   id: string;
@@ -546,6 +547,71 @@ function ProspectsPageContent() {
     handleRefresh();
   };
 
+  // 엑셀 다운로드 함수
+  const handleExcelDownload = async () => {
+    try {
+      // 전체 데이터 가져오기 (페이지네이션 없이)
+      const params = new URLSearchParams({
+        page: '1',
+        pageSize: '10000', // 충분히 큰 값으로 전체 데이터 가져오기
+        search: searchTerm,
+        deviceType: deviceType === '전체' ? '' : deviceType,
+      });
+
+      const res = await fetch(`/api/prospects?${params}`, { cache: 'no-store' });
+      const result = await res.json();
+      
+      if (result.error) {
+        alert('데이터를 가져오는 중 오류가 발생했습니다: ' + result.error);
+        return;
+      }
+
+      const allProspects = Array.isArray(result.data) ? result.data : [];
+
+      // 엑셀 데이터 변환
+      const dataToExport = allProspects.map((prospect: Prospect) => {
+        const customer = prospect.customers;
+        const prospectModels = prospect.prospect_device_model 
+          ? prospect.prospect_device_model.join(', ') 
+          : '미정';
+        const currentModel = prospect.current_device_model 
+          ? prospect.current_device_model 
+          : (prospect.models_types 
+            ? `${prospect.models_types.model} / ${prospect.models_types.type}` 
+            : '없음');
+        const contact = customer.mobile || customer.phone || '-';
+        const address = customer.address_road || customer.address_jibun || '-';
+
+        return {
+          '고객명': customer.name || '',
+          '고객유형': customer.customer_type || '',
+          '가망기종': prospect.prospect_device_type,
+          '가망모델': prospectModels,
+          '보유모델': currentModel,
+          '연락처': contact,
+          '주소': address,
+          '메모': prospect.memo || '',
+          '등록일': new Date(prospect.created_at).toLocaleDateString('ko-KR'),
+        };
+      });
+
+      // 엑셀 파일 생성
+      const ws = XLSX.utils.json_to_sheet(dataToExport);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, '가망고객명단');
+      
+      // 파일명 생성
+      const dateStr = new Date().toISOString().slice(0, 10);
+      const deviceTypeStr = deviceType === '전체' ? '전체' : deviceType;
+      const fileName = `가망고객명단_${deviceTypeStr}_${dateStr}.xlsx`;
+      
+      XLSX.writeFile(wb, fileName);
+    } catch (error) {
+      console.error('엑셀 다운로드 실패:', error);
+      alert('엑셀 다운로드 중 오류가 발생했습니다.');
+    }
+  };
+
   if (loading && !data) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -701,13 +767,21 @@ function ProspectsPageContent() {
           <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold text-gray-800 flex items-center gap-3">
             🎯 가망고객 관리
           </h1>
-          <Button
-            onClick={handleRefresh}
-            disabled={refreshing}
-            className="px-6 py-3 bg-green-600 hover:bg-green-700 text-lg font-bold"
-          >
-            {refreshing ? '🔄 새로고침 중...' : '🔄 새로고침'}
-          </Button>
+          <div className="flex gap-3">
+            <Button
+              onClick={handleExcelDownload}
+              className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-lg font-bold"
+            >
+              📥 엑셀 다운로드
+            </Button>
+            <Button
+              onClick={handleRefresh}
+              disabled={refreshing}
+              className="px-6 py-3 bg-green-600 hover:bg-green-700 text-lg font-bold"
+            >
+              {refreshing ? '🔄 새로고침 중...' : '🔄 새로고침'}
+            </Button>
+          </div>
         </div>
 
         {/* 통계 대시보드 - 클릭 가능한 필터 카드 */}

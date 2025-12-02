@@ -223,19 +223,23 @@ export function TransactionList() {
                 value={searchTerm}
                 onChange={(e) => {
                   setSearchTerm(e.target.value);
-                  setPage(1); // 검색 시 첫 페이지로
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    setPage(1); // 검색 시 첫 페이지로
+                  }
                 }}
                 className="flex-1 px-4 py-3 text-lg border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               />
               <button
                 onClick={() => {
-                  setSearchTerm('');
+                  // 검색 실행 (이미 실시간 필터링이지만 명시적으로 검색 버튼 제공)
                   setPage(1);
                 }}
-                className="px-4 py-3 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors text-sm font-semibold"
-                title="검색 초기화"
+                className="px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-semibold"
+                title="검색 실행"
               >
-                초기화
+                검색
               </button>
               <button
                 onClick={handleRefresh}

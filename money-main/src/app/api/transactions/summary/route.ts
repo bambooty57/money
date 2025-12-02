@@ -37,7 +37,8 @@ export async function GET() {
       const unpaid = (tx.amount || 0) - paid;
       
       total_paid += paid;
-      total_unpaid += unpaid > 0 ? unpaid : 0;
+      // 거래명세서와 동일하게 계산: 음수(과입금)도 포함하여 정확한 잔금 계산
+      total_unpaid += unpaid;
 
       // 고객별 요약 계산
       const customerId = tx.customer_id;
@@ -60,17 +61,27 @@ export async function GET() {
         summary.transaction_count += 1;
         summary.total_amount += tx.amount || 0;
         summary.total_paid += paid;
-        summary.total_unpaid += unpaid > 0 ? unpaid : 0;
+        // 거래명세서와 동일하게 계산: total_amount - total_paid 방식과 일치하도록
+        summary.total_unpaid += unpaid;
       }
     });
 
     // 🚀 성능 최적화: 입금률 계산 및 배열 변환
-    const customerSummaries = Array.from(customerSummaryMap.values()).map(summary => ({
-      ...summary,
-      total_ratio: summary.total_amount > 0 ? Math.round((summary.total_paid / summary.total_amount) * 100) : 0
-    }));
+    // 거래명세서와 동일하게 계산: total_unpaid = total_amount - total_paid
+    const customerSummaries = Array.from(customerSummaryMap.values()).map(summary => {
+      // 거래명세서와 동일한 계산 방식으로 재계산
+      const correctUnpaid = summary.total_amount - summary.total_paid;
+      return {
+        ...summary,
+        total_unpaid: correctUnpaid, // 정확한 잔금 계산
+        total_ratio: summary.total_amount > 0 ? Math.round((summary.total_paid / summary.total_amount) * 100) : 0
+      };
+    });
 
     const paid_ratio = total_amount ? Math.round((total_paid / total_amount) * 1000) / 10 : 0;
+    
+    // 거래명세서와 동일하게 계산: total_unpaid = total_amount - total_paid
+    const correctTotalUnpaid = total_amount - total_paid;
 
     return NextResponse.json({
       data: customerSummaries,
@@ -79,7 +90,7 @@ export async function GET() {
         total_customers: customerSet.size,
         total_amount,
         total_paid,
-        total_unpaid,
+        total_unpaid: correctTotalUnpaid, // 정확한 잔금 계산
         paid_ratio,
       }
     });
