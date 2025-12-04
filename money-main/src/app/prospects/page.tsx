@@ -679,15 +679,47 @@ function ProspectsPageContent() {
       </td>
       {/* 연락처 */}
       <td className="px-6 py-4">
-        <div className="text-lg text-gray-700">
-          {prospect.customers.mobile || prospect.customers.phone || '-'}
-        </div>
+        {prospect.customers.mobile || prospect.customers.phone ? (
+          <a
+            href={`tel:${prospect.customers.mobile || prospect.customers.phone}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              // 모바일에서는 전화 앱이 열리고, 데스크톱에서는 클립보드에 복사
+              if (!/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
+                e.preventDefault();
+                const phoneNumber = prospect.customers.mobile || prospect.customers.phone || '';
+                navigator.clipboard.writeText(phoneNumber).then(() => {
+                  alert(`연락처가 클립보드에 복사되었습니다: ${phoneNumber}`);
+                }).catch(() => {
+                  alert(`연락처: ${phoneNumber}`);
+                });
+              }
+            }}
+            className="text-lg text-blue-600 hover:text-blue-800 hover:underline font-semibold cursor-pointer transition-colors"
+            title="전화 걸기"
+          >
+            📞 {prospect.customers.mobile || prospect.customers.phone}
+          </a>
+        ) : (
+          <div className="text-lg text-gray-400">-</div>
+        )}
       </td>
       {/* 주소 */}
       <td className="px-6 py-4 max-w-xs">
-        <div className="text-base text-gray-600 truncate">
-          {prospect.customers.address_road || prospect.customers.address_jibun || '-'}
-        </div>
+        {prospect.customers.address_road || prospect.customers.address_jibun ? (
+          <a
+            href={`https://map.kakao.com/link/search/${encodeURIComponent(prospect.customers.address_road || prospect.customers.address_jibun || '')}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            className="text-base text-blue-600 hover:text-blue-800 hover:underline cursor-pointer transition-colors truncate block"
+            title="카카오맵에서 보기"
+          >
+            🗺️ {prospect.customers.address_road || prospect.customers.address_jibun}
+          </a>
+        ) : (
+          <div className="text-base text-gray-400">-</div>
+        )}
       </td>
       {/* 메모 */}
       <td className="px-4 py-4 min-w-[200px] max-w-[300px]">

@@ -288,6 +288,49 @@ export function CustomerForm({ onSuccess, open, setOpen, customer }: CustomerFor
     }
   }, [customer, open]);
 
+  // 중복 고객 체크 함수
+  const checkDuplicateCustomer = async (): Promise<boolean> => {
+    try {
+      // 이름이 같은 고객들을 먼저 조회
+      const { data: customersWithSameName, error: nameError } = await supabase
+        .from('customers')
+        .select('id, name, phone, mobile, address_road, address_jibun')
+        .eq('name', formData.name.trim());
+
+      if (nameError) {
+        console.error('중복 체크 중 오류:', nameError);
+        return false; // 오류 발생 시 중복 체크 실패로 처리하지 않음
+      }
+
+      if (!customersWithSameName || customersWithSameName.length === 0) {
+        return false; // 이름이 같은 고객이 없으면 중복 아님
+      }
+
+      // 이름이 같은 고객들 중에서 연락처나 주소가 같은지 확인
+      for (const existingCustomer of customersWithSameName) {
+        // 연락처 체크: phone 또는 mobile이 같으면 중복
+        const hasSameContact = 
+          (formData.phone && existingCustomer.phone && formData.phone.trim() === existingCustomer.phone.trim()) ||
+          (formData.mobile && existingCustomer.mobile && formData.mobile.trim() === existingCustomer.mobile.trim());
+
+        // 주소 체크: address_road 또는 address_jibun이 같으면 중복
+        const hasSameAddress = 
+          (formData.address_road && existingCustomer.address_road && formData.address_road.trim() === existingCustomer.address_road.trim()) ||
+          (formData.address_jibun && existingCustomer.address_jibun && formData.address_jibun.trim() === existingCustomer.address_jibun.trim());
+
+        // 이름이 같고 (연락처가 같거나 주소가 같으면) 중복
+        if (hasSameContact || hasSameAddress) {
+          return true; // 중복 발견
+        }
+      }
+
+      return false; // 중복 없음
+    } catch (error) {
+      console.error('중복 체크 중 예외 발생:', error);
+      return false; // 오류 발생 시 중복 체크 실패로 처리하지 않음
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -302,6 +345,14 @@ export function CustomerForm({ onSuccess, open, setOpen, customer }: CustomerFor
       if (formData.business_no && !businessNoRegex.test(formData.business_no)) throw new Error('사업자번호 형식이 올바르지 않습니다.');
       // 주소 필수
       if (!formData.address_road || !formData.zipcode) throw new Error('주소검색을 완료하세요.');
+
+      // 신규 고객 등록 시에만 중복 체크
+      if (!customer || !customer.id) {
+        const isDuplicate = await checkDuplicateCustomer();
+        if (isDuplicate) {
+          throw new Error('이미 등록된 고객입니다.');
+        }
+      }
 
       // Supabase 세션에서 토큰 가져오기
       const { data: { session } } = await supabase.auth.getSession();
