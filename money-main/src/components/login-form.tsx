@@ -14,13 +14,20 @@ export default function LoginForm() {
     e.preventDefault();
     setLoading(true);
     setError("");
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) {
       setError(error.message);
+      setLoading(false);
     } else {
-      router.push("/");
+      // 세션이 제대로 저장되도록 약간의 지연 후 리다이렉트
+      if (data.session) {
+        // 페이지 새로고침으로 세션 쿠키가 확실히 설정되도록 함
+        window.location.href = "/";
+      } else {
+        router.push("/");
+        setLoading(false);
+      }
     }
-    setLoading(false);
   };
 
   return (
