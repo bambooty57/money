@@ -1,3 +1,4 @@
+import { createBrowserClient } from '@supabase/ssr';
 import { createClient as _createClient } from '@supabase/supabase-js';
 import { Database } from '@/types/database';
 
@@ -5,23 +6,8 @@ import { Database } from '@/types/database';
 const supabaseUrl = 'https://jcqdjkxllgiedjqxryoq.supabase.co';
 const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpjcWRqa3hsbGdpZWRqcXhyeW9xIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTAwNzI0NTMsImV4cCI6MjA2NTY0ODQ1M30.WQA3Ycqeq8f-4RsWOCwP12iZ4HE-U1oAIpnHh63VJeA';
 
-// 타입 안전한 Supabase 클라이언트
-export const supabase = _createClient<Database>(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    persistSession: true,
-    autoRefreshToken: true,
-  },
-  global: {
-    headers: {
-      'X-Client-Info': 'money-management-app',
-    },
-  },
-  realtime: {
-    params: {
-      eventsPerSecond: 10,
-    },
-  },
-});
+// 브라우저용 Supabase 클라이언트 (SSR 호환)
+export const supabase = createBrowserClient<Database>(supabaseUrl, supabaseAnonKey);
 
 export function createClient() {
   return _createClient<Database>(supabaseUrl, supabaseAnonKey, {
