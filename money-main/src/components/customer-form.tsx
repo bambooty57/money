@@ -362,15 +362,40 @@ export function CustomerForm({ onSuccess, open, setOpen, customer }: CustomerFor
         throw new Error('인증이 필요합니다. 다시 로그인해주세요.');
       }
 
-      // payload 정제: undefined/null → '', prospects 제외
+      // payload 정제: customers 테이블에 존재하는 필드만 포함, undefined/null → null
       const { prospects, ...customerData } = formData;
-      const rawPayload = {
-        ...customerData,
-        customer_type: formData.customer_type === '직접입력' ? formData.customer_type_custom : formData.customer_type,
-      };
-      const payload = Object.fromEntries(
-        Object.entries(rawPayload).map(([k, v]) => [k, v ?? ''])
-      );
+      
+      // customers 테이블에 존재하는 필드만 허용
+      const allowedFields = [
+        'name', 'phone', 'mobile', 'ssn', 'business_no', 'business_name',
+        'representative_name', 'address_road', 'address_jibun',
+        'zipcode', 'customer_type', 'customer_type_multi', 'fax', 'memo'
+      ];
+      
+      const payload: Record<string, any> = {};
+      for (const key of allowedFields) {
+        if (key in customerData) {
+          const value = customerData[key as keyof typeof customerData];
+          // undefined/null은 null로, 빈 문자열도 null로 변환 (일관성 유지)
+          payload[key] = (value === '' || value === undefined || value === null) ? null : value;
+        }
+      }
+      
+      // customer_type 처리 (직접입력인 경우 customer_type_custom 사용)
+      if (formData.customer_type === '직접입력' && formData.customer_type_custom) {
+        payload.customer_type = formData.customer_type_custom;
+      } else if (formData.customer_type) {
+        payload.customer_type = formData.customer_type;
+      }
+      
+      // address는 address_road와 동일하게 설정
+      if (formData.address_road) {
+        payload.address = formData.address_road;
+      }
+      
+      // 디버깅: payload 로깅
+      console.log('🔍 고객 정보 수정 payload:', payload);
+      
       let response, customerResult;
       if (customer && customer.id) {
         // 수정

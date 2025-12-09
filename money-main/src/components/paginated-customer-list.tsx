@@ -193,33 +193,52 @@ function CustomerDetailModal({ customer, open, onClose }: { customer: any, open:
     setFormSaving(true);
     
     try {
-      const prospectData = {
-        customer_id: customer.id,
-        prospect_device_type: formDeviceType as '트랙터' | '콤바인' | '이앙기' | '작업기' | '기타',
-        prospect_device_model: formProspectModel ? formProspectModel.split(',').map(m => m.trim()).filter(m => m) : null,
-        current_device_model: formCurrentModel || null,
-        memo: formMemo || null,
-      };
-
       if (editingProspect) {
-        // 수정
+        // 수정: customer_id는 제외하고, editingProspect.id 유효성 확인
+        if (!editingProspect.id) {
+          throw new Error('수정할 가망고객 정보의 ID가 없습니다.');
+        }
+        
+        const updateData = {
+          prospect_device_type: formDeviceType as '트랙터' | '콤바인' | '이앙기' | '작업기' | '기타',
+          prospect_device_model: formProspectModel ? formProspectModel.split(',').map(m => m.trim()).filter(m => m) : null,
+          current_device_model: formCurrentModel || null,
+          memo: formMemo || null,
+          updated_at: new Date().toISOString(),
+        };
+        
+        console.log('🔍 가망고객 수정:', { id: editingProspect.id, updateData });
+        
         const { error } = await supabase
           .from('customer_prospects')
-          .update({
-            ...prospectData,
-            updated_at: new Date().toISOString(),
-          })
+          .update(updateData)
           .eq('id', editingProspect.id);
 
-        if (error) throw error;
+        if (error) {
+          console.error('❌ 가망고객 수정 실패:', error);
+          throw error;
+        }
         alert('가망고객 정보가 수정되었습니다.');
       } else {
         // 추가
+        const insertData = {
+          customer_id: customer.id,
+          prospect_device_type: formDeviceType as '트랙터' | '콤바인' | '이앙기' | '작업기' | '기타',
+          prospect_device_model: formProspectModel ? formProspectModel.split(',').map(m => m.trim()).filter(m => m) : null,
+          current_device_model: formCurrentModel || null,
+          memo: formMemo || null,
+        };
+        
+        console.log('🔍 가망고객 추가:', insertData);
+        
         const { error } = await supabase
           .from('customer_prospects')
-          .insert(prospectData);
+          .insert(insertData);
 
-        if (error) throw error;
+        if (error) {
+          console.error('❌ 가망고객 추가 실패:', error);
+          throw error;
+        }
         alert('가망고객 정보가 추가되었습니다.');
       }
 
@@ -227,7 +246,8 @@ function CustomerDetailModal({ customer, open, onClose }: { customer: any, open:
       fetchProspects();
     } catch (error: any) {
       console.error('가망고객 저장 실패:', error);
-      alert('저장 실패: ' + (error.message || '알 수 없는 오류'));
+      const errorMessage = error.message || error.details || '알 수 없는 오류';
+      alert(`저장 실패: ${errorMessage}`);
     } finally {
       setFormSaving(false);
     }

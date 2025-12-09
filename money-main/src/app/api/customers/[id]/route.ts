@@ -33,8 +33,30 @@ export async function PUT(request: any, context: any) {
     
     const customer_id = context.params.id;
     const body = await request.json();
-    // id, customer_type_custom 필드는 DB에 저장하지 않음
-    const { id, customer_type_custom, ...updateData } = body;
+    
+    // customers 테이블에 존재하는 필드만 허용
+    const allowedFields = [
+      'name', 'phone', 'mobile', 'ssn', 'business_no', 'business_name',
+      'representative_name', 'address', 'address_road', 'address_jibun',
+      'zipcode', 'customer_type', 'customer_type_multi', 'fax', 'memo'
+    ];
+    
+    // 허용된 필드만 추출하고, undefined/null 값을 null로 변환
+    const updateData: Record<string, any> = {};
+    for (const key of allowedFields) {
+      if (key in body && body[key] !== undefined) {
+        // 빈 문자열은 null로 변환 (UUID 필드는 null이어야 함)
+        updateData[key] = body[key] === '' ? null : body[key];
+      }
+    }
+
+    // 디버깅: 요청 데이터 로깅
+    console.log('🔍 고객 수정 요청:', {
+      customer_id,
+      updateData,
+      bodyKeys: Object.keys(body),
+      allowedFields
+    });
 
     // 실제 DB 업데이트 예시 (컬럼명/테이블명에 맞게 수정)
     const { data, error } = await authenticatedSupabase
@@ -45,8 +67,19 @@ export async function PUT(request: any, context: any) {
       .single();
 
     if (error) {
-      console.error('DB update error:', error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      console.error('❌ DB update error:', error);
+      console.error('❌ Error details:', {
+        message: error.message,
+        code: error.code,
+        details: error.details,
+        hint: error.hint,
+        updateData
+      });
+      return NextResponse.json({ 
+        error: error.message || '고객 정보 수정 실패',
+        details: error.details,
+        hint: error.hint
+      }, { status: 500 });
     }
 
     return NextResponse.json(data);
