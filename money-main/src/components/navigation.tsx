@@ -49,8 +49,9 @@ function NavigationContent() {
   // 로그아웃 핸들러
   const handleLogout = useCallback(async () => {
     await supabase.auth.signOut();
-    router.push('/login');
-  }, [router]);
+    // 완전한 페이지 리로드로 모든 쿠키/세션 정리
+    window.location.href = '/login';
+  }, []);
 
   return (
     <nav className="w-full bg-white border-b-4 border-blue-400 shadow-xl">

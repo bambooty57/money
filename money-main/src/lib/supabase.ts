@@ -1,15 +1,29 @@
 import { createClient as _createClient } from '@supabase/supabase-js';
+import { createBrowserClient } from '@supabase/ssr';
 import { Database } from '@/types/database';
 
 // 하드코딩된 Supabase 설정 (환경 변수 문제 해결)
 const supabaseUrl = 'https://jcqdjkxllgiedjqxryoq.supabase.co';
 const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpjcWRqa3hsbGdpZWRqcXhyeW9xIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTAwNzI0NTMsImV4cCI6MjA2NTY0ODQ1M30.WQA3Ycqeq8f-4RsWOCwP12iZ4HE-U1oAIpnHh63VJeA';
 
-// 타입 안전한 Supabase 클라이언트
-export const supabase = _createClient<Database>(supabaseUrl, supabaseAnonKey, {
+// 브라우저 환경 체크
+const isBrowser = typeof window !== 'undefined';
+
+// 브라우저용 Supabase 클라이언트 (쿠키 기반 세션) - 싱글톤
+let browserClient: ReturnType<typeof createBrowserClient<Database>> | null = null;
+
+function getBrowserClient() {
+  if (!browserClient) {
+    browserClient = createBrowserClient<Database>(supabaseUrl, supabaseAnonKey);
+  }
+  return browserClient;
+}
+
+// 서버용 기본 클라이언트 (API 라우트 등에서 사용)
+const serverClient = _createClient<Database>(supabaseUrl, supabaseAnonKey, {
   auth: {
-    persistSession: true,
-    autoRefreshToken: true,
+    persistSession: false,
+    autoRefreshToken: false,
   },
   global: {
     headers: {
@@ -23,11 +37,17 @@ export const supabase = _createClient<Database>(supabaseUrl, supabaseAnonKey, {
   },
 });
 
+// 타입 안전한 Supabase 클라이언트 - 환경에 따라 적절한 클라이언트 반환
+export const supabase = isBrowser ? getBrowserClient() : serverClient;
+
 export function createClient() {
+  if (isBrowser) {
+    return getBrowserClient();
+  }
   return _createClient<Database>(supabaseUrl, supabaseAnonKey, {
     auth: {
-      persistSession: true,
-      autoRefreshToken: true,
+      persistSession: false,
+      autoRefreshToken: false,
     },
   });
 }
@@ -236,4 +256,4 @@ export const storageHelper = {
       throw error;
     }
   }
-}; 
+};
