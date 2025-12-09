@@ -14,13 +14,44 @@ export default function LoginForm() {
     e.preventDefault();
     setLoading(true);
     setError("");
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) {
-      setError(error.message);
-    } else {
-      router.push("/");
+
+    try {
+      const { data, error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+
+      if (signInError) {
+        setError(signInError.message);
+        setLoading(false);
+        return;
+      }
+
+      // 세션이 제대로 저장되었는지 확인
+      if (data.session) {
+        console.log('✅ 로그인 성공, 세션 확인:', data.session.user?.email);   
+
+        // 세션이 localStorage에 저장될 시간을 주기 위해 약간 대기
+        await new Promise(resolve => setTimeout(resolve, 500));
+
+        // 세션 재확인
+        const { data: { session: verifiedSession } } = await supabase.auth.getSession();
+
+        if (verifiedSession) {
+          console.log('✅ 세션 검증 완료, 페이지 이동');
+          // 완전한 페이지 리로드를 위해 window.location 사용
+          window.location.href = "/";
+        } else {
+          setError("세션 저장에 실패했습니다. 다시 시도해주세요.");
+          setLoading(false);
+        }
+      } else {
+        setError("로그인에 실패했습니다. 다시 시도해주세요.");
+        setLoading(false);
+      }
+    } catch (err) {
+      console.error('로그인 오류:', err);
+      const errorMessage = err instanceof Error ? err.message : "로그인 중 오류가 발생했습니다.";
+      setError(errorMessage);
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   return (
