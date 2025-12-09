@@ -138,6 +138,8 @@ function EditProspectModal({
   }, [prospect, isOpen]);
 
   const handleSave = async () => {
+    if (!prospect) return;
+    
     setSaving(true);
     try {
       const updateData = {
@@ -208,6 +210,8 @@ function EditProspectModal({
               value={deviceType}
               onChange={(e) => setDeviceType(e.target.value)}
               className="w-full border-2 border-blue-300 rounded-lg px-4 py-3 text-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+              title="가망기종 선택"
+              aria-label="가망기종 선택"
             >
               {DEVICE_TYPES.map((type) => (
                 <option key={type} value={type}>
@@ -296,6 +300,8 @@ function DeleteConfirmModal({
   const [deleting, setDeleting] = useState(false);
 
   const handleDelete = async () => {
+    if (!prospect) return;
+    
     setDeleting(true);
     try {
       const { error } = await supabase
@@ -397,39 +403,6 @@ function ProspectsPageContent() {
     setLocalSearchTerm(searchTerm);
   }, [searchTerm]);
 
-  // 데이터 fetch 함수 (캐시 무시하여 항상 최신 데이터)
-  const fetchData = async () => {
-    try {
-      // 통계 (캐시 무시)
-      const statsRes = await fetch('/api/prospects/stats', { cache: 'no-store' });
-      const statsData = await statsRes.json();
-      setStats(statsData);
-
-      // 목록 (캐시 무시)
-      const params = new URLSearchParams({
-        page: currentPage.toString(),
-        pageSize: pageSize.toString(),
-        search: searchTerm,
-        deviceType: deviceType === '전체' ? '' : deviceType,
-      });
-
-      const res = await fetch(`/api/prospects?${params}`, { cache: 'no-store' });
-      const result = await res.json();
-      
-      if (result.error) {
-        console.error('API 에러:', result.error);
-        setData({ data: [], pagination: { page: 1, pageSize, total: 0, totalPages: 0 } });
-      } else {
-        setData({
-          data: Array.isArray(result.data) ? result.data : [],
-          pagination: result.pagination || { page: 1, pageSize, total: 0, totalPages: 0 },
-        });
-      }
-    } catch (error) {
-      console.error('데이터 로드 실패:', error);
-      setData({ data: [], pagination: { page: 1, pageSize, total: 0, totalPages: 0 } });
-    }
-  };
 
   // 통계 데이터 로드 (캐시 무시)
   useEffect(() => {
