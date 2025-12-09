@@ -94,7 +94,7 @@ export default function PaymentForm({ transactionId, payment, onSuccess }: Payme
   };
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-6 p-8 w-full max-w-2xl mx-auto bg-green-50 rounded-2xl border-2 border-green-200 shadow-2xl">
+    <form onSubmit={handleSubmit} className="flex flex-col gap-6 p-4 w-full bg-green-50 rounded-2xl">
       {successMsg && <Alert variant="default" className="text-xl font-bold flex items-center gap-2 bg-green-50 border-green-300 text-green-700 p-4 rounded-lg shadow-lg mb-4"><span>✅</span>{successMsg}</Alert>}
       {errorMsg && <Alert variant="destructive" className="text-xl font-bold flex items-center gap-2 bg-red-50 border-red-300 text-red-700 p-4 rounded-lg shadow-lg mb-4"><span>❌</span>{errorMsg}</Alert>}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

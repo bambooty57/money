@@ -185,7 +185,7 @@ export default function StatementPage() {
   // 1. 고객 목록 불러오기 (refreshKey 변경 시에도 갱신)
   useEffect(() => {
     console.log('👥 StatementPage: Fetching customers list, refreshKey:', refreshKey);
-    fetch("/api/customers?page=1&pageSize=1000")
+    fetch("/api/customers?page=1&pageSize=100")
       .then((res) => res.json())
       .then((data) => {
         console.log('✅ StatementPage: Customers updated, count:', data.data?.length || 0);
@@ -620,9 +620,17 @@ export default function StatementPage() {
       <ScrollToTop />
 
       {/* CustomerForm 모달 */}
-      {customerFormOpen && (
-        <CustomerForm open={customerFormOpen} setOpen={setCustomerFormOpen} onSuccess={() => { setCustomerFormOpen(false); }} customer={editCustomer} />
-      )}
+      <CustomerForm 
+        open={customerFormOpen} 
+        setOpen={setCustomerFormOpen} 
+        onSuccess={() => { 
+          setCustomerFormOpen(false);
+          setEditCustomer(null);
+          // 고객 목록 새로고침
+          triggerRefresh();
+        }} 
+        customer={editCustomer} 
+      />
       {/* 거래 등록 버튼 (고객 선택 시 활성화) */}
       {/* 상단(카드 바깥)의 고객등록/거래등록 버튼은 완전히 제거 */}
       {/* 고객 등록 버튼 (검색창 옆) */}
@@ -765,6 +773,7 @@ export default function StatementPage() {
                 <TableHead className="text-right w-32">차변(입금)</TableHead>
                 <TableHead className="text-right w-32 pl-32">잔액</TableHead>
                 <TableHead className="w-56 text-center">비고</TableHead>
+                <TableHead className="w-48 text-center">작업</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -792,17 +801,8 @@ export default function StatementPage() {
                         <Button onClick={() => { setEditTransaction(null); setTransactionFormOpen(false); }} className="bg-gray-400 text-white px-4 py-2 rounded-lg text-lg font-bold hover:bg-gray-300">취소하기</Button>
                       )}
                       <Button onClick={() => { setDeleteTargetId(tx.id); setDeleteModalOpen(true); }} className="bg-red-600 text-white px-4 py-2 rounded-lg text-lg font-bold">🗑️ 삭제</Button>
-                      {/* 입금 등록/수정/삭제 버튼: 여러 건 입금 허용 */}
                       {/* 입금 추가 버튼 - 항상 표시 */}
                       <Button onClick={() => { setTargetTransactionId(tx.id); setEditPayment(null); setPaymentFormOpen(true); }} className="bg-green-600 text-white px-4 py-2 rounded-lg text-lg font-bold">➕ 입금 추가</Button>
-                      
-                      {/* 기존 입금이 있을 때만 수정/삭제 버튼 표시 */}
-                      {Array.isArray(tx.payments) && tx.payments.length > 0 && (
-                        <>
-                          <Button onClick={() => { setTargetTransactionId(tx.id); setEditPayment((tx.payments as any[])[0]); setPaymentFormOpen(true); }} className="bg-green-700 text-white px-4 py-2 rounded-lg text-lg font-bold">✏️ 입금 수정</Button>
-                          <Button onClick={async () => { if(window.confirm('정말 삭제하시겠습니까?')) { await deletePayment((tx.payments as any[])[0].id); }}} className="bg-red-700 text-white px-4 py-2 rounded-lg text-lg font-bold">🗑️ 입금 삭제</Button>
-                        </>
-                      )}
                     </TableCell>
                   </TableRow>
                   {/* 입금내역 개별 행으로 표시 */}
@@ -836,6 +836,29 @@ export default function StatementPage() {
                             p.note && `비고:${p.note}`
                           ].filter(Boolean).join(' / ')}
                         </TableCell>
+                        <TableCell className="text-center flex flex-row gap-2 justify-center items-center bg-blue-50">
+                          <Button 
+                            onClick={() => { 
+                              setTargetTransactionId(tx.id); 
+                              setEditPayment(p); 
+                              setPaymentFormOpen(true); 
+                            }} 
+                            className="bg-green-700 text-white px-3 py-1 rounded-lg text-sm font-bold"
+                          >
+                            ✏️ 수정
+                          </Button>
+                          <Button 
+                            onClick={async () => { 
+                              if(window.confirm('정말 삭제하시겠습니까?')) { 
+                                await deletePayment(p.id);
+                                triggerRefresh();
+                              }
+                            }} 
+                            className="bg-red-700 text-white px-3 py-1 rounded-lg text-sm font-bold"
+                          >
+                            🗑️ 삭제
+                          </Button>
+                        </TableCell>
                       </TableRow>
                     ))
                   ) : (
@@ -843,7 +866,7 @@ export default function StatementPage() {
                       <TableCell className="w-16" />
                       <TableCell className="w-20" />
                       <TableCell className="w-24" />
-                      <TableCell colSpan={5} className="text-center text-blue-700 font-bold py-4 text-lg">입금없음</TableCell>
+                      <TableCell colSpan={6} className="text-center text-blue-700 font-bold py-4 text-lg">입금없음</TableCell>
                       <TableCell />
                     </TableRow>
                   )}
@@ -856,7 +879,7 @@ export default function StatementPage() {
                   <TableCell className="border-none text-center px-2 text-red-700">총매출: {summary.total_amount?.toLocaleString()}</TableCell>
                   <TableCell className="border-none text-center px-2 text-blue-700">총입금: {summary.total_paid?.toLocaleString()}</TableCell>
                   <TableCell className="border-none text-center px-2 text-yellow-700">총잔금: {summary.total_unpaid?.toLocaleString()}</TableCell>
-                  <TableCell className="border-none" colSpan={2}></TableCell>
+                  <TableCell className="border-none" colSpan={3}></TableCell>
                 </TableRow>
               )}
             </TableBody>
@@ -864,13 +887,47 @@ export default function StatementPage() {
         </div>
       </Card>
       {/* PaymentForm 모달 (등록/수정) */}
-      {paymentFormOpen && (
-        <PaymentForm onSuccess={() => { setPaymentFormOpen(false); }} transactionId={targetTransactionId} payment={editPayment} />
-      )}
+      <Dialog open={paymentFormOpen} onOpenChange={setPaymentFormOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold text-center">
+              {editPayment ? '✏️ 입금 수정' : '➕ 입금 추가'}
+            </DialogTitle>
+          </DialogHeader>
+          <PaymentForm 
+            onSuccess={() => { 
+              setPaymentFormOpen(false); 
+              setEditPayment(null);
+              setTargetTransactionId(null);
+              // 데이터 새로고침
+              triggerRefresh();
+            }} 
+            transactionId={targetTransactionId} 
+            payment={editPayment} 
+          />
+        </DialogContent>
+      </Dialog>
       {/* TransactionForm 모달(등록/수정) */}
-      {transactionFormOpen && (
-        <TransactionForm onSuccess={() => { setTransactionFormOpen(false); }} customers={customers} transaction={editTransaction} defaultCustomerId={!editTransaction ? selectedCustomer : undefined} />
-      )}
+      <Dialog open={transactionFormOpen} onOpenChange={setTransactionFormOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold text-center">
+              {editTransaction ? '✏️ 거래 수정' : '➕ 거래 등록'}
+            </DialogTitle>
+          </DialogHeader>
+          <TransactionForm 
+            onSuccess={() => { 
+              setTransactionFormOpen(false); 
+              setEditTransaction(null);
+              // 데이터 새로고침
+              triggerRefresh();
+            }} 
+            customers={customers} 
+            transaction={editTransaction} 
+            defaultCustomerId={!editTransaction ? selectedCustomer : undefined} 
+          />
+        </DialogContent>
+      </Dialog>
       {/* 삭제 확인 모달 */}
       <Dialog open={deleteModalOpen} onOpenChange={setDeleteModalOpen}>
         <DialogContent className="max-w-md">
@@ -883,7 +940,9 @@ export default function StatementPage() {
                 if(deleteTargetId) { 
                   await deleteTransaction(deleteTargetId); 
                   setDeleteModalOpen(false); 
-                  setDeleteTargetId(null); 
+                  setDeleteTargetId(null);
+                  // 데이터 새로고침
+                  triggerRefresh();
                 }
               }} 
               className="bg-red-600 text-white px-6 py-3 rounded-lg text-xl font-bold hover:bg-red-700"

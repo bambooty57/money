@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Pagination } from '@/components/ui/pagination';
 import ScrollToTop from '@/components/ui/scroll-to-top';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useCustomersRealtime } from '@/lib/useCustomersRealtime';
 import { supabase } from '@/lib/supabase';
 import * as XLSX from 'xlsx';
@@ -136,8 +137,6 @@ function EditProspectModal({
     }
   }, [prospect, isOpen]);
 
-  if (!isOpen || !prospect) return null;
-
   const handleSave = async () => {
     setSaving(true);
     try {
@@ -174,8 +173,11 @@ function EditProspectModal({
 
       console.log('✅ 수정 성공:', data);
       alert(`수정되었습니다.\n기종: ${prospect.prospect_device_type} → ${deviceType}`);
-      onSave();
       onClose();
+      // 데이터 새로고침을 위해 약간의 지연 후 실행
+      setTimeout(() => {
+        onSave();
+      }, 300);
     } catch (error) {
       console.error('수정 중 오류:', error);
       alert('수정 중 오류가 발생했습니다.');
@@ -184,19 +186,19 @@ function EditProspectModal({
     }
   };
 
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
-        {/* 모달 헤더 */}
-        <div className="bg-blue-600 text-white px-6 py-4 rounded-t-2xl">
-          <h2 className="text-2xl font-bold flex items-center gap-2">
-            ✏️ 가망고객 정보 수정
-          </h2>
-          <p className="text-blue-100 mt-1">고객: {prospect.customers.name}</p>
-        </div>
+  if (!isOpen || !prospect) return null;
 
-        {/* 모달 바디 */}
-        <div className="p-6 space-y-6">
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="text-2xl font-bold flex items-center gap-2">
+            ✏️ 가망고객 정보 수정
+          </DialogTitle>
+          <p className="text-blue-600 mt-1 text-lg">고객: {prospect.customers.name}</p>
+        </DialogHeader>
+
+        <div className="p-4 space-y-6">
           {/* 가망기종 */}
           <div>
             <label className="block text-lg font-bold text-gray-700 mb-2">
@@ -258,8 +260,7 @@ function EditProspectModal({
           </div>
         </div>
 
-        {/* 모달 푸터 */}
-        <div className="bg-gray-50 px-6 py-4 rounded-b-2xl flex gap-4 justify-end">
+        <div className="flex gap-4 justify-end pt-4">
           <Button
             onClick={onClose}
             className="px-6 py-3 bg-gray-400 hover:bg-gray-500 text-lg font-bold"
@@ -275,8 +276,8 @@ function EditProspectModal({
             {saving ? '저장 중...' : '💾 저장'}
           </Button>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -294,8 +295,6 @@ function DeleteConfirmModal({
 }) {
   const [deleting, setDeleting] = useState(false);
 
-  if (!isOpen || !prospect) return null;
-
   const handleDelete = async () => {
     setDeleting(true);
     try {
@@ -310,12 +309,12 @@ function DeleteConfirmModal({
         return;
       }
 
-      // Supabase 동기화를 위한 딜레이 후 새로고침
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      onClose();
-      onConfirm();
       alert('삭제되었습니다.');
+      onClose();
+      // 데이터 새로고침을 위해 약간의 지연 후 실행
+      setTimeout(() => {
+        onConfirm();
+      }, 300);
     } catch (error) {
       console.error('삭제 중 오류:', error);
       alert('삭제 중 오류가 발생했습니다.');
@@ -324,17 +323,17 @@ function DeleteConfirmModal({
     }
   };
 
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full">
-        {/* 모달 헤더 */}
-        <div className="bg-red-600 text-white px-6 py-4 rounded-t-2xl">
-          <h2 className="text-2xl font-bold flex items-center gap-2">
-            ⚠️ 삭제 확인
-          </h2>
-        </div>
+  if (!isOpen || !prospect) return null;
 
-        {/* 모달 바디 */}
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle className="text-2xl font-bold flex items-center gap-2">
+            ⚠️ 삭제 확인
+          </DialogTitle>
+        </DialogHeader>
+
         <div className="p-6">
           <div className="text-center">
             <div className="text-6xl mb-4">🗑️</div>
@@ -350,8 +349,7 @@ function DeleteConfirmModal({
           </div>
         </div>
 
-        {/* 모달 푸터 */}
-        <div className="bg-gray-50 px-6 py-4 rounded-b-2xl flex gap-4 justify-center">
+        <div className="flex gap-4 justify-center pb-4">
           <Button
             onClick={onClose}
             className="px-8 py-3 bg-gray-400 hover:bg-gray-500 text-lg font-bold"
@@ -367,8 +365,8 @@ function DeleteConfirmModal({
             {deleting ? '삭제 중...' : '🗑️ 삭제'}
           </Button>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -489,15 +487,25 @@ function ProspectsPageContent() {
   // 새로고침 (검색어 초기화)
   const handleRefresh = async () => {
     setRefreshing(true);
-    // 검색어 초기화
-    setLocalSearchTerm('');
-    // URL에서 검색 파라미터 제거
-    const params = new URLSearchParams(searchParams.toString());
-    params.delete('search');
-    params.set('page', '1');
-    router.push(`?${params.toString()}`);
-    // 데이터 새로고침은 URL 변경으로 인한 useEffect에서 자동 처리됨
-    setRefreshing(false);
+    try {
+      // 통계 새로고침
+      const statsRes = await fetch('/api/prospects/stats', { cache: 'no-store' });
+      const statsData = await statsRes.json();
+      setStats(statsData);
+      
+      // 검색어 초기화
+      setLocalSearchTerm('');
+      // URL에서 검색 파라미터 제거
+      const params = new URLSearchParams(searchParams.toString());
+      params.delete('search');
+      params.set('page', '1');
+      router.push(`?${params.toString()}`);
+      // 데이터 새로고침은 URL 변경으로 인한 useEffect에서 자동 처리됨
+    } catch (error) {
+      console.error('새로고침 실패:', error);
+    } finally {
+      setRefreshing(false);
+    }
   };
 
   // 검색 실행
@@ -543,7 +551,16 @@ function ProspectsPageContent() {
   };
 
   // 수정/삭제 후 새로고침
-  const handleModalSuccess = () => {
+  const handleModalSuccess = async () => {
+    // 통계도 함께 새로고침
+    try {
+      const statsRes = await fetch('/api/prospects/stats', { cache: 'no-store' });
+      const statsData = await statsRes.json();
+      setStats(statsData);
+    } catch (error) {
+      console.error('통계 새로고침 실패:', error);
+    }
+    // 목록 새로고침
     handleRefresh();
   };
 
@@ -906,7 +923,7 @@ function ProspectsPageContent() {
                           prospects.map((prospect, idx) => renderTableRow(prospect, idx, colors))
                         ) : (
                           <tr>
-                            <td colSpan={7} className="px-6 py-12 text-center">
+                            <td colSpan={8} className="px-6 py-12 text-center">
                               <div className="text-gray-400 text-lg">
                                 {icon} {type} 구매 희망 고객이 없습니다
                               </div>
@@ -943,7 +960,7 @@ function ProspectsPageContent() {
                       })
                     ) : (
                       <tr>
-                        <td colSpan={7} className="px-6 py-12 text-center">
+                        <td colSpan={8} className="px-6 py-12 text-center">
                           <div className="text-gray-400 text-lg">
                             {DEVICE_ICONS[deviceType as keyof typeof DEVICE_ICONS]} {deviceType} 구매 희망 고객이 없습니다
                           </div>
