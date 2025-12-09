@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { supabase, createServerClient } from '@/lib/supabase';
 
 export async function GET(request: any, context: any) {
-  const { id } = context.params;
+  const { id } = await context.params;
   const { data, error } = await supabase
     .from('customers')
     .select('*')
@@ -31,7 +31,7 @@ export async function PUT(request: any, context: any) {
     // 인증된 Supabase 클라이언트 생성
     const authenticatedSupabase = createServerClient(token)
     
-    const customer_id = context.params.id;
+    const { id: customer_id } = await context.params;
     const body = await request.json();
     
     // customers 테이블에 존재하는 필드만 허용
@@ -105,7 +105,7 @@ export async function DELETE(request: any, context: any) {
     // 인증된 Supabase 클라이언트 생성
     const authenticatedSupabase = createServerClient(token)
     
-    const customer_id = context.params.id;
+    const { id: customer_id } = await context.params;
 
     // 1. 해당 고객의 모든 파일 조회
     const { data: files, error: filesError } = await authenticatedSupabase
