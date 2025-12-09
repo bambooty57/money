@@ -14,29 +14,13 @@ export default function LoginForm() {
     e.preventDefault();
     setLoading(true);
     setError("");
-    
-    try {
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-      
-      if (error) {
-        setError(error.message);
-        setLoading(false);
-        return;
-      }
-
-      if (data.session) {
-        // 세션이 저장될 시간을 주기 위해 약간의 지연
-        await new Promise(resolve => setTimeout(resolve, 100));
-        // 페이지 전체 새로고침으로 세션 쿠키가 확실히 설정되도록 함
-        window.location.href = "/";
-      } else {
-        setError("세션을 가져올 수 없습니다.");
-        setLoading(false);
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "로그인 중 오류가 발생했습니다.");
-      setLoading(false);
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) {
+      setError(error.message);
+    } else {
+      router.push("/");
     }
+    setLoading(false);
   };
 
   return (

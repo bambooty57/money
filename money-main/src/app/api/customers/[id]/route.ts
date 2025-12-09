@@ -41,12 +41,20 @@ export async function PUT(request: any, context: any) {
       'zipcode', 'customer_type', 'customer_type_multi', 'fax', 'memo'
     ];
     
-    // 허용된 필드만 추출하고, undefined/null 값을 null로 변환
+    // NOT NULL 필드 (빈 문자열 허용, null 불가)
+    const notNullFields = ['name', 'phone'];
+    
+    // 허용된 필드만 추출
     const updateData: Record<string, any> = {};
     for (const key of allowedFields) {
       if (key in body && body[key] !== undefined) {
-        // 빈 문자열은 null로 변환 (UUID 필드는 null이어야 함)
-        updateData[key] = body[key] === '' ? null : body[key];
+        if (notNullFields.includes(key)) {
+          // NOT NULL 필드: 값 그대로 유지 (빈 문자열도 허용)
+          updateData[key] = body[key];
+        } else {
+          // NULLABLE 필드: 빈 문자열은 null로 변환
+          updateData[key] = body[key] === '' ? null : body[key];
+        }
       }
     }
 

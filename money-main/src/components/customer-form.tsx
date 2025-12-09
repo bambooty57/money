@@ -372,12 +372,21 @@ export function CustomerForm({ onSuccess, open, setOpen, customer }: CustomerFor
         'zipcode', 'customer_type', 'customer_type_multi', 'fax', 'memo'
       ];
       
+      // NOT NULL 필드 (빈 문자열 허용, null 불가)
+      const notNullFields = ['name', 'phone'];
+      
       const payload: Record<string, any> = {};
       for (const key of allowedFields) {
         if (key in customerData) {
           const value = customerData[key as keyof typeof customerData];
-          // undefined/null은 null로, 빈 문자열도 null로 변환 (일관성 유지)
-          payload[key] = (value === '' || value === undefined || value === null) ? null : value;
+          
+          if (notNullFields.includes(key)) {
+            // NOT NULL 필드: undefined/null만 빈 문자열로, 값이 있으면 그대로
+            payload[key] = (value === undefined || value === null) ? '' : value;
+          } else {
+            // NULLABLE 필드: undefined/null/빈 문자열 → null
+            payload[key] = (value === '' || value === undefined || value === null) ? null : value;
+          }
         }
       }
       

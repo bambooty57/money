@@ -427,6 +427,7 @@ function CustomerDetailModal({ customer, open, onClose }: { customer: any, open:
                       value={formDeviceType}
                       onChange={(e) => setFormDeviceType(e.target.value)}
                       className="w-full px-4 py-3 border-2 border-orange-300 rounded-lg text-lg focus:border-orange-500 focus:ring-2 focus:ring-orange-200"
+                      title="희망 기종 선택"
                     >
                       {DEVICE_TYPES.map((type) => (
                         <option key={type} value={type}>

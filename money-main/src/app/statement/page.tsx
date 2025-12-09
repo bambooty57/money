@@ -185,7 +185,7 @@ export default function StatementPage() {
   // 1. 고객 목록 불러오기 (refreshKey 변경 시에도 갱신)
   useEffect(() => {
     console.log('👥 StatementPage: Fetching customers list, refreshKey:', refreshKey);
-    fetch("/api/customers?page=1&pageSize=10000")
+    fetch("/api/customers?page=1&pageSize=100")
       .then((res) => res.json())
       .then((data) => {
         console.log('✅ StatementPage: Customers updated, count:', data.data?.length || 0);
