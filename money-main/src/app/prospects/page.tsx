@@ -176,10 +176,8 @@ function EditProspectModal({
       console.log('✅ 수정 성공:', data);
       alert(`수정되었습니다.\n기종: ${prospect.prospect_device_type} → ${deviceType}`);
       onClose();
-      // 데이터 새로고침을 위해 약간의 지연 후 실행
-      setTimeout(() => {
-        onSave();
-      }, 300);
+      // 데이터 즉시 새로고침
+      onSave();
     } catch (error) {
       console.error('수정 중 오류:', error);
       alert('수정 중 오류가 발생했습니다.');
@@ -317,10 +315,8 @@ function DeleteConfirmModal({
 
       alert('삭제되었습니다.');
       onClose();
-      // 데이터 새로고침을 위해 약간의 지연 후 실행
-      setTimeout(() => {
-        onConfirm();
-      }, 300);
+      // 데이터 즉시 새로고침
+      onConfirm();
     } catch (error) {
       console.error('삭제 중 오류:', error);
       alert('삭제 중 오류가 발생했습니다.');
@@ -523,18 +519,41 @@ function ProspectsPageContent() {
     setDeleteModalOpen(true);
   };
 
-  // 수정/삭제 후 새로고침
+  // 수정/삭제 후 새로고침 - 직접 데이터 재조회
   const handleModalSuccess = async () => {
-    // 통계도 함께 새로고침
+    setRefreshing(true);
     try {
+      // 통계 새로고침
       const statsRes = await fetch('/api/prospects/stats', { cache: 'no-store' });
       const statsData = await statsRes.json();
       setStats(statsData);
+
+      // 목록 데이터 직접 새로고침 (현재 필터 유지)
+      const params = new URLSearchParams({
+        page: currentPage.toString(),
+        pageSize: pageSize.toString(),
+        search: searchTerm,
+        deviceType: deviceType === '전체' ? '' : deviceType,
+      });
+
+      console.log('🔄 수정/삭제 후 목록 새로고침:', `/api/prospects?${params}`);
+      const res = await fetch(`/api/prospects?${params}`, { cache: 'no-store' });
+      const result = await res.json();
+
+      if (result.error) {
+        console.error('❌ 새로고침 API 에러:', result.error);
+      } else {
+        setData({
+          data: Array.isArray(result.data) ? result.data : [],
+          pagination: result.pagination || { page: 1, pageSize, total: 0, totalPages: 0 },
+        });
+        console.log('✅ 목록 새로고침 완료:', Array.isArray(result.data) ? result.data.length : 0, '건');
+      }
     } catch (error) {
-      console.error('통계 새로고침 실패:', error);
+      console.error('새로고침 실패:', error);
+    } finally {
+      setRefreshing(false);
     }
-    // 목록 새로고침
-    handleRefresh();
   };
 
   // 엑셀 다운로드 함수
