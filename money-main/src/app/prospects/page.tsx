@@ -650,12 +650,12 @@ function ProspectsPageContent() {
     >
       {/* 고객명 */}
       <td 
-        className="px-6 py-4 cursor-pointer text-center"
+        className="px-6 py-4 cursor-pointer text-center whitespace-nowrap"
         onClick={() => handleCustomerClick(prospect.customer_id)}
       >
-        <div className="text-xl font-bold text-gray-800 hover:text-blue-600">{prospect.customers.name}</div>
+        <span className="text-xl font-bold text-gray-800 hover:text-blue-600">{prospect.customers.name}</span>
         {prospect.customers.customer_type && (
-          <div className="text-sm text-gray-500">{prospect.customers.customer_type}</div>
+          <span className="text-sm text-gray-500 ml-1">({prospect.customers.customer_type})</span>
         )}
       </td>
       {/* 가망모델 */}
@@ -687,7 +687,7 @@ function ProspectsPageContent() {
         )}
       </td>
       {/* 연락처 */}
-      <td className="px-6 py-4">
+      <td className="px-6 py-4 whitespace-nowrap">
         {prospect.customers.mobile || prospect.customers.phone ? (
           <a
             href={`tel:${prospect.customers.mobile || prospect.customers.phone}`}
@@ -710,7 +710,7 @@ function ProspectsPageContent() {
             📞 {prospect.customers.mobile || prospect.customers.phone}
           </a>
         ) : (
-          <div className="text-lg text-gray-400">-</div>
+          <span className="text-lg text-gray-400">-</span>
         )}
       </td>
       {/* 주소 */}
@@ -741,7 +741,7 @@ function ProspectsPageContent() {
         )}
       </td>
       {/* 등록일 */}
-      <td className="px-6 py-4 text-base text-gray-500 text-center">
+      <td className="px-6 py-4 text-base text-gray-500 text-center whitespace-nowrap">
         {new Date(prospect.created_at).toLocaleDateString('ko-KR')}
       </td>
       {/* 관리 */}
@@ -770,14 +770,14 @@ function ProspectsPageContent() {
   const renderTableHeader = (bgClass: string) => (
     <thead className={bgClass}>
       <tr>
-        <th className="px-6 py-4 text-center text-lg font-bold text-gray-700">고객명</th>
-        <th className="px-6 py-4 text-center text-lg font-bold text-gray-700">🎯 가망모델</th>
-        <th className="px-6 py-4 text-center text-lg font-bold text-gray-700">📦 보유모델</th>
-        <th className="px-6 py-4 text-center text-lg font-bold text-gray-700">연락처</th>
-        <th className="px-6 py-4 text-center text-lg font-bold text-gray-700">주소</th>
-        <th className="px-4 py-4 text-center text-lg font-bold text-gray-700">📝 메모</th>
-        <th className="px-6 py-4 text-center text-lg font-bold text-gray-700">등록일</th>
-        <th className="px-4 py-4 text-center text-lg font-bold text-gray-700">관리</th>
+        <th className="px-6 py-4 text-center text-lg font-bold text-gray-700 whitespace-nowrap">고객명</th>
+        <th className="px-6 py-4 text-center text-lg font-bold text-gray-700 whitespace-nowrap">🎯 가망모델</th>
+        <th className="px-6 py-4 text-center text-lg font-bold text-gray-700 whitespace-nowrap">📦 보유모델</th>
+        <th className="px-6 py-4 text-center text-lg font-bold text-gray-700 whitespace-nowrap">연락처</th>
+        <th className="px-6 py-4 text-center text-lg font-bold text-gray-700 whitespace-nowrap">주소</th>
+        <th className="px-4 py-4 text-center text-lg font-bold text-gray-700 whitespace-nowrap">📝 메모</th>
+        <th className="px-6 py-4 text-center text-lg font-bold text-gray-700 whitespace-nowrap">등록일</th>
+        <th className="px-4 py-4 text-center text-lg font-bold text-gray-700 whitespace-nowrap">관리</th>
       </tr>
     </thead>
   );
