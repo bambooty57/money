@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Calendar, Send, XCircle, CheckCircle, Clock, Users, DollarSign, AlertCircle } from 'lucide-react';
@@ -55,11 +55,9 @@ export default function MessagesPage() {
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [historyStats, setHistoryStats] = useState<any>(null);
   const [loading, setLoading] = useState(false);
-  const [selectedCustomers, setSelectedCustomers] = useState<Set<string>>(new Set());
   const [exclusionDialog, setExclusionDialog] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [exclusionReason, setExclusionReason] = useState('');
-  const [excludedBy, setExcludedBy] = useState('');
 
   useEffect(() => {
     const now = new Date();
@@ -103,23 +101,17 @@ export default function MessagesPage() {
     }
   };
 
-  const handleSelectAll = (checked: boolean) => {
+  // 체크박스 토글: 해제 → 제외 대화상자, 체크 → 포함 처리
+  const handleCheckboxChange = (customer: Customer, checked: boolean) => {
     if (checked) {
-      const scheduledIds = customers.filter(c => !c.isExcluded).map(c => c.id);
-      setSelectedCustomers(new Set(scheduledIds));
+      // 체크 → 발송 대상에 포함
+      handleInclude(customer.id);
     } else {
-      setSelectedCustomers(new Set());
+      // 체크 해제 → 제외 대화상자 열기
+      setSelectedCustomer(customer);
+      setExclusionReason('');
+      setExclusionDialog(true);
     }
-  };
-
-  const handleSelectCustomer = (customerId: string, checked: boolean) => {
-    const newSelected = new Set(selectedCustomers);
-    if (checked) {
-      newSelected.add(customerId);
-    } else {
-      newSelected.delete(customerId);
-    }
-    setSelectedCustomers(newSelected);
   };
 
   const handleExclude = async () => {
@@ -134,7 +126,6 @@ export default function MessagesPage() {
           customerName: selectedCustomer.name,
           month: currentMonth,
           reason: exclusionReason,
-          excludedBy: excludedBy,
         }),
       });
 
@@ -142,7 +133,6 @@ export default function MessagesPage() {
       if (result.success) {
         setExclusionDialog(false);
         setExclusionReason('');
-        setExcludedBy('');
         setSelectedCustomer(null);
         fetchScheduledCustomers();
       } else {
@@ -172,11 +162,6 @@ export default function MessagesPage() {
     }
   };
 
-  const openExclusionDialog = (customer: Customer) => {
-    setSelectedCustomer(customer);
-    setExclusionDialog(true);
-  };
-
   const formatCurrency = (amount: number) => {
     return amount.toLocaleString() + '원';
   };
@@ -184,7 +169,7 @@ export default function MessagesPage() {
   // 발송 메시지 미리보기 생성 (매월 25일 발송 기준)
   const createPreviewMessage = (customer: Customer) => {
     const [year, month] = currentMonth.split('-');
-    return `${customer.name}고객님 매월 정기발송 메세지입니다 ${parseInt(month)}월25일 기준 잔액이 ${customer.totalArrears.toLocaleString()}원입니다 자세한 내용은 010-2602-3276(정현목)상담 주세요`;
+    return `${customer.name}고객님 매월 정기발송 메세지입니다 ${parseInt(month)}월25일 기준 잔액이 ${customer.totalArrears.toLocaleString()}원입니다 농협 302-2602-3276-61(정현목) 자세한 내용은 010-2602-3276 상담 주세요`;
   };
 
   const formatDate = (dateString: string) => {
@@ -299,21 +284,11 @@ export default function MessagesPage() {
         <TabsContent value="scheduled" className="space-y-4">
           <Card>
             <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle>발송 예정 고객</CardTitle>
-                  <CardDescription>
-                    {currentMonth} 발송 대상 고객 목록입니다. 체크박스로 선택/제외할 수 있습니다.
-                  </CardDescription>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Checkbox
-                    id="select-all"
-                    checked={selectedCustomers.size > 0 && selectedCustomers.size === customers.filter(c => !c.isExcluded).length}
-                    onCheckedChange={handleSelectAll}
-                  />
-                  <Label htmlFor="select-all">전체 선택</Label>
-                </div>
+              <div>
+                <CardTitle>발송 예정 고객</CardTitle>
+                <CardDescription>
+                  {currentMonth} 발송 대상 고객 목록입니다. 체크박스를 해제하면 발송 대상에서 제외됩니다.
+                </CardDescription>
               </div>
             </CardHeader>
             <CardContent>
@@ -334,9 +309,8 @@ export default function MessagesPage() {
                     >
                       <div className="flex items-center gap-4 flex-1">
                         <Checkbox
-                          checked={!customer.isExcluded && selectedCustomers.has(customer.id)}
-                          onCheckedChange={(checked) => handleSelectCustomer(customer.id, checked as boolean)}
-                          disabled={customer.isExcluded}
+                          checked={!customer.isExcluded}
+                          onCheckedChange={(checked) => handleCheckboxChange(customer, checked as boolean)}
                         />
                         <div className="flex-1">
                           <div className="flex items-center gap-2">
@@ -369,27 +343,6 @@ export default function MessagesPage() {
                             </div>
                           )}
                         </div>
-                      </div>
-                      <div>
-                        {customer.isExcluded ? (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleInclude(customer.id)}
-                            className="text-green-600 border-green-600 hover:bg-green-50"
-                          >
-                            포함하기
-                          </Button>
-                        ) : (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => openExclusionDialog(customer)}
-                            className="text-red-600 border-red-600 hover:bg-red-50"
-                          >
-                            제외하기
-                          </Button>
-                        )}
                       </div>
                     </div>
                   ))}
@@ -489,16 +442,6 @@ export default function MessagesPage() {
                 placeholder="제외 사유를 입력하세요"
                 value={exclusionReason}
                 onChange={(e) => setExclusionReason(e.target.value)}
-                className="mt-1"
-              />
-            </div>
-            <div>
-              <Label htmlFor="excludedBy">처리자 (선택)</Label>
-              <Input
-                id="excludedBy"
-                placeholder="처리자 이름을 입력하세요"
-                value={excludedBy}
-                onChange={(e) => setExcludedBy(e.target.value)}
                 className="mt-1"
               />
             </div>
