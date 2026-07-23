@@ -39,18 +39,18 @@ const defaultConfig: ArrearsNotificationConfig = {
  */
 export async function getArrearsCustomers(minAmount: number = defaultConfig.minArrearsAmount): Promise<ArrearsCustomer[]> {
   try {
-    // 거래 테이블에서 미수금이 있는 고객 조회
+    // 거래 테이블에서 미수금이 있는 고객 조회 (payments 테이블 조인)
     const { data: transactions, error } = await supabase
       .from('transactions')
       .select(`
         customer_id,
         amount,
-        paid_amount,
-        transaction_date,
-        customers:customer_id (id, name, mobile)
+        created_at,
+        customers:customer_id (id, name, mobile, phone),
+        payments(amount)
       `)
       .eq('status', 'unpaid')
-      .order('transaction_date', { ascending: false });
+      .order('created_at', { ascending: false });
 
     if (error) {
       console.error('미수금 조회 오류:', error);
@@ -62,9 +62,15 @@ export async function getArrearsCustomers(minAmount: number = defaultConfig.minA
 
     transactions?.forEach((tx: any) => {
       const customer = tx.customers;
-      if (!customer || !customer.mobile) return;
+      if (!customer) return;
 
-      const arrearsAmount = (tx.amount || 0) - (tx.paid_amount || 0);
+      // mobile이 없으면 phone 사용
+      const contactNumber = customer.mobile || customer.phone;
+      if (!contactNumber) return;
+
+      // payments 테이블에서 입금액 합계 계산
+      const paidAmount = (tx.payments || []).reduce((sum: number, p: any) => sum + (p.amount || 0), 0);
+      const arrearsAmount = (tx.amount || 0) - paidAmount;
       if (arrearsAmount <= 0) return;
 
       if (customerMap.has(customer.id)) {
@@ -75,9 +81,9 @@ export async function getArrearsCustomers(minAmount: number = defaultConfig.minA
         customerMap.set(customer.id, {
           id: customer.id,
           name: customer.name,
-          mobile: customer.mobile,
+          mobile: contactNumber,
           totalArrears: arrearsAmount,
-          lastTransactionDate: tx.transaction_date,
+          lastTransactionDate: tx.created_at,
           transactionCount: 1,
         });
       }
