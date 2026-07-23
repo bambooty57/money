@@ -181,6 +181,12 @@ export default function MessagesPage() {
     return amount.toLocaleString() + '원';
   };
 
+  // 발송 메시지 미리보기 생성 (매월 25일 발송 기준)
+  const createPreviewMessage = (customer: Customer) => {
+    const [year, month] = currentMonth.split('-');
+    return `${customer.name}고객님 매월 정기발송 메세지입니다 ${parseInt(month)}월25일 기준 잔액이 ${customer.totalArrears.toLocaleString()}원입니다 자세한 내용은 010-2602-3276(정현목)상담 주세요`;
+  };
+
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleString('ko-KR');
   };
@@ -347,6 +353,15 @@ export default function MessagesPage() {
                             </span>
                             <span className="mx-2">•</span>
                             <span>{customer.transactionCount}건</span>
+                          </div>
+                          {/* 발송 메시지 미리보기 */}
+                          <div className={`mt-2 p-3 rounded-md text-sm border ${
+                            customer.isExcluded 
+                              ? 'bg-gray-100 border-gray-300 text-gray-500' 
+                              : 'bg-blue-50 border-blue-200 text-gray-700'
+                          }`}>
+                            <span className="font-medium text-xs text-blue-600 block mb-1">📩 발송 메시지</span>
+                            {createPreviewMessage(customer)}
                           </div>
                           {customer.isExcluded && customer.exclusionReason && (
                             <div className="text-sm text-red-600 mt-1">
