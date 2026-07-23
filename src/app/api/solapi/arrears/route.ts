@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { 
   getArrearsCustomers, 
+  getArrearsCustomerByName,
   sendArrearsNotification, 
   sendBulkArrearsNotifications,
   isMonthlyNotificationDay,
@@ -37,12 +38,32 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const minAmount = parseInt(searchParams.get('minAmount') || '1');
     const customerId = searchParams.get('customerId');
+    const customerName = searchParams.get('customerName');
     const limit = parseInt(searchParams.get('limit') || '50');
 
     // 특정 고객의 알림 이력 조회
     if (customerId) {
       const history = await getNotificationHistory(customerId, limit);
       return NextResponse.json({ success: true, data: history });
+    }
+
+    // 이름으로 고객 검색
+    if (customerName) {
+      const customer = await getArrearsCustomerByName(customerName, minAmount);
+      if (!customer) {
+        return NextResponse.json(
+          { error: 'Customer not found or no arrears' },
+          { status: 404 }
+        );
+      }
+      return NextResponse.json({ 
+        success: true, 
+        data: customer,
+        preview: {
+          message: createNotificationMessage(customer),
+          smsType: createNotificationMessage(customer).length > 90 ? 'LMS' : 'SMS',
+        }
+      });
     }
 
     // 미수금 고객 목록 조회
@@ -84,15 +105,39 @@ export async function POST(request: NextRequest) {
     const { 
       action, 
       customerId, 
+      customerName,
       customers, 
       notificationType = 'manual',
       minAmount = 1 
     } = body;
 
-    // 단일 고객 알림 발송
+    // 단일 고객 알림 발송 (by ID)
     if (action === 'send' && customerId) {
       const arrearsCustomers = await getArrearsCustomers(minAmount);
       const customer = arrearsCustomers.find(c => c.id === customerId);
+      
+      if (!customer) {
+        return NextResponse.json(
+          { error: 'Customer not found or no arrears' },
+          { status: 404 }
+        );
+      }
+
+      const result = await sendArrealsNotification(customer, notificationType);
+      
+      return NextResponse.json({
+        success: result.success,
+        data: {
+          customer,
+          messageId: result.messageId,
+        },
+        error: result.errorMessage,
+      });
+    }
+
+    // 단일 고객 알림 발송 (by Name)
+    if (action === 'send-by-name' && customerName) {
+      const customer = await getArrearsCustomerByName(customerName, minAmount);
       
       if (!customer) {
         return NextResponse.json(

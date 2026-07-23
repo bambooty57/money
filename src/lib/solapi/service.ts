@@ -95,6 +95,35 @@ export async function getArrearsCustomers(minAmount: number = defaultConfig.minA
 }
 
 /**
+ * 이름으로 미수금 고객 검색
+ * @param customerName - 검색할 고객명
+ * @param minAmount - 최소 미수금액
+ * @returns 검색된 고객 또는 null
+ */
+export async function getArrearsCustomerByName(
+  customerName: string, 
+  minAmount: number = defaultConfig.minArrearsAmount
+): Promise<ArrearsCustomer | null> {
+  try {
+    const customers = await getArrearsCustomers(minAmount);
+    
+    // 정확히 일치하는 고객 먼저 찾기
+    const exactMatch = customers.find(c => c.name === customerName);
+    if (exactMatch) return exactMatch;
+    
+    // 포함하는 고객 찾기
+    const partialMatch = customers.find(c => 
+      c.name.includes(customerName) || customerName.includes(c.name)
+    );
+    
+    return partialMatch || null;
+  } catch (error) {
+    console.error('고객명 검색 중 오류:', error);
+    return null;
+  }
+}
+
+/**
  * 알림 메시지 생성
  * @param customer - 고객 정보
  * @param template - 메시지 템플릿
