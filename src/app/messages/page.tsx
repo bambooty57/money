@@ -169,7 +169,7 @@ export default function MessagesPage() {
   // 발송 메시지 미리보기 생성 (매월 25일 발송 기준)
   const createPreviewMessage = (customer: Customer) => {
     const [year, month] = currentMonth.split('-');
-    return `${customer.name}고객님 매월 정기발송 메세지입니다 ${parseInt(month)}월25일 기준 잔액이 ${customer.totalArrears.toLocaleString()}원입니다 농협 302-2602-3276-61(정현목) 자세한 내용은 010-2602-3276 상담 주세요`;
+    return `${customer.name}고객님 매월 정기발송 메세지입니다 ${parseInt(month)}월25일 기준 잔액이 ${customer.totalArrears.toLocaleString()}원입니다 농협 302-2602-3276-61(정현목) 입금해 주시면 감사하겠습니다 자세한 내용은 010-2602-3276 상담 주세요`;
   };
 
   const formatDate = (dateString: string) => {

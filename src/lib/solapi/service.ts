@@ -29,7 +29,7 @@ const solapiCredentials: SolapiCredentials = {
 const defaultConfig: ArrearsNotificationConfig = {
   monthlyDay: 25,           // 매월 25일
   minArrearsAmount: 1,      // 1원 이상 (모든 미수금 대상)
-  messageTemplate: `{customerName}고객님 매월 정기발송 메세지입니다 {month}월{day}일 기준 잔액이 {amount}원입니다 농협 302-2602-3276-61(정현목) 자세한 내용은 010-2602-3276 상담 주세요`,
+  messageTemplate: `{customerName}고객님 매월 정기발송 메세지입니다 {month}월{day}일 기준 잔액이 {amount}원입니다 농협 302-2602-3276-61(정현목) 입금해 주시면 감사하겠습니다 자세한 내용은 010-2602-3276 상담 주세요`,
 };
 
 /**
