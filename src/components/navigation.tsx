@@ -12,6 +12,7 @@ const navigationItems = [
   { href: '/customers', label: '고객 관리', prefetch: true },
   { href: '/transactions', label: '거래 관리', prefetch: true },
   { href: '/prospects', label: '가망고객', prefetch: true },
+  { href: '/messages', label: '문자메시지', prefetch: true },
 ] as const;
 
 // 성능 최적화: 로딩 스켈레톤 컴포넌트
