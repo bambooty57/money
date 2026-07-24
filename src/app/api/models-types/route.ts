@@ -40,10 +40,55 @@ export async function DELETE(req: NextRequest) {
       headers: { 'Cache-Control': 'no-store' }
     })
   }
+
+  // 삭제 대상 기종/형식 정보 조회
+  const { data: targetModelType } = await supabase
+    .from('models_types')
+    .select('model, type')
+    .eq('id', id)
+    .single();
+
+  // 1. transactions 테이블에서 해당 id 참조 해제 (기존 model/type 텍스트 보존)
+  if (targetModelType) {
+    try {
+      await (supabase as any)
+        .from('transactions')
+        .update({
+          model: targetModelType.model,
+          model_type: targetModelType.type,
+          models_types_id: null
+        })
+        .eq('models_types_id', id);
+    } catch (err) {
+      console.warn('transactions update before delete error:', err);
+    }
+  } else {
+    try {
+      await (supabase as any)
+        .from('transactions')
+        .update({ models_types_id: null })
+        .eq('models_types_id', id);
+    } catch (err) {
+      console.warn('transactions models_types_id unlink error:', err);
+    }
+  }
+
+  // 2. prospects 테이블에서 참조 해제
+  try {
+    await (supabase as any)
+      .from('prospects')
+      .update({ models_types_id: null })
+      .eq('models_types_id', id);
+  } catch (err) {
+    console.warn('prospects models_types_id unlink error:', err);
+  }
+
+  // 3. models_types 행 삭제
   const { error, count } = await supabase
     .from('models_types')
     .delete({ count: 'exact' })
     .eq('id', id)
+
   if (error) return new NextResponse(JSON.stringify({ error: error.message }), { status: 500, headers: { 'Cache-Control': 'no-store' } })
   if (!count) return new NextResponse(JSON.stringify({ error: 'No row deleted', affectedRows: 0 }), { status: 404, headers: { 'Cache-Control': 'no-store' } })
   return new NextResponse(JSON.stringify({ success: true, affectedRows: count }), { status: 200, headers: { 'Cache-Control': 'no-store' } })
