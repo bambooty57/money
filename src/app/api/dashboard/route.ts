@@ -34,16 +34,16 @@ export async function GET() {
       }
         
       if (allTransactions && allTransactions.length > 0) {
-        // 거래관리/거래명세서와 동일한 계산 방식: total_amount - total_paid
+        // 각 거래별 잔여 미수금 합산 (초과 입금건이 타 미수금을 차감하지 않도록 계산)
         allTransactions.forEach(tx => {
           const amount = tx.amount || 0;
           const paid = (tx.payments || []).reduce((sum, p) => sum + (p.amount || 0), 0);
+          const unpaid = Math.max(0, amount - paid);
           totalAmount += amount;
           totalPaid += paid;
+          totalUnpaid += unpaid;
         });
-        // 정확한 미수금 계산: 전체 매출액 - 전체 입금액
-        totalUnpaid = totalAmount - totalPaid;
-        console.log('✅ 총 미수금 계산 (거래관리와 동일):', {
+        console.log('✅ 총 미수금 계산 (거래관리/문자관리와 일치):', {
           totalAmount,
           totalPaid,
           totalUnpaid

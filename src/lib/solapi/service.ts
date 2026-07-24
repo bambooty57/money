@@ -126,8 +126,10 @@ export async function getArrearsCustomers(minAmount: number = defaultConfig.minA
       return [];
     }
 
-    // 고객별로 미수금 집계
-    const customerMap = new Map<string, ArrearsCustomer>();
+    // 고객별로 거래금액/입금액 집계
+    // (한 거래에 초과 입금된 금액은 같은 고객의 다른 거래 미수금과 상계하기 위해
+    //  거래 단위가 아닌 고객 단위로 합산 후 계산)
+    const customerMap = new Map<string, ArrearsCustomer & { totalPaid: number }>();
 
     transactions?.forEach((tx: any) => {
       const customer = tx.customers;
@@ -139,27 +141,33 @@ export async function getArrearsCustomers(minAmount: number = defaultConfig.minA
 
       // payments 테이블에서 입금액 합계 계산
       const paidAmount = (tx.payments || []).reduce((sum: number, p: any) => sum + (p.amount || 0), 0);
-      const arrearsAmount = (tx.amount || 0) - paidAmount;
-      if (arrearsAmount <= 0) return;
+      const txArrears = (tx.amount || 0) - paidAmount;
 
       if (customerMap.has(customer.id)) {
         const existing = customerMap.get(customer.id)!;
-        existing.totalArrears += arrearsAmount;
-        existing.transactionCount += 1;
+        existing.totalArrears += tx.amount || 0;
+        existing.totalPaid += paidAmount;
+        if (txArrears > 0) existing.transactionCount += 1;
       } else {
         customerMap.set(customer.id, {
           id: customer.id,
           name: customer.name,
           mobile: contactNumber,
-          totalArrears: arrearsAmount,
+          totalArrears: tx.amount || 0, // 거래 총액 누적 (아래에서 입금액 차감)
+          totalPaid: paidAmount,
           lastTransactionDate: tx.created_at,
-          transactionCount: 1,
+          transactionCount: txArrears > 0 ? 1 : 0,
         });
       }
     });
 
+    // 고객 단위 상계: 총 거래액 - 총 입금액 = 실제 미수금
     // 최소 금액 이상인 고객만 필터링
     return Array.from(customerMap.values())
+      .map(({ totalPaid, ...customer }) => ({
+        ...customer,
+        totalArrears: customer.totalArrears - totalPaid,
+      }))
       .filter(customer => customer.totalArrears >= minAmount)
       .sort((a, b) => b.totalArrears - a.totalArrears);
 
