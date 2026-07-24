@@ -101,7 +101,8 @@ export default function MessagesPage() {
   const fetchScheduledCustomers = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`/api/solapi/scheduled?month=${currentMonth}`);
+      // CDN/브라우저 캐시 우회 (제외/포함 변경 즉시 반영을 위해)
+      const response = await fetch(`/api/solapi/scheduled?month=${currentMonth}&_t=${Date.now()}`, { cache: 'no-store' });
       if (!response.ok) {
         console.error('발송 예정 조회 서버 에러 status:', response.status);
         return;
