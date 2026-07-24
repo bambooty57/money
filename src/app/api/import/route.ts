@@ -80,7 +80,7 @@ async function findOrCreateCustomer(
       representative_name: '',
       customer_type: '일반농민',
       grade: '일반',
-    })
+    } as any)
     .select()
     .single();
 

@@ -154,7 +154,7 @@ export class SchemaChecker {
       const { data, error } = await supabase
         .from('information_schema.columns' as 'customers')
         .select('*')
-        .eq('table_name', tableName);
+        .eq('table_name' as any, tableName);
       
       if (error) {
         console.warn(`⚠️ Could not check schema for table: ${tableName}`, error);
