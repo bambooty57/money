@@ -63,9 +63,10 @@ export async function GET() {
         .from('models_types')
         .select('type')
         .eq('model', '__SYSTEM_SMS_SETTINGS__')
-        .single();
-      if (data?.type) {
-        dbSettings = JSON.parse(data.type);
+        .order('created_at', { ascending: false })
+        .limit(1);
+      if (data && data.length > 0 && data[0].type) {
+        dbSettings = JSON.parse(data[0].type);
       }
     } catch {}
 
@@ -128,23 +129,10 @@ export async function PUT(request: NextRequest) {
     const supabase = getSupabase();
 
     try {
-      const { data: existing } = await supabase
-        .from('models_types')
-        .select('id')
-        .eq('model', '__SYSTEM_SMS_SETTINGS__')
-        .single();
-
       const payload = JSON.stringify({ template: finalTemplate, sendDay: finalSendDay });
-      if (existing) {
-        await supabase
-          .from('models_types')
-          .update({ type: payload })
-          .eq('id', existing.id);
-      } else {
-        await supabase
-          .from('models_types')
-          .insert({ model: '__SYSTEM_SMS_SETTINGS__', type: payload });
-      }
+      await supabase
+        .from('models_types')
+        .insert({ model: '__SYSTEM_SMS_SETTINGS__', type: payload });
     } catch (err) {
       console.warn('DB settings save warning:', err);
     }

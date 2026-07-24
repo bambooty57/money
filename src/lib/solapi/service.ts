@@ -70,10 +70,11 @@ export async function getMessageTemplate(): Promise<string> {
       .from('models_types')
       .select('type')
       .eq('model', '__SYSTEM_SMS_SETTINGS__')
-      .single();
+      .order('created_at', { ascending: false })
+      .limit(1);
 
-    if (data?.type) {
-      const parsed = JSON.parse(data.type);
+    if (data && data.length > 0 && data[0].type) {
+      const parsed = JSON.parse(data[0].type);
       if (parsed.template) {
         _cachedTemplate = parsed.template;
         _templateCacheTime = now;
@@ -119,10 +120,11 @@ export async function getSendDay(): Promise<number> {
       .from('models_types')
       .select('type')
       .eq('model', '__SYSTEM_SMS_SETTINGS__')
-      .single();
+      .order('created_at', { ascending: false })
+      .limit(1);
 
-    if (data?.type) {
-      const parsed = JSON.parse(data.type);
+    if (data && data.length > 0 && data[0].type) {
+      const parsed = JSON.parse(data[0].type);
       if (parsed.sendDay) {
         _cachedSendDay = parseInt(parsed.sendDay, 10);
         _sendDayCacheTime = now;
