@@ -148,7 +148,7 @@ export default function MessagesPage() {
 
   const fetchMessageTemplate = async () => {
     try {
-      const response = await fetch('/api/message-settings');
+      const response = await fetch(`/api/message-settings?_t=${Date.now()}`, { cache: 'no-store' });
       const result = await response.json();
       if (result.success) {
         setMessageTemplate(result.data.template);

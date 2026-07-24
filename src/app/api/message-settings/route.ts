@@ -45,6 +45,9 @@ function saveLocalSettings(settings: { template?: string; sendDay?: number }) {
   }
 }
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 /**
  * GET /api/message-settings
  * Get current SMS template and send day
@@ -69,23 +72,39 @@ export async function GET() {
     const template = dbSettings?.template || local.template || DEFAULT_TEMPLATE;
     const sendDay = dbSettings?.sendDay || local.sendDay || 25;
 
-    return NextResponse.json({
+    return new NextResponse(JSON.stringify({
       success: true,
       data: {
         template,
         sendDay,
         isDefault: !dbSettings && !local.template
       }
+    }), {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/json',
+        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0',
+      }
     });
   } catch (error) {
     console.error('Message settings get error:', error);
     const local = getLocalSettings();
-    return NextResponse.json({
+    return new NextResponse(JSON.stringify({
       success: true,
       data: {
         template: local.template || DEFAULT_TEMPLATE,
         sendDay: local.sendDay || 25,
         isDefault: !local.template
+      }
+    }), {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/json',
+        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0',
       }
     });
   }

@@ -57,7 +57,7 @@ function getLocalSettings(): { template?: string; sendDay?: number } {
 // DB에서 발송 메시지 템플릿 조회 (캐시 적용)
 let _cachedTemplate: string | null = null;
 let _templateCacheTime = 0;
-const TEMPLATE_CACHE_TTL = 60000; // 1분 캐시
+const TEMPLATE_CACHE_TTL = 0; // 0ms 캐시 (다중 기기 실시간 동기화)
 
 export async function getMessageTemplate(): Promise<string> {
   const now = Date.now();
