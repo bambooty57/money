@@ -80,6 +80,8 @@ export default function MessagesPage() {
   const [messageTemplate, setMessageTemplate] = useState('');
   const [editingTemplate, setEditingTemplate] = useState('');
   const [sendDay, setSendDay] = useState(25);
+  const [daySaveResult, setDaySaveResult] = useState<string | null>(null);
+  const [savingDay, setSavingDay] = useState(false);
   const [savingTemplate, setSavingTemplate] = useState(false);
   const [templateSaveResult, setTemplateSaveResult] = useState<string | null>(null);
 
@@ -187,6 +189,8 @@ export default function MessagesPage() {
 
   const handleSendDayChange = async (newDay: number) => {
     setSendDay(newDay);
+    setSavingDay(true);
+    setDaySaveResult(null);
     try {
       const response = await fetch('/api/message-settings', {
         method: 'PUT',
@@ -194,11 +198,17 @@ export default function MessagesPage() {
         body: JSON.stringify({ template: editingTemplate, sendDay: newDay }),
       });
       const result = await response.json();
-      if (!result.success) {
-        console.error('발송일 저장 실패:', result.error);
+      if (result.success) {
+        setDaySaveResult(`${newDay}일로 저장되었습니다.`);
+        setTimeout(() => setDaySaveResult(null), 3000);
+      } else {
+        setDaySaveResult('저장 실패: ' + (result.error || '알 수 없는 오류'));
       }
     } catch (error) {
       console.error('발송일 저장 오류:', error);
+      setDaySaveResult('저장 중 오류가 발생했습니다.');
+    } finally {
+      setSavingDay(false);
     }
   };
 
@@ -386,16 +396,20 @@ export default function MessagesPage() {
 
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">발송일</CardTitle>
+              <CardTitle className="text-sm font-medium text-gray-600">발송일 설정</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="flex items-center justify-between">
                 <div>
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-2">
                     <select
                       value={sendDay}
-                      onChange={(e) => handleSendDayChange(Number(e.target.value))}
-                      className="text-2xl font-bold bg-transparent border border-purple-300 rounded px-2 py-0.5 focus:outline-none focus:ring-2 focus:ring-purple-500 cursor-pointer text-purple-900 hover:bg-purple-50"
+                      onChange={(e) => {
+                        const val = Number(e.target.value);
+                        setSendDay(val);
+                        handleSendDayChange(val);
+                      }}
+                      className="text-2xl font-bold bg-white border border-purple-300 rounded px-2 py-0.5 focus:outline-none focus:ring-2 focus:ring-purple-500 cursor-pointer text-purple-900 hover:bg-purple-50"
                     >
                       {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
                         <option key={d} value={d}>
@@ -403,8 +417,25 @@ export default function MessagesPage() {
                         </option>
                       ))}
                     </select>
+                    <Button
+                      onClick={() => handleSendDayChange(sendDay)}
+                      disabled={savingDay}
+                      variant="outline"
+                      size="sm"
+                      className="border-purple-300 text-purple-700 hover:bg-purple-100 font-semibold"
+                    >
+                      {savingDay ? '저장 중...' : '저장'}
+                    </Button>
                   </div>
-                  <p className="text-sm text-gray-500 mt-1">매월 정기 발송일</p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    {daySaveResult ? (
+                      <span className={daySaveResult.includes('실패') ? 'text-red-600 font-bold' : 'text-green-600 font-bold'}>
+                        {daySaveResult}
+                      </span>
+                    ) : (
+                      '매월 정기 발송일 (선택 시 자동 저장)'
+                    )}
+                  </p>
                 </div>
                 <Clock className="w-8 h-8 text-purple-500" />
               </div>

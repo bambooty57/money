@@ -38,6 +38,22 @@ const defaultConfig: ArrearsNotificationConfig = {
   messageTemplate: `{customerName}고객님 구보다대리점입니다 매월 정기발송 안내입니다 {month}월{day}일 기준 잔액이 {amount}원 입니다 농협:302-2602-3276-61(정현목)입금 부탁드립니다 자세한 내용은 010-2603-3276으로 상담 주세요`,
 };
 
+import fs from 'fs';
+import path from 'path';
+
+function getLocalSettings(): { template?: string; sendDay?: number } {
+  try {
+    const filePath = path.join(process.cwd(), '.sms-settings.json');
+    if (fs.existsSync(filePath)) {
+      const content = fs.readFileSync(filePath, 'utf-8');
+      return JSON.parse(content);
+    }
+  } catch (err) {
+    console.error('Error reading local settings file:', err);
+  }
+  return {};
+}
+
 // DB에서 발송 메시지 템플릿 조회 (캐시 적용)
 let _cachedTemplate: string | null = null;
 let _templateCacheTime = 0;
@@ -57,14 +73,16 @@ export async function getMessageTemplate(): Promise<string> {
       .single();
 
     if (error || !data) {
-      _cachedTemplate = defaultConfig.messageTemplate;
+      const local = getLocalSettings();
+      _cachedTemplate = local.template || defaultConfig.messageTemplate;
     } else {
       _cachedTemplate = data.value;
     }
     _templateCacheTime = now;
     return _cachedTemplate!;
   } catch {
-    _cachedTemplate = defaultConfig.messageTemplate;
+    const local = getLocalSettings();
+    _cachedTemplate = local.template || defaultConfig.messageTemplate;
     _templateCacheTime = now;
     return _cachedTemplate!;
   }
@@ -88,14 +106,16 @@ export async function getSendDay(): Promise<number> {
       .single();
 
     if (error || !data) {
-      _cachedSendDay = defaultConfig.monthlyDay;
+      const local = getLocalSettings();
+      _cachedSendDay = local.sendDay || defaultConfig.monthlyDay;
     } else {
       _cachedSendDay = parseInt(data.value, 10) || defaultConfig.monthlyDay;
     }
     _sendDayCacheTime = now;
     return _cachedSendDay!;
   } catch {
-    _cachedSendDay = defaultConfig.monthlyDay;
+    const local = getLocalSettings();
+    _cachedSendDay = local.sendDay || defaultConfig.monthlyDay;
     _sendDayCacheTime = now;
     return _cachedSendDay!;
   }
