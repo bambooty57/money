@@ -169,7 +169,7 @@ export async function getArrearsCustomers(minAmount: number = defaultConfig.minA
         totalArrears: customer.totalArrears - totalPaid,
       }))
       .filter(customer => customer.totalArrears >= minAmount)
-      .sort((a, b) => b.totalArrears - a.totalArrears);
+      .sort((a, b) => a.name.localeCompare(b.name, 'ko'));
 
   } catch (error) {
     console.error('미수금 조회 중 오류:', error);

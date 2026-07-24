@@ -20,7 +20,7 @@ export async function GET() {
       // 모든 거래 조회 (거래관리와 동일하게)
       const { data: allTransactions, error: txError } = await supabase
         .from('transactions')
-        .select('id, amount, payments(amount)')
+        .select('id, customer_id, amount, payments(amount)')
         .neq('status', 'deleted'); // 삭제된 거래만 제외
     
       console.log('📊 거래 데이터 조회 결과:', { 
@@ -34,16 +34,24 @@ export async function GET() {
       }
         
       if (allTransactions && allTransactions.length > 0) {
-        // 각 거래별 잔여 미수금 합산 (초과 입금건이 타 미수금을 차감하지 않도록 계산)
+        // 고객 단위 상계 (문자메시지 관리와 동일한 방식):
+        // 고객별 총 거래액 - 총 입금액으로 계산하여 초과 입금이 같은 고객의 다른 미수금과 상계되도록 함
+        const byCustomer = new Map<string, { amount: number; paid: number }>();
         allTransactions.forEach(tx => {
           const amount = tx.amount || 0;
           const paid = (tx.payments || []).reduce((sum, p) => sum + (p.amount || 0), 0);
-          const unpaid = Math.max(0, amount - paid);
           totalAmount += amount;
           totalPaid += paid;
-          totalUnpaid += unpaid;
+          const key = tx.customer_id || tx.id;
+          const entry = byCustomer.get(key) || { amount: 0, paid: 0 };
+          entry.amount += amount;
+          entry.paid += paid;
+          byCustomer.set(key, entry);
         });
-        console.log('✅ 총 미수금 계산 (거래관리/문자관리와 일치):', {
+        byCustomer.forEach(({ amount, paid }) => {
+          totalUnpaid += Math.max(0, amount - paid);
+        });
+        console.log('✅ 총 미수금 계산 (고객 단위 상계, 문자관리와 일치):', {
           totalAmount,
           totalPaid,
           totalUnpaid
@@ -117,20 +125,20 @@ export async function GET() {
           // files도 배열로 반환됨
           const files = Array.isArray(customer.files) ? customer.files : [];
           
-          // 미수금 계산 (미수금이 있는 거래만)
-          let unpaidAmount = 0;
+          // 미수금 계산 (고객 단위 상계: 총 거래액 - 총 입금액)
+          let txTotal = 0;
+          let paidTotal = 0;
           transactions.forEach((tx: any) => {
             // status가 'paid'가 아닌 거래만 계산
             if (tx.status !== 'paid') {
               const paid = Array.isArray(tx.payments) 
                 ? tx.payments.reduce((sum: any, p: any) => sum + (p.amount || 0), 0)
                 : 0;
-              const unpaid = (tx.amount || 0) - paid;
-              if (unpaid > 0) {
-                unpaidAmount += unpaid;
-              }
+              txTotal += tx.amount || 0;
+              paidTotal += paid;
             }
           });
+          const unpaidAmount = Math.max(0, txTotal - paidTotal);
           
           return {
             ...customer,

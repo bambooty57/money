@@ -81,7 +81,7 @@ export async function GET(request: NextRequest) {
         excludedBy: exclusion?.excludedBy || null,
         excludedAt: exclusion?.excludedAt || null,
       };
-    });
+    }).sort((a, b) => a.name.localeCompare(b.name, 'ko'));
 
     // 5. 통계 계산
     const totalCustomers = customersWithStatus.length;
