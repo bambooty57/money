@@ -147,9 +147,10 @@ export async function getSendDay(): Promise<number> {
   } catch {
     const local = getLocalSettings();
     _cachedSendDay = local.sendDay || defaultConfig.monthlyDay;
-    _sendDayCacheTime = now;
-    return _cachedSendDay!;
   }
+
+  _sendDayCacheTime = now;
+  return _cachedSendDay!;
 }
 
 /**
