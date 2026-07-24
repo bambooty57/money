@@ -182,17 +182,13 @@ GET /api/solapi/status
   "crons": [
     {
       "path": "/api/solapi/scheduler/monthly",
-      "schedule": "0 9 25 * *"
-    },
-    {
-      "path": "/api/solapi/scheduler/quarterly",
-      "schedule": "0 9 25 3,6,9,12 *"
+      "schedule": "0 0 * * *"
     }
   ]
 }
 ```
 
-- 월말 알림: 매월 25일 오전 9시
+- 월말 알림: 매일 오전 9시 (KST) 실행 후 설정된 발송일에 자동 발송
 - 분기 알림: 3, 6, 9, 12월 25일 오전 9시
 
 ### 외부 스케줄러 사용

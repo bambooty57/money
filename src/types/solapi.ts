@@ -70,7 +70,7 @@ export interface NotificationHistory {
   status: 'success' | 'failed' | 'pending';
   messageId?: string;
   errorMessage?: string;
-  notificationType: 'monthly' | 'manual';
+  notificationType: 'monthly' | 'quarterly' | 'manual';
 }
 
 // 솔라피 API 인증 정보

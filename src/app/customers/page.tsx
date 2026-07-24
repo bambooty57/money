@@ -84,9 +84,22 @@ export default function CustomersPage() {
         />
         <PaginatedCustomerList enableActions={true} onEdit={handleEdit} onSelectCustomer={handleSelectCustomer} refreshKey={refreshKey} />
 
-        <div className="mt-8" />
-
-        <SmsSender selectedCustomer={selectedCustomer} onSuccess={fetchCustomers} />
+        {/* 고객 선택 시 팝업 모달로 띄우는 SMS 발송 창 */}
+        <Dialog open={!!selectedCustomer} onOpenChange={(open) => { if (!open) setSelectedCustomer(null); }}>
+          <DialogContent className="sm:max-w-6xl w-[95vw] max-h-[92vh] overflow-y-auto p-4 sm:p-6 bg-white shadow-2xl border border-gray-200 rounded-2xl">
+            <DialogHeader className="sr-only">
+              <DialogTitle>문자 메시지 템플릿 및 발송</DialogTitle>
+            </DialogHeader>
+            <SmsSender
+              selectedCustomer={selectedCustomer}
+              onSuccess={() => {
+                fetchCustomers();
+                setSelectedCustomer(null);
+              }}
+              onClose={() => setSelectedCustomer(null)}
+            />
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );

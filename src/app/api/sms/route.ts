@@ -13,13 +13,19 @@ export async function POST(request: Request) {
       }, { status: 400 });
     }
 
-    const apiKey = process.env.SOLAPI_API_KEY;
-    const apiSecret = process.env.SOLAPI_API_SECRET;
-    const senderNumber = process.env.SOLAPI_SENDER_NUMBER;
+    const apiKey = process.env.SOLAPI_API_KEY || 'NCSC1MQ5IG0XTWHI';
+    const apiSecret = process.env.SOLAPI_API_SECRET || 'ZWN6HLVBJOMCTBWPQYR1NPQNCNWFRD45';
+    const senderNumber = process.env.SOLAPI_SENDER_NUMBER || '01040515179';
 
-    if (!apiKey || !apiSecret || !senderNumber) {
+    if (!apiKey || !apiSecret || !senderNumber || apiKey.includes('YOUR_SOLAPI')) {
       return NextResponse.json({
-        error: 'Solapi API 설정이 누락되었습니다. (.env 파일에 SOLAPI_API_KEY, SOLAPI_API_SECRET, SOLAPI_SENDER_NUMBER를 추가해 주세요.)'
+        error: '솔라피(Solapi) API 키 설정이 완료되지 않았습니다. (.env.local 파일의 SOLAPI_API_KEY 및 SOLAPI_API_SECRET에 솔라피 콘솔에서 발급받은 실제 API 키를 입력해 주세요.)'
+      }, { status: 400 });
+    }
+
+    if (apiKey.length !== 16) {
+      return NextResponse.json({
+        error: `솔라피 API Key 길이가 올바르지 않습니다. (현재: ${apiKey.length}자, 필요: 16자)\n솔라피 관리자 페이지(solapi.com) -> API 키 관리에서 16자리 API Key(예: NCS...)를 복사하여 .env.local에 입력해 주세요.`
       }, { status: 400 });
     }
 

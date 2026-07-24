@@ -11,7 +11,9 @@ import {
   sendBulkArrearsNotifications,
   isMonthlyNotificationDay,
   getNotificationHistory,
-  createNotificationMessage 
+  createNotificationMessage,
+  getMessageTemplate,
+  getSendDay
 } from '@/lib/solapi/service';
 import type { ArrearsCustomer } from '@/types/solapi';
 
@@ -56,12 +58,15 @@ export async function GET(request: NextRequest) {
           { status: 404 }
         );
       }
+      const template = await getMessageTemplate();
+      const sendDay = await getSendDay();
+      const previewMsg = createNotificationMessage(customer, template, sendDay);
       return NextResponse.json({ 
         success: true, 
         data: customer,
         preview: {
-          message: createNotificationMessage(customer),
-          smsType: createNotificationMessage(customer).length > 90 ? 'LMS' : 'SMS',
+          message: previewMsg,
+          smsType: previewMsg.length > 90 ? 'LMS' : 'SMS',
         }
       });
     }
@@ -123,7 +128,7 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      const result = await sendArrealsNotification(customer, notificationType);
+      const result = await sendArrearsNotification(customer, notificationType);
       
       return NextResponse.json({
         success: result.success,
@@ -170,7 +175,7 @@ export async function POST(request: NextRequest) {
 
     // 월말 자동 알림 발송
     if (action === 'send-monthly') {
-      if (!isMonthlyNotificationDay()) {
+      if (!(await isMonthlyNotificationDay())) {
         return NextResponse.json({
           success: false,
           error: 'Today is not the monthly notification day',
@@ -198,7 +203,9 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      const message = createNotificationMessage(customer);
+      const template = await getMessageTemplate();
+      const sendDay = await getSendDay();
+      const message = createNotificationMessage(customer, template, sendDay);
       
       return NextResponse.json({
         success: true,

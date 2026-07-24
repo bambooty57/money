@@ -15,7 +15,6 @@ const nextConfig: NextConfig = {
   
   // 번들 최적화
   experimental: {
-    optimizeCss: true,
     optimizePackageImports: ['lucide-react', '@radix-ui/react-dialog'],
   },
   

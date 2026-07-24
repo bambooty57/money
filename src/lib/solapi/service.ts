@@ -3,7 +3,7 @@
  * 고객의 미수금을 조회하고 알림을 발송하는 기능
  */
 
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { sendSMS, sendAlimtalk, getBalance } from './client';
 import type { 
   ArrearsCustomer, 
@@ -13,10 +13,16 @@ import type {
   SolapiMessageRequest 
 } from '@/types/solapi';
 
-// Supabase 클라이언트 초기화
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
-const supabase = createClient(supabaseUrl, supabaseKey);
+// Supabase 클라이언트 (지연 초기화)
+let _supabase: SupabaseClient | null = null;
+function getSupabase(): SupabaseClient {
+  if (!_supabase) {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://jcqdjkxllgiedjqxryoq.supabase.co';
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpjcWRqa3hsbGdpZWRqcXhyeW9xIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTAwNzI0NTMsImV4cCI6MjA2NTY0ODQ1M30.WQA3Ycqeq8f-4RsWOCwP12iZ4HE-U1oAIpnHh63VJeA';
+    _supabase = createClient(supabaseUrl, supabaseKey);
+  }
+  return _supabase;
+}
 
 // 솔라피 인증 정보 (환경 변수에서 로드)
 const solapiCredentials: SolapiCredentials = {
@@ -29,8 +35,71 @@ const solapiCredentials: SolapiCredentials = {
 const defaultConfig: ArrearsNotificationConfig = {
   monthlyDay: 25,           // 매월 25일
   minArrearsAmount: 1,      // 1원 이상 (모든 미수금 대상)
-  messageTemplate: `{customerName}고객님 매월 정기발송 메세지입니다 {month}월{day}일 기준 잔액이 {amount}원입니다 농협 302-2602-3276-61(정현목) 입금해 주시면 감사하겠습니다 자세한 내용은 010-2602-3276 상담 주세요`,
+  messageTemplate: `{customerName}고객님 구보다대리점입니다 매월 정기발송 안내입니다 {month}월{day}일 기준 잔액이 {amount}원 입니다 농협:302-2602-3276-61(정현목)입금 부탁드립니다 자세한 내용은 010-2603-3276으로 상담 주세요`,
 };
+
+// DB에서 발송 메시지 템플릿 조회 (캐시 적용)
+let _cachedTemplate: string | null = null;
+let _templateCacheTime = 0;
+const TEMPLATE_CACHE_TTL = 60000; // 1분 캐시
+
+export async function getMessageTemplate(): Promise<string> {
+  const now = Date.now();
+  if (_cachedTemplate && (now - _templateCacheTime) < TEMPLATE_CACHE_TTL) {
+    return _cachedTemplate;
+  }
+
+  try {
+    const { data, error } = await getSupabase()
+      .from('app_settings')
+      .select('value')
+      .eq('key', 'sms_template')
+      .single();
+
+    if (error || !data) {
+      _cachedTemplate = defaultConfig.messageTemplate;
+    } else {
+      _cachedTemplate = data.value;
+    }
+    _templateCacheTime = now;
+    return _cachedTemplate!;
+  } catch {
+    _cachedTemplate = defaultConfig.messageTemplate;
+    _templateCacheTime = now;
+    return _cachedTemplate!;
+  }
+}
+
+// DB에서 발송일 조회 (캐시 적용)
+let _cachedSendDay: number | null = null;
+let _sendDayCacheTime = 0;
+
+export async function getSendDay(): Promise<number> {
+  const now = Date.now();
+  if (_cachedSendDay !== null && (now - _sendDayCacheTime) < TEMPLATE_CACHE_TTL) {
+    return _cachedSendDay;
+  }
+
+  try {
+    const { data, error } = await getSupabase()
+      .from('app_settings')
+      .select('value')
+      .eq('key', 'sms_send_day')
+      .single();
+
+    if (error || !data) {
+      _cachedSendDay = defaultConfig.monthlyDay;
+    } else {
+      _cachedSendDay = parseInt(data.value, 10) || defaultConfig.monthlyDay;
+    }
+    _sendDayCacheTime = now;
+    return _cachedSendDay!;
+  } catch {
+    _cachedSendDay = defaultConfig.monthlyDay;
+    _sendDayCacheTime = now;
+    return _cachedSendDay!;
+  }
+}
 
 /**
  * 미수금 고객 조회
@@ -40,7 +109,7 @@ const defaultConfig: ArrearsNotificationConfig = {
 export async function getArrearsCustomers(minAmount: number = defaultConfig.minArrearsAmount): Promise<ArrearsCustomer[]> {
   try {
     // 거래 테이블에서 미수금이 있는 고객 조회 (payments 테이블 조인)
-    const { data: transactions, error } = await supabase
+    const { data: transactions, error } = await getSupabase()
       .from('transactions')
       .select(`
         customer_id,
@@ -137,16 +206,16 @@ export async function getArrearsCustomerByName(
  */
 export function createNotificationMessage(
   customer: ArrearsCustomer,
-  template: string = defaultConfig.messageTemplate
+  template: string = defaultConfig.messageTemplate,
+  sendDay: number = defaultConfig.monthlyDay
 ): string {
   const today = new Date();
   const month = today.getMonth() + 1;
-  const day = today.getDate();
   
   return template
     .replace('{customerName}', customer.name)
     .replace('{month}', String(month))
-    .replace('{day}', String(day))
+    .replace('{day}', String(sendDay))
     .replace('{amount}', customer.totalArrears.toLocaleString());
 }
 
@@ -170,8 +239,10 @@ export async function sendArrearsNotification(
       };
     }
 
-    // 메시지 생성
-    const messageText = createNotificationMessage(customer);
+    // 메시지 생성 (DB 템플릿 및 설정된 발송일 사용)
+    const sendDay = await getSendDay();
+    const template = await getMessageTemplate();
+    const messageText = createNotificationMessage(customer, template, sendDay);
     
     // SMS 발송
     const message: SolapiMessageRequest = {
@@ -213,7 +284,7 @@ export async function sendArrearsNotification(
       customerId: customer.id,
       customerName: customer.name,
       mobile: customer.mobile,
-      message: createNotificationMessage(customer),
+      message: createNotificationMessage(customer, await getMessageTemplate(), await getSendDay()),
       amount: customer.totalArrears,
       sentAt: new Date().toISOString(),
       status: 'failed',
@@ -268,9 +339,10 @@ export async function sendBulkArrearsNotifications(
  * 월말 알림 대상 확인
  * @returns 오늘이 월말 알림일인지 여부
  */
-export function isMonthlyNotificationDay(config: ArrearsNotificationConfig = defaultConfig): boolean {
+export async function isMonthlyNotificationDay(): Promise<boolean> {
   const today = new Date();
-  return today.getDate() === config.monthlyDay;
+  const sendDay = await getSendDay();
+  return today.getDate() === sendDay;
 }
 
 /**
@@ -279,7 +351,7 @@ export function isMonthlyNotificationDay(config: ArrearsNotificationConfig = def
  */
 async function saveNotificationHistory(history: NotificationHistory): Promise<void> {
   try {
-    await supabase
+    await getSupabase()
       .from('notification_history')
       .insert(history);
   } catch (error) {
@@ -298,7 +370,7 @@ export async function getNotificationHistory(
   limit: number = 50
 ): Promise<NotificationHistory[]> {
   try {
-    let query = supabase
+    let query = getSupabase()
       .from('notification_history')
       .select('*')
       .order('sentAt', { ascending: false })

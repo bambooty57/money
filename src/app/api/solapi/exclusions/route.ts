@@ -4,11 +4,17 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
-const supabase = createClient(supabaseUrl, supabaseKey);
+let _supabase: SupabaseClient | null = null;
+function getSupabase(): SupabaseClient {
+  if (!_supabase) {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+    _supabase = createClient(supabaseUrl, supabaseKey);
+  }
+  return _supabase;
+}
 
 /**
  * GET /api/solapi/exclusions
@@ -26,7 +32,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await getSupabase()
       .from('sms_exclusions')
       .select('*')
       .eq('exclusion_month', month)
@@ -71,22 +77,22 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 이미 제외되었는지 확인
-    const { data: existing } = await supabase
+    // 이미 제외되었는지 확인 (이전 달 제외도 계속 유지되므로 해당 월 이하 모두 확인)
+    const { data: existing } = await getSupabase()
       .from('sms_exclusions')
       .select('id')
       .eq('customer_id', customerId)
-      .eq('exclusion_month', month)
-      .single();
+      .lte('exclusion_month', month)
+      .limit(1);
 
-    if (existing) {
+    if (existing && existing.length > 0) {
       return NextResponse.json(
-        { error: 'Customer is already excluded for this month' },
+        { error: 'Customer is already excluded' },
         { status: 409 }
       );
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await getSupabase()
       .from('sms_exclusions')
       .insert({
         customer_id: customerId,
@@ -109,7 +115,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ 
       success: true, 
       data,
-      message: `${customerName} 고객이 ${month} 발송 대상에서 제외되었습니다.`
+      message: `${customerName} 고객이 발송 대상에서 제외되었습니다. 해제 전까지 매월 제외 상태가 유지됩니다.`
     });
 
   } catch (error) {
@@ -124,6 +130,7 @@ export async function POST(request: NextRequest) {
 /**
  * DELETE /api/solapi/exclusions
  * 제외 취소 (다시 발송 대상에 포함)
+ * 제외는 해제 전까지 유지되므로 해당 고객의 기존 제외 기록을 모두 삭제
  */
 export async function DELETE(request: NextRequest) {
   try {
@@ -138,11 +145,11 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    const { error } = await supabase
+    const { error } = await getSupabase()
       .from('sms_exclusions')
       .delete()
       .eq('customer_id', customerId)
-      .eq('exclusion_month', month);
+      .lte('exclusion_month', month);
 
     if (error) {
       console.error('제외 취소 오류:', error);

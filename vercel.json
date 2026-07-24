@@ -2,7 +2,7 @@
   "crons": [
     {
       "path": "/api/solapi/scheduler/monthly",
-      "schedule": "0 9 25 * *"
+      "schedule": "0 0 * * *"
     }
   ]
 }

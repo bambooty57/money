@@ -4,12 +4,18 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { getArrearsCustomers } from '@/lib/solapi/service';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
-const supabase = createClient(supabaseUrl, supabaseKey);
+let _supabase: SupabaseClient | null = null;
+function getSupabase(): SupabaseClient {
+  if (!_supabase) {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+    _supabase = createClient(supabaseUrl, supabaseKey);
+  }
+  return _supabase;
+}
 
 /**
  * GET /api/solapi/scheduled
@@ -41,24 +47,28 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // 2. 해당 월의 제외 목록 조회
-    const { data: exclusions, error: exclusionError } = await supabase
+    // 2. 제외 목록 조회 (해당 월 이전에 제외된 고객도 계속 제외 상태 유지)
+    const { data: exclusions, error: exclusionError } = await getSupabase()
       .from('sms_exclusions')
-      .select('customer_id, reason, excluded_by, created_at')
-      .eq('exclusion_month', month);
+      .select('customer_id, reason, excluded_by, created_at, exclusion_month')
+      .lte('exclusion_month', month)
+      .order('exclusion_month', { ascending: true });
 
     if (exclusionError) {
       console.error('제외 목록 조회 오류:', exclusionError);
     }
 
     // 3. 제외 목록을 Map으로 변환 (빠른 조회)
+    // 같은 고객이 여러 달에 제외된 경우 최초 제외 정보를 유지
     const exclusionMap = new Map();
     exclusions?.forEach((ex: any) => {
-      exclusionMap.set(ex.customer_id, {
-        reason: ex.reason,
-        excludedBy: ex.excluded_by,
-        excludedAt: ex.created_at,
-      });
+      if (!exclusionMap.has(ex.customer_id)) {
+        exclusionMap.set(ex.customer_id, {
+          reason: ex.reason,
+          excludedBy: ex.excluded_by,
+          excludedAt: ex.created_at,
+        });
+      }
     });
 
     // 4. 고객 목록에 제외 여부 추가

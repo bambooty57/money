@@ -3,13 +3,14 @@
 import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase';
 import type { Database } from '@/types/database';
-import type { SmsTemplateCategory, SmsTemplateKey } from '@/types/sms';
+import { smsTemplates, type SmsTemplateCategory, type SmsTemplateKey } from '@/types/sms';
 import clsx from 'clsx';
-import { Copy, Loader2, MessageSquare, Plus, Trash2, X, Save, Edit2 } from 'lucide-react';
+import { Copy, Loader2, MessageSquare, Plus, Trash2, X, Save, Edit2, Send, PhoneCall } from 'lucide-react';
 
 interface SmsSenderProps {
   selectedCustomer?: Customer | null;
   onSuccess?: () => void;
+  onClose?: () => void;
 }
 
 type CustomerBase = Database['public']['Tables']['customers']['Row'];
@@ -25,7 +26,7 @@ interface SmsTemplate {
   content: string;
 }
 
-export default function SmsSender({ selectedCustomer, onSuccess }: SmsSenderProps) {
+export default function SmsSender({ selectedCustomer, onSuccess, onClose }: SmsSenderProps) {
   const [loading, setLoading] = useState(false);
   const [category, setCategory] = useState<SmsTemplateCategory | ''>('');
   const [templateKey, setTemplateKey] = useState<SmsTemplateKey | ''>('');
@@ -40,74 +41,58 @@ export default function SmsSender({ selectedCustomer, onSuccess }: SmsSenderProp
   const [error, setError] = useState('');
   const [solapiSuccess, setSolapiSuccess] = useState(false);
 
-  // DB에서 템플릿 로드
+  // DB 및 기본 템플릿 로드
   const loadTemplates = async (): Promise<{ grouped: Record<string, Record<string, string>>; ids: Record<string, Record<string, string>> } | null> => {
     try {
       setTemplatesLoading(true);
-      const response = await fetch('/api/sms-templates');
-      
-      if (!response.ok) {
-        throw new Error(`템플릿 로드 실패: ${response.status} ${response.statusText}`);
-      }
-      
-      const result = await response.json();
 
-      if (result.data && Array.isArray(result.data)) {
-        // DB 템플릿을 카테고리별로 그룹화
-        const grouped: Record<string, Record<string, string>> = {};
-        const ids: Record<string, Record<string, string>> = {};
-        result.data.forEach((template: SmsTemplate) => {
-          if (!grouped[template.category]) {
-            grouped[template.category] = {};
-            ids[template.category] = {};
+      // 기본 템플릿(smsTemplates)으로 초기화
+      const grouped: Record<string, Record<string, string>> = {};
+      const ids: Record<string, Record<string, string>> = {};
+
+      Object.keys(smsTemplates).forEach((cat) => {
+        grouped[cat] = { ...smsTemplates[cat as SmsTemplateCategory] };
+        ids[cat] = {};
+      });
+
+      try {
+        const response = await fetch('/api/sms-templates');
+        if (response.ok) {
+          const result = await response.json();
+          if (result.data && Array.isArray(result.data)) {
+            result.data.forEach((template: SmsTemplate) => {
+              if (!grouped[template.category]) {
+                grouped[template.category] = {};
+                ids[template.category] = {};
+              }
+              grouped[template.category][template.key] = template.content;
+              ids[template.category][template.key] = template.id;
+            });
           }
-          grouped[template.category][template.key] = template.content;
-          ids[template.category][template.key] = template.id;
-        });
+        }
+      } catch (e) {
+        console.warn('DB 템플릿 로드 경고 (기본 템플릿 사용):', e);
+      }
 
-        // 현재 선택된 템플릿이 여전히 유효한지 확인
-        const currentTemplateExists = category && templateKey 
-          ? grouped[category]?.[templateKey] !== undefined
-          : false;
-        
-        // 템플릿 상태 업데이트
-        setDbTemplates(grouped);
-        setDbTemplateIds(ids);
-        
-        // 현재 선택된 템플릿이 더 이상 존재하지 않으면 상태 초기화
-        if (category && templateKey && !currentTemplateExists) {
-          console.warn('현재 선택된 템플릿이 더 이상 존재하지 않습니다:', { category, templateKey });
-          setTemplateKey('');
-          setMessage('');
-        }
-        
-        return { grouped, ids };
-      } else {
-        console.warn('템플릿 데이터가 없거나 배열이 아닙니다:', result);
-        // 데이터가 없으면 초기화
-        setDbTemplates({});
-        setDbTemplateIds({});
-        // 현재 선택된 템플릿이 있으면 초기화
-        if (templateKey) {
-          setTemplateKey('');
-          setMessage('');
-        }
-        return null;
-      }
-      // 에러가 있으면 콘솔에만 표시
-      if (result.error) {
-        console.warn('템플릿 로드 경고:', result.error);
-      }
-    } catch (err) {
-      console.error('템플릿 로드 실패:', err);
-      // 에러가 발생하면 초기화
-      setDbTemplates({});
-      setDbTemplateIds({});
-      // 현재 선택된 템플릿이 있으면 초기화
-      if (templateKey) {
+      // 현재 선택된 템플릿이 여전히 유효한지 확인
+      const currentTemplateExists = category && templateKey 
+        ? grouped[category]?.[templateKey] !== undefined
+        : false;
+      
+      // 템플릿 상태 업데이트
+      setDbTemplates(grouped);
+      setDbTemplateIds(ids);
+      
+      // 현재 선택된 템플릿이 더 이상 존재하지 않으면 상태 초기화
+      if (category && templateKey && !currentTemplateExists) {
+        console.warn('현재 선택된 템플릿이 더 이상 존재하지 않습니다:', { category, templateKey });
         setTemplateKey('');
         setMessage('');
       }
+      
+      return { grouped, ids };
+    } catch (err) {
+      console.error('템플릿 로드 실패:', err);
       return null;
     } finally {
       setTemplatesLoading(false);
@@ -537,30 +522,30 @@ export default function SmsSender({ selectedCustomer, onSuccess }: SmsSenderProp
   ) : [];
 
   return (
-    <div className="bg-white rounded-xl shadow-lg p-8 space-y-8 max-w-3xl w-full mx-auto max-h-[90vh] overflow-y-auto">
+    <div className="bg-white rounded-xl space-y-6 w-full max-h-[85vh] overflow-y-auto p-2 sm:p-4">
       {/* 수신자 선택 섹션 */}
       <div>
-        <label className="block text-xl font-bold text-gray-800 mb-4">📱 수신자 선택</label>
-        <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-6">
+        <label className="block text-xl font-bold text-gray-800 mb-3">📱 수신자 선택</label>
+        <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-4 sm:p-6">
           {selectedCustomer ? (
             <div className="flex items-start space-x-4">
-              <div className="w-6 h-6 bg-green-500 rounded-full mt-1"></div>
+              <div className="w-5 h-5 bg-green-500 rounded-full mt-1 shrink-0"></div>
               <div className="flex-1">
                 <div className="text-xl font-bold text-gray-800 mb-2">{selectedCustomer.name}</div>
-                <div className="space-y-2">
+                <div className="flex flex-wrap items-center gap-4 text-base font-semibold text-gray-700">
                   {/* 전화번호 영역 */}
                   <div className="flex items-center gap-2">
-                    <span className="text-lg font-semibold text-gray-700">📞</span>
+                    <span>📞</span>
                     {selectedCustomer.mobile || selectedCustomer.phone ? (
                       <a
                         href={`tel:${(selectedCustomer.mobile || selectedCustomer.phone)?.replace(/[^0-9]/g, '')}`}
-                        className="inline-block px-4 py-2 bg-blue-100 border-2 border-blue-300 rounded-lg text-lg font-bold text-blue-700 hover:bg-blue-200 hover:border-blue-500 transition-all duration-200 shadow-md hover:shadow-lg"
+                        className="inline-block px-3 py-1.5 bg-blue-100 border-2 border-blue-300 rounded-lg text-base font-bold text-blue-700 hover:bg-blue-200 transition-all shadow-sm"
                         title="📞 터치하여 전화 걸기"
                       >
                         {selectedCustomer.mobile || selectedCustomer.phone}
                       </a>
                     ) : (
-                      <span className="px-4 py-2 bg-gray-100 border-2 border-gray-300 rounded-lg text-lg font-medium text-gray-400">
+                      <span className="px-3 py-1.5 bg-gray-100 border border-gray-300 rounded-lg text-gray-400 font-normal">
                         연락처 없음
                       </span>
                     )}
@@ -568,9 +553,9 @@ export default function SmsSender({ selectedCustomer, onSuccess }: SmsSenderProp
                   
                   {/* 미수금 영역 */}
                   <div className="flex items-center gap-2">
-                    <span className="text-lg font-semibold text-gray-700">💰</span>
-                    <span className="text-lg font-semibold text-gray-700">
-                      미수금: {selectedCustomer.total_unpaid?.toLocaleString() || '0'}원
+                    <span>💰</span>
+                    <span>
+                      미수금: <strong className="text-red-600">{selectedCustomer.total_unpaid?.toLocaleString() || '0'}원</strong>
                     </span>
                   </div>
                 </div>
@@ -586,15 +571,15 @@ export default function SmsSender({ selectedCustomer, onSuccess }: SmsSenderProp
 
       {/* 카테고리 카드 섹션 */}
       <div>
-        <label className="block text-xl font-bold text-gray-800 mb-4">📋 카테고리</label>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <label className="block text-xl font-bold text-gray-800 mb-3">📋 카테고리</label>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
           {(['미수금 독촉', '상환/입금 안내', '분할납부/약정', '법적 조치/최종', '감사/일상', '기타'] as SmsTemplateCategory[]).map(cat => (
             <button
               type="button"
               key={cat}
               className={clsx(
-                'px-6 py-4 rounded-xl border-2 shadow-lg bg-white hover:bg-blue-50 transition-all transform hover:scale-105 text-lg font-semibold',
-                category === cat ? 'border-blue-600 ring-4 ring-blue-200 bg-blue-50 text-blue-800' : 'border-gray-300 text-gray-700'
+                'px-3 py-3 rounded-xl border-2 shadow-sm bg-white hover:bg-blue-50 transition-all text-sm md:text-base font-bold whitespace-nowrap break-keep text-center flex items-center justify-center',
+                category === cat ? 'border-blue-600 ring-2 ring-blue-300 bg-blue-50 text-blue-800' : 'border-gray-300 text-gray-700'
               )}
               onClick={() => {
                 setCategory(cat as SmsTemplateCategory);
@@ -620,7 +605,7 @@ export default function SmsSender({ selectedCustomer, onSuccess }: SmsSenderProp
                 setAddFormData({ key: '', content: '' });
                 setError('');
               }}
-              className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm"
+              className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-semibold shadow-sm"
             >
               <Plus size={18} />
               템플릿 추가
@@ -694,7 +679,7 @@ export default function SmsSender({ selectedCustomer, onSuccess }: SmsSenderProp
                 <button
                   type="button"
                   onClick={editingTemplateId ? handleUpdateTemplate : handleAddTemplate}
-                  className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                  className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-semibold"
                 >
                   <Save size={16} />
                   {editingTemplateId ? '저장' : '추가'}
@@ -707,7 +692,7 @@ export default function SmsSender({ selectedCustomer, onSuccess }: SmsSenderProp
                     setAddFormData({ key: '', content: '' });
                     setError('');
                   }}
-                  className="flex items-center gap-2 px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
+                  className="flex items-center gap-2 px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors font-semibold"
                 >
                   <X size={16} />
                   취소
@@ -737,8 +722,8 @@ export default function SmsSender({ selectedCustomer, onSuccess }: SmsSenderProp
               <div
                 key={key}
                 className={clsx(
-                  'relative p-6 rounded-xl border-2 shadow-lg bg-white transition-all transform hover:scale-105',
-                  templateKey === key ? 'border-blue-600 ring-4 ring-blue-200 bg-blue-50' : 'border-gray-300'
+                  'relative p-5 rounded-xl border-2 shadow-sm bg-white transition-all transform hover:scale-[1.02] cursor-pointer',
+                  templateKey === key ? 'border-blue-600 ring-2 ring-blue-300 bg-blue-50' : 'border-gray-200 hover:border-blue-300'
                 )}
               >
                 <button
@@ -747,10 +732,10 @@ export default function SmsSender({ selectedCustomer, onSuccess }: SmsSenderProp
                   onClick={() => handleTemplateSelect(key as SmsTemplateKey)}
                   title={label}
                 >
-                  <div className="whitespace-pre-line text-base leading-relaxed pr-16">
+                  <div className="whitespace-pre-line text-sm md:text-base leading-relaxed pr-12 break-keep">
                     {/* \n을 실제 줄바꿈으로 처리 */}
                     {label.replace(/\\n/g, '\n').split('\n').map((line, idx, arr) => (
-                      <span key={idx} className={templateKey === key ? 'text-blue-800 font-medium' : 'text-gray-700'}>
+                      <span key={idx} className={templateKey === key ? 'text-blue-900 font-semibold' : 'text-gray-800'}>
                         {line}{idx < arr.length - 1 ? <br /> : null}
                       </span>
                     ))}
@@ -812,26 +797,26 @@ export default function SmsSender({ selectedCustomer, onSuccess }: SmsSenderProp
               <Copy size={20} />
             </button>
             
-            {/* 문자보내기 버튼 */}
+            {/* 문자보내기 버튼 (솔라피 연동) */}
             <button
               type="button"
               onClick={handleSms}
               disabled={!message || !selectedCustomer || !(selectedCustomer.mobile || selectedCustomer.phone) || loading}
               className={clsx(
-                "p-3 rounded-lg transition-colors shadow-md",
+                "p-3 rounded-lg transition-colors shadow-md flex items-center justify-center gap-1",
                 !message || !selectedCustomer || !(selectedCustomer.mobile || selectedCustomer.phone) || loading
                   ? "bg-gray-400 text-gray-200 cursor-not-allowed"
-                  : "bg-green-500 text-white hover:bg-green-600"
+                  : "bg-green-600 text-white hover:bg-green-700"
               )}
               title={
-                loading ? "발송 중..." :
+                loading ? "솔라피(Solapi)로 발송 중..." :
                 !selectedCustomer ? "고객을 선택하세요" :
                 !(selectedCustomer.mobile || selectedCustomer.phone) ? "고객의 전화번호가 없습니다" :
                 !message ? "메시지를 입력하세요" :
-                "문자 보내기"
+                "솔라피(Solapi) 문자 발송"
               }
             >
-              {loading ? <Loader2 size={20} className="animate-spin" /> : <MessageSquare size={20} />}
+              {loading ? <Loader2 size={20} className="animate-spin" /> : <Send size={20} />}
             </button>
           </div>
         </div>

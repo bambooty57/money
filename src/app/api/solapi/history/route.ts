@@ -4,11 +4,17 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
-const supabase = createClient(supabaseUrl, supabaseKey);
+let _supabase: SupabaseClient | null = null;
+function getSupabase(): SupabaseClient {
+  if (!_supabase) {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+    _supabase = createClient(supabaseUrl, supabaseKey);
+  }
+  return _supabase;
+}
 
 /**
  * GET /api/solapi/history
@@ -21,7 +27,7 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get('status'); // success, failed, pending
     const limit = parseInt(searchParams.get('limit') || '100');
 
-    let query = supabase
+    let query = getSupabase()
       .from('notification_history')
       .select('*')
       .order('sent_at', { ascending: false })
@@ -30,37 +36,36 @@ export async function GET(request: NextRequest) {
     // 월별 필터링
     if (month) {
       const startDate = `${month}-01T00:00:00.000Z`;
-      const endDate = `${month}-31T23:59:59.999Z`;
-      query = query.gte('sent_at', startDate).lte('sent_at', endDate);
+      const endDate = getNextMonthFirstDay(month);
+      query = query.gte('sent_at', startDate).lt('sent_at', endDate);
     }
 
-    // 상태별 필터링
+    // 상태 필터링
     if (status) {
       query = query.eq('status', status);
     }
 
-    const { data, error, count } = await query;
+    const { data, error } = await query;
 
     if (error) {
       console.error('발송 이력 조회 오류:', error);
       return NextResponse.json(
-        { error: 'Failed to fetch history' },
+        { error: 'Failed to fetch notification history' },
         { status: 500 }
       );
     }
 
     // 통계 계산
     const stats = {
-      total: count || 0,
+      total: data?.length || 0,
       success: data?.filter((h: any) => h.status === 'success').length || 0,
       failed: data?.filter((h: any) => h.status === 'failed').length || 0,
       pending: data?.filter((h: any) => h.status === 'pending').length || 0,
-      totalAmount: data?.reduce((sum: number, h: any) => sum + (h.amount || 0), 0) || 0,
     };
 
     return NextResponse.json({
       success: true,
-      data: data || [],
+      data,
       stats,
     });
 
@@ -71,4 +76,15 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     );
   }
+}
+
+/**
+ * 다음 달 1일 날짜 문자열 반환 (ISO 형식)
+ */
+function getNextMonthFirstDay(monthStr: string): string {
+  const [year, month] = monthStr.split('-').map(Number);
+  const nextMonth = month === 12 ? 1 : month + 1;
+  const nextYear = month === 12 ? year + 1 : year;
+  const formattedMonth = String(nextMonth).padStart(2, '0');
+  return `${nextYear}-${formattedMonth}-01T00:00:00.000Z`;
 }

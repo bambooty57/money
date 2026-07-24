@@ -1373,6 +1373,16 @@ function PaginatedCustomerListInner({
                 <button
                   onClick={(e) => {
                     e.stopPropagation(); // 이벤트 전파 방지
+                    onSelectCustomer?.(customer);
+                  }}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200 text-base font-semibold shadow-lg flex items-center gap-1"
+                  title="문자 보내기"
+                >
+                  💬 문자
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation(); // 이벤트 전파 방지
                     if (onEdit) {
                       onEdit(customer);
                     }
