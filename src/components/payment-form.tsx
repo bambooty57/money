@@ -113,6 +113,8 @@ export default function PaymentForm({ transactionId, payment, onSuccess }: Payme
             <option value="현금">현금</option>
             <option value="계좌이체">계좌이체</option>
             <option value="카드">카드</option>
+            <option value="융자">융자</option>
+            <option value="캐피탈">캐피탈</option>
             <option value="기타">기타</option>
           </select>
         </div>
