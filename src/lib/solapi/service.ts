@@ -66,26 +66,42 @@ export async function getMessageTemplate(): Promise<string> {
   }
 
   try {
-    const { data, error } = await getSupabase()
+    const { data } = await getSupabase()
+      .from('models_types')
+      .select('type')
+      .eq('model', '__SYSTEM_SMS_SETTINGS__')
+      .single();
+
+    if (data?.type) {
+      const parsed = JSON.parse(data.type);
+      if (parsed.template) {
+        _cachedTemplate = parsed.template;
+        _templateCacheTime = now;
+        return _cachedTemplate!;
+      }
+    }
+  } catch {}
+
+  try {
+    const { data } = await getSupabase()
       .from('app_settings')
       .select('value')
       .eq('key', 'sms_template')
       .single();
 
-    if (error || !data) {
+    if (data?.value) {
+      _cachedTemplate = data.value;
+    } else {
       const local = getLocalSettings();
       _cachedTemplate = local.template || defaultConfig.messageTemplate;
-    } else {
-      _cachedTemplate = data.value;
     }
-    _templateCacheTime = now;
-    return _cachedTemplate!;
   } catch {
     const local = getLocalSettings();
     _cachedTemplate = local.template || defaultConfig.messageTemplate;
-    _templateCacheTime = now;
-    return _cachedTemplate!;
   }
+
+  _templateCacheTime = now;
+  return _cachedTemplate!;
 }
 
 // DB에서 발송일 조회 (캐시 적용)
@@ -99,20 +115,35 @@ export async function getSendDay(): Promise<number> {
   }
 
   try {
-    const { data, error } = await getSupabase()
+    const { data } = await getSupabase()
+      .from('models_types')
+      .select('type')
+      .eq('model', '__SYSTEM_SMS_SETTINGS__')
+      .single();
+
+    if (data?.type) {
+      const parsed = JSON.parse(data.type);
+      if (parsed.sendDay) {
+        _cachedSendDay = parseInt(parsed.sendDay, 10);
+        _sendDayCacheTime = now;
+        return _cachedSendDay!;
+      }
+    }
+  } catch {}
+
+  try {
+    const { data } = await getSupabase()
       .from('app_settings')
       .select('value')
       .eq('key', 'sms_send_day')
       .single();
 
-    if (error || !data) {
+    if (data?.value) {
+      _cachedSendDay = parseInt(data.value, 10) || defaultConfig.monthlyDay;
+    } else {
       const local = getLocalSettings();
       _cachedSendDay = local.sendDay || defaultConfig.monthlyDay;
-    } else {
-      _cachedSendDay = parseInt(data.value, 10) || defaultConfig.monthlyDay;
     }
-    _sendDayCacheTime = now;
-    return _cachedSendDay!;
   } catch {
     const local = getLocalSettings();
     _cachedSendDay = local.sendDay || defaultConfig.monthlyDay;

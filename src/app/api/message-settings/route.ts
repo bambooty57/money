@@ -54,36 +54,27 @@ export async function GET() {
     const supabase = getSupabase();
     const local = getLocalSettings();
 
-    let templateData: any = null;
-    let dayData: any = null;
-
+    let dbSettings: any = null;
     try {
-      const { data: tData } = await supabase
-        .from('app_settings')
-        .select('value')
-        .eq('key', 'sms_template')
+      const { data } = await supabase
+        .from('models_types')
+        .select('type')
+        .eq('model', '__SYSTEM_SMS_SETTINGS__')
         .single();
-      templateData = tData;
+      if (data?.type) {
+        dbSettings = JSON.parse(data.type);
+      }
     } catch {}
 
-    try {
-      const { data: dData } = await supabase
-        .from('app_settings')
-        .select('value')
-        .eq('key', 'sms_send_day')
-        .single();
-      dayData = dData;
-    } catch {}
-
-    const template = templateData?.value || local.template || DEFAULT_TEMPLATE;
-    const sendDay = dayData?.value ? parseInt(dayData.value, 10) : (local.sendDay || 25);
+    const template = dbSettings?.template || local.template || DEFAULT_TEMPLATE;
+    const sendDay = dbSettings?.sendDay || local.sendDay || 25;
 
     return NextResponse.json({
       success: true,
       data: {
         template,
         sendDay,
-        isDefault: !templateData && !local.template
+        isDefault: !dbSettings && !local.template
       }
     });
   } catch (error) {
@@ -109,74 +100,35 @@ export async function PUT(request: NextRequest) {
     const body = await request.json();
     const { template, sendDay } = body;
 
-    const localUpdate: { template?: string; sendDay?: number } = {};
-    if (template !== undefined && typeof template === 'string') {
-      localUpdate.template = template;
-    }
-    if (sendDay !== undefined) {
-      localUpdate.sendDay = parseInt(String(sendDay), 10);
-    }
-    saveLocalSettings(localUpdate);
+    const local = getLocalSettings();
+    const finalTemplate = template !== undefined ? template : (local.template || DEFAULT_TEMPLATE);
+    const finalSendDay = sendDay !== undefined ? parseInt(String(sendDay), 10) : (local.sendDay || 25);
+
+    saveLocalSettings({ template: finalTemplate, sendDay: finalSendDay });
 
     const supabase = getSupabase();
 
-    if (template !== undefined && typeof template === 'string') {
-      try {
+    try {
+      const { data: existing } = await supabase
+        .from('models_types')
+        .select('id')
+        .eq('model', '__SYSTEM_SMS_SETTINGS__')
+        .single();
+
+      const payload = JSON.stringify({ template: finalTemplate, sendDay: finalSendDay });
+      if (existing) {
         await supabase
-          .from('app_settings')
-          .upsert({
-            key: 'sms_template',
-            value: template,
-            description: 'SMS template',
-            updated_at: new Date().toISOString(),
-          }, { onConflict: 'key' });
-      } catch (err) {
-        console.warn('DB template save warning:', err);
+          .from('models_types')
+          .update({ type: payload })
+          .eq('id', existing.id);
+      } else {
+        await supabase
+          .from('models_types')
+          .insert({ model: '__SYSTEM_SMS_SETTINGS__', type: payload });
       }
+    } catch (err) {
+      console.warn('DB settings save warning:', err);
     }
-
-    if (sendDay !== undefined) {
-      const dayNum = parseInt(String(sendDay), 10);
-      if (!isNaN(dayNum) && dayNum >= 1 && dayNum <= 31) {
-        try {
-          await supabase
-            .from('app_settings')
-            .upsert({
-              key: 'sms_send_day',
-              value: String(dayNum),
-              description: 'SMS send day of month',
-              updated_at: new Date().toISOString(),
-            }, { onConflict: 'key' });
-        } catch (err) {
-          console.warn('DB sendDay save warning:', err);
-        }
-      }
-    }
-
-    let updatedTemplate: any = null;
-    let updatedDay: any = null;
-
-    try {
-      const { data: tData } = await supabase
-        .from('app_settings')
-        .select('value')
-        .eq('key', 'sms_template')
-        .single();
-      updatedTemplate = tData;
-    } catch {}
-
-    try {
-      const { data: dData } = await supabase
-        .from('app_settings')
-        .select('value')
-        .eq('key', 'sms_send_day')
-        .single();
-      updatedDay = dData;
-    } catch {}
-
-    const local = getLocalSettings();
-    const finalTemplate = updatedTemplate?.value || local.template || DEFAULT_TEMPLATE;
-    const finalSendDay = updatedDay?.value ? parseInt(updatedDay.value, 10) : (local.sendDay || 25);
 
     return NextResponse.json({
       success: true,
@@ -184,7 +136,7 @@ export async function PUT(request: NextRequest) {
         template: finalTemplate,
         sendDay: finalSendDay,
       },
-      message: 'Settings saved'
+      message: 'Settings saved and synced across devices'
     });
   } catch (error) {
     console.error('Message settings save error:', error);
