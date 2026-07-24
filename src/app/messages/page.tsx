@@ -195,11 +195,12 @@ export default function MessagesPage() {
       const response = await fetch('/api/message-settings', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ template: editingTemplate, sendDay: newDay }),
+        body: JSON.stringify({ template: editingTemplate || messageTemplate, sendDay: newDay }),
       });
       const result = await response.json();
       if (result.success) {
         setDaySaveResult(`${newDay}일로 저장되었습니다.`);
+        fetchScheduledCustomers();
         setTimeout(() => setDaySaveResult(null), 3000);
       } else {
         setDaySaveResult('저장 실패: ' + (result.error || '알 수 없는 오류'));

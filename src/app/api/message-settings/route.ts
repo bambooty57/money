@@ -129,7 +129,11 @@ export async function PUT(request: NextRequest) {
     const supabase = getSupabase();
 
     try {
-      const payload = JSON.stringify({ template: finalTemplate, sendDay: finalSendDay });
+      const payload = JSON.stringify({
+        template: finalTemplate,
+        sendDay: finalSendDay,
+        ts: Date.now()
+      });
       await supabase
         .from('models_types')
         .insert({ model: '__SYSTEM_SMS_SETTINGS__', type: payload });
