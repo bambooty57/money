@@ -70,7 +70,7 @@ async function findOrCreateCustomer(
   }
 
   // 3. 기존 고객이 없으면 새로 생성
-  const { data: newCustomer, error: createError } = await supabase
+  const { data: newCustomer, error: createError } = await (supabase as any)
     .from('customers')
     .insert({
       name: customerData.name || '이름 없음',
@@ -80,7 +80,7 @@ async function findOrCreateCustomer(
       representative_name: '',
       customer_type: '일반농민',
       grade: '일반',
-    } as any)
+    })
     .select()
     .single();
 

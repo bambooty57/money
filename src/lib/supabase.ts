@@ -151,10 +151,10 @@ export class SchemaChecker {
   
   async checkTableSchema(tableName: string) {
     try {
-      const { data, error } = await supabase
-        .from('information_schema.columns' as 'customers')
+      const { data, error } = await (supabase as any)
+        .from('information_schema.columns')
         .select('*')
-        .eq('table_name' as any, tableName);
+        .eq('table_name', tableName);
       
       if (error) {
         console.warn(`⚠️ Could not check schema for table: ${tableName}`, error);

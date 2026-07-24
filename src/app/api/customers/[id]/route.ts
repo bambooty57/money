@@ -67,9 +67,9 @@ export async function PUT(request: any, context: any) {
     });
 
     // 실제 DB 업데이트 예시 (컬럼명/테이블명에 맞게 수정)
-    const { data, error } = await authenticatedSupabase
+    const { data, error } = await (authenticatedSupabase as any)
       .from('customers')
-      .update(updateData as any)
+      .update(updateData)
       .eq('id', customer_id)
       .select()
       .single();
