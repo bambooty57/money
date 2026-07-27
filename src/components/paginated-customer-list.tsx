@@ -715,6 +715,16 @@ function CustomerDetailModal({ customer, open, onClose }: { customer: any, open:
               </div>
             )}
           </div>
+
+          {/* 최하단 닫기 버튼 */}
+          <div className="pt-4 border-t border-gray-200 flex justify-end sticky bottom-0 bg-white py-3 mt-4">
+            <button
+              onClick={onClose}
+              className="w-full sm:w-auto px-6 py-2.5 bg-gray-700 hover:bg-gray-800 text-white font-bold text-sm rounded-lg shadow transition-colors flex items-center justify-center gap-2 cursor-pointer"
+            >
+              닫기
+            </button>
+          </div>
         </div>
       </DialogContent>
     </Dialog>
