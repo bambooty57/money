@@ -53,6 +53,12 @@ export default function TransactionForm({ customers, onSuccess, transaction, ref
     }
   }, [customers]);
 
+  useEffect(() => {
+    if (defaultCustomerId && !transaction) {
+      setFormData(prev => ({ ...prev, customer_id: defaultCustomerId }));
+    }
+  }, [defaultCustomerId, transaction]);
+
   // 기종/형식명 전체 목록 fetch (ProductModelTypeDropdown과 동일하게)
   const [modelTypeOptions, setModelTypeOptions] = useReactState<{ id: string; model: string; type: string }[]>([]);
   useEffect(() => {

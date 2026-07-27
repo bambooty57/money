@@ -19,6 +19,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
 import { useCustomersRealtime } from '@/lib/useCustomersRealtime';
 import { supabase } from '@/lib/supabase';
 import * as XLSX from 'xlsx';
+import TransactionForm from './transaction-form';
 
 // 가망고객 타입 정의
 type Prospect = {
@@ -111,6 +112,39 @@ const openKakaoMap = (address: string) => {
 
 function CustomerDetailModal({ customer, open, onClose }: { customer: any, open: boolean, onClose: () => void }) {
   const [smsMessages, setSmsMessages] = useState<any[]>([]);
+  // 거래 등록 모달 및 요약 정보 상태
+  const [transactionFormOpen, setTransactionFormOpen] = useState(false);
+  const [customerSummary, setCustomerSummary] = useState<{ transaction_count?: number; total_unpaid?: number }>({});
+
+  // 고객 거래 요약 (미수금/거래건수) 조회
+  const fetchCustomerSummary = useCallback(async () => {
+    if (!customer?.id) return;
+    try {
+      const { data: txs } = await supabase
+        .from('transactions')
+        .select('amount, status, payments(amount)')
+        .eq('customer_id', customer.id);
+      
+      if (txs) {
+        let count = txs.length;
+        let unpaidTotal = 0;
+        txs.forEach((tx: any) => {
+          const paidSum = (tx.payments || []).reduce((acc: number, p: any) => acc + (p.amount || 0), 0);
+          const unpaid = (tx.amount || 0) - paidSum;
+          if (unpaid > 0) unpaidTotal += unpaid;
+        });
+        setCustomerSummary({ transaction_count: count, total_unpaid: unpaidTotal });
+      }
+    } catch (err) {
+      console.error('고객 거래 요약 조회 실패:', err);
+    }
+  }, [customer?.id]);
+
+  useEffect(() => {
+    if (open && customer?.id) {
+      fetchCustomerSummary();
+    }
+  }, [open, customer?.id, fetchCustomerSummary]);
   const [loading, setLoading] = useState(false);
   const [photos, setPhotos] = useState<any[]>([]);
   
@@ -306,10 +340,16 @@ function CustomerDetailModal({ customer, open, onClose }: { customer: any, open:
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
+        <DialogHeader className="flex flex-row items-center justify-between">
           <DialogTitle className="text-2xl font-bold text-blue-800 flex items-center gap-3">
             👤 {customer.name} 상세정보
           </DialogTitle>
+          <button
+            onClick={() => setTransactionFormOpen(true)}
+            className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-bold text-sm shadow-md transition-colors flex items-center gap-2 cursor-pointer mr-8"
+          >
+            ➕ 거래 등록
+          </button>
         </DialogHeader>
         <div className="space-y-6">
           {/* 기본 정보 */}
@@ -620,18 +660,28 @@ function CustomerDetailModal({ customer, open, onClose }: { customer: any, open:
 
           {/* 거래 정보 */}
           <div className="bg-purple-50 p-6 rounded-lg border-2 border-purple-200">
-            <h3 className="text-xl font-bold text-purple-800 mb-4 flex items-center gap-2">
-              💼 거래 정보
-            </h3>
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xl font-bold text-purple-800 flex items-center gap-2">
+                💼 거래 정보
+              </h3>
+              <button
+                onClick={() => setTransactionFormOpen(true)}
+                className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-bold text-sm shadow-md transition-colors flex items-center gap-2 cursor-pointer"
+              >
+                ➕ 거래 등록
+              </button>
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <span className="text-sm font-semibold text-purple-700 block mb-1">거래건수</span>
-                <span className="text-2xl font-bold text-purple-800">{customer.transaction_count ?? 0}건</span>
+                <span className="text-2xl font-bold text-purple-800">
+                  {customerSummary.transaction_count ?? customer.transaction_count ?? 0}건
+                </span>
               </div>
               <div>
                 <span className="text-sm font-semibold text-purple-700 block mb-1">미수금</span>
-                <span className={`text-2xl font-bold ${customer.total_unpaid && customer.total_unpaid > 0 ? 'text-red-600' : 'text-gray-400'}`}>
-                  {customer.total_unpaid?.toLocaleString() ?? '0'}원
+                <span className={`text-2xl font-bold ${(customerSummary.total_unpaid ?? customer.total_unpaid ?? 0) > 0 ? 'text-red-600' : 'text-gray-400'}`}>
+                  {(customerSummary.total_unpaid ?? customer.total_unpaid ?? 0).toLocaleString()}원
                 </span>
               </div>
             </div>
@@ -726,6 +776,25 @@ function CustomerDetailModal({ customer, open, onClose }: { customer: any, open:
             </button>
           </div>
         </div>
+
+        {/* 신규 거래 등록 모달 (거래명세서 모달과 동일) */}
+        <Dialog open={transactionFormOpen} onOpenChange={setTransactionFormOpen}>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto p-4 sm:p-6 bg-white shadow-2xl rounded-2xl border border-gray-200 z-50">
+            <DialogHeader>
+              <DialogTitle className="text-2xl font-bold text-gray-800 flex items-center gap-2">
+                ➕ 신규 거래 등록 ({customer.name})
+              </DialogTitle>
+            </DialogHeader>
+            <TransactionForm
+              defaultCustomerId={customer.id}
+              onSuccess={() => {
+                setTransactionFormOpen(false);
+                alert('거래가 성공적으로 등록되었습니다!');
+                fetchCustomerSummary();
+              }}
+            />
+          </DialogContent>
+        </Dialog>
       </DialogContent>
     </Dialog>
   );
@@ -1818,18 +1887,17 @@ function PaginatedCustomerListInner({
                   )}
                 </div>
                 
-                {/* 고객 선택 버튼 */}
+                {/* 고객 상세정보 모달 버튼 */}
                 <div className="mt-4">
                   <button
                     onClick={(e) => {
                       e.stopPropagation(); // 이벤트 전파 방지
-                      setSelectedCustomer(customer);
-                      onSelectCustomer?.(customer);
+                      handleCustomerSelect(customer);
                     }}
-                    className="w-full px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200 text-lg font-semibold shadow-lg"
-                    title="이 고객을 SMS 발송 대상으로 선택"
+                    className="w-full px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200 text-lg font-bold shadow-lg flex items-center justify-center gap-2 cursor-pointer"
+                    title="고객 상세정보 및 거래/문자/가망고객 내역 보기"
                   >
-                    ✅ 고객 선택
+                    🔍 고객 상세정보 보기
                   </button>
                 </div>
               </div>
