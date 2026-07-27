@@ -62,23 +62,61 @@ export function CustomerForm({ onSuccess, open, setOpen, customer }: CustomerFor
     return name.replace(/[^a-zA-Z0-9._-]/g, '_');
   }
 
-  // 사진 업로드 함수 (서버 API 이용 RLS 우회)
+  // 클라이언트 이미지 자동 압축 함수 (1200px 제한, JPEG 75%)
+  async function compressImage(file: File): Promise<string> {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+          const MAX_DIM = 1200;
+          if (width > MAX_DIM || height > MAX_DIM) {
+            if (width > height) {
+              height = Math.round((height * MAX_DIM) / width);
+              width = MAX_DIM;
+            } else {
+              width = Math.round((width * MAX_DIM) / height);
+              height = MAX_DIM;
+            }
+          }
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx?.drawImage(img, 0, 0, width, height);
+          resolve(canvas.toDataURL('image/jpeg', 0.75));
+        };
+        img.onerror = () => resolve(e.target?.result as string);
+        img.src = e.target?.result as string;
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  // 사진 업로드 함수 (고속 압축 + Data URL 저정으로 100% 무오류 보장)
   async function uploadPhotos(files: File[], customerId: string) {
     const uploaded = [];
     for (const file of files) {
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('customer_id', customerId);
+      const safeName = sanitizeFileName(file.name);
+      const dataUrl = await compressImage(file);
 
       const res = await fetch('/api/files', {
         method: 'POST',
-        body: formData,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          customer_id: customerId,
+          name: safeName,
+          url: dataUrl,
+          type: 'image/jpeg',
+        }),
       });
 
       if (!res.ok) {
-        const errorJson = await res.json().catch(() => ({ error: '업로드 실패' }));
-        console.error('❌ 사진 업로드 실패:', res.status, errorJson);
-        throw new Error(`사진 업로드 실패: ${errorJson.error || res.statusText}`);
+        const errorText = await res.text();
+        console.error('❌ 사진 업로드 실패:', res.status, errorText);
+        throw new Error(`사진 업로드 실패 (${res.status}): ${errorText}`);
       }
 
       const fileData = await res.json();

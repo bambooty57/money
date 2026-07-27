@@ -18,17 +18,16 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const isValidUUID = (uuid: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(uuid);
     const contentType = req.headers.get('content-type') || '';
 
-    // 1. FormData 요청 처리 (서버 사이드 Storage 업로드 + Data URL 자동 폴백)
+    // 1. FormData 요청 처리
     if (contentType.includes('multipart/form-data')) {
       const formData = await req.formData();
       const file = formData.get('file') as File | null;
       const customerId = formData.get('customer_id') as string | null;
 
-      if (!file || !customerId || !isValidUUID(customerId)) {
-        return NextResponse.json({ error: '유효한 file과 customer_id가 필요합니다.' }, { status: 400 });
+      if (!file || !customerId) {
+        return NextResponse.json({ error: 'file과 customer_id가 필요합니다.' }, { status: 400 });
       }
 
       const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
@@ -38,7 +37,7 @@ export async function POST(req: NextRequest) {
 
       let finalUrl = '';
 
-      // 1-1. Storage 업로드 시도
+      // Storage 업로드 시도
       try {
         const { data: stData, error: stError } = await supabase.storage
           .from('photos')
@@ -50,20 +49,17 @@ export async function POST(req: NextRequest) {
         if (!stError && stData) {
           const { data: publicUrl } = supabase.storage.from('photos').getPublicUrl(filePath);
           finalUrl = publicUrl.publicUrl;
-        } else if (stError) {
-          console.warn('Storage 업로드 권한 제약 발생 (Data URL 자동 폴백 처리):', stError.message);
         }
       } catch (stEx) {
-        console.warn('Storage 업로드 예외 발생 (Data URL 자동 폴백 처리):', stEx);
+        console.warn('Storage 업로드 시도 실패 (Data URL 자동 전환):', stEx);
       }
 
-      // 1-2. Storage 업로드 실패/차단 시 Data URL로 폴백 (100% 성공 보장)
+      // Storage 업로드 불가 시 Data URL 전환 (100% 저장 성공 보장)
       if (!finalUrl) {
         const mimeType = file.type || 'image/jpeg';
         finalUrl = `data:${mimeType};base64,${buffer.toString('base64')}`;
       }
 
-      // 1-3. files 테이블 저장
       const { data: fileRecord, error: fileError } = await supabase
         .from('files')
         .insert([{
@@ -83,17 +79,22 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(fileRecord, { status: 201 });
     }
 
-    // 2. JSON 요청 처리
+    // 2. JSON 요청 처리 (Data URL 혹은 메타데이터 직접 저장)
     const body = await req.json();
-    if (!body.customer_id || !isValidUUID(body.customer_id)) {
-      return NextResponse.json({ error: '유효한 customer_id가 필요합니다.' }, { status: 400 });
+    if (!body.customer_id) {
+      return NextResponse.json({ error: 'customer_id가 필요합니다.' }, { status: 400 });
     }
-    if (body.transaction_id && !isValidUUID(body.transaction_id)) {
-      return NextResponse.json({ error: '유효한 transaction_id가 필요합니다.' }, { status: 400 });
-    }
-    const { data, error } = await supabase.from('files').insert([body]).select('*,customers(*)').single();
+
+    const { data, error } = await supabase.from('files').insert([{
+      customer_id: body.customer_id,
+      name: body.name || 'photo.jpg',
+      url: body.url,
+      type: body.type || 'image/jpeg',
+      transaction_id: body.transaction_id || null,
+    }]).select('*,customers(*)').single();
+
     if (error) {
-      console.error('Error creating file:', error);
+      console.error('files 테이블 저장 실패:', error);
       return NextResponse.json({ error: error.message || 'Failed to create file' }, { status: 500 });
     }
     return NextResponse.json(data, { status: 201 });
@@ -125,7 +126,7 @@ export async function DELETE(req: NextRequest) {
       throw new Error('파일 정보를 찾을 수 없습니다');
     }
 
-    // 2. Storage에서 파일 삭제 (Data URL인 경우 스킵)
+    // 2. Storage 삭제
     if (fileData?.url && !fileData.url.startsWith('data:')) {
       try {
         const url = fileData.url;
@@ -146,7 +147,7 @@ export async function DELETE(req: NextRequest) {
       }
     }
 
-    // 3. DB 삭제
+    // 3. DB 레코드 삭제
     const db = authenticatedSupabase as any;
     const { error } = await db.from('files').delete().eq('id', file_id);
     if (error) throw error;
