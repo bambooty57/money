@@ -2040,7 +2040,7 @@ function PaginatedCustomerListInner({
                     className="w-full px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200 text-lg font-bold shadow-lg flex items-center justify-center gap-2 cursor-pointer"
                     title="고객 상세정보 및 거래/문자/가망고객 내역 보기"
                   >
-                    🔍 고객 상세정보 보기
+                    상세정보
                   </button>
                 </div>
               </div>
