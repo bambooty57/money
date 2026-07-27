@@ -147,17 +147,25 @@ export async function DELETE(request: any, context: any) {
     await db.from('files').delete().eq('customer_id', customer_id);
 
     // 5. customers 테이블에서 고객 삭제
-    const { error } = await authenticatedSupabase
+    const { data: deletedRows, error, count } = await authenticatedSupabase
       .from('customers')
-      .delete()
-      .eq('id', customer_id);
+      .delete({ count: 'exact' })
+      .eq('id', customer_id)
+      .select();
 
     if (error) {
       console.error('Error deleting customer:', error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({ success: true, deletedFiles: files?.length || 0 });
+    if (count === 0 || !deletedRows || deletedRows.length === 0) {
+      console.error('Customer delete 0 rows affected (RLS)');
+      return NextResponse.json({ 
+        error: '데이터베이스 삭제 권한(RLS)으로 인해 고객이 삭제되지 않았습니다. Supabase SQL 에디터에서 fix_customers_rls.sql 실행이 필요합니다.' 
+      }, { status: 403 });
+    }
+
+    return NextResponse.json({ success: true, deletedFiles: files?.length || 0, count });
 
   } catch (e: any) {
     console.error('DELETE handler error:', e);

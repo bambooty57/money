@@ -365,13 +365,25 @@ export async function DELETE(request: Request) {
     await db.from('files').delete().eq('customer_id', id);
 
     // 4. 최종 고객 레코드 삭제
-    const { error } = await authenticatedSupabase.from('customers').delete().eq('id', id);
+    const { data: deletedRows, error, count } = await authenticatedSupabase
+      .from('customers')
+      .delete({ count: 'exact' })
+      .eq('id', id)
+      .select();
+
     if (error) {
       console.error('고객 DB 삭제 실패:', error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({ success: true });
+    if (count === 0 || !deletedRows || deletedRows.length === 0) {
+      console.error('고객 DB 삭제 실패: 0행 삭제됨 (Supabase RLS 권한 원인)');
+      return NextResponse.json({ 
+        error: '데이터베이스 삭제 권한(RLS)으로 인해 고객이 삭제되지 않았습니다. Supabase SQL 에디터에서 fix_customers_rls.sql 실행이 필요합니다.' 
+      }, { status: 403 });
+    }
+
+    return NextResponse.json({ success: true, count });
   } catch (err: any) {
     console.error('고객 삭제 처리 중 예외 발생:', err);
     return NextResponse.json({ error: err?.message || '고객 삭제 처리 실패' }, { status: 500 });
