@@ -127,6 +127,11 @@ function CustomerDetailModal({
   // 거래 등록 모달 및 요약 정보 상태
   const [transactionFormOpen, setTransactionFormOpen] = useState(false);
   const [customerSummary, setCustomerSummary] = useState<{ transaction_count?: number; total_unpaid?: number }>({});
+  
+  // 거래 상세내역 보기 상태
+  const [showTransactionDetail, setShowTransactionDetail] = useState(false);
+  const [customerTransactions, setCustomerTransactions] = useState<any[]>([]);
+  const [txLoading, setTxLoading] = useState(false);
 
   // 고객 거래 요약 (미수금/거래건수) 조회
   const fetchCustomerSummary = useCallback(async () => {
@@ -152,11 +157,36 @@ function CustomerDetailModal({
     }
   }, [customer?.id]);
 
+  // 고객 거래 상세 목록 조회
+  const fetchCustomerTransactions = useCallback(async () => {
+    if (!customer?.id) return;
+    setTxLoading(true);
+    try {
+      const { data: txs, error } = await supabase
+        .from('transactions')
+        .select('*, models_types(model, type), payments(*)')
+        .eq('customer_id', customer.id)
+        .neq('status', 'deleted')
+        .order('created_at', { ascending: false });
+
+      if (!error && txs) {
+        setCustomerTransactions(txs);
+      }
+    } catch (err) {
+      console.error('고객 거래 상세 목록 조회 실패:', err);
+    } finally {
+      setTxLoading(false);
+    }
+  }, [customer?.id]);
+
   useEffect(() => {
     if (open && customer?.id) {
       fetchCustomerSummary();
+      if (showTransactionDetail) {
+        fetchCustomerTransactions();
+      }
     }
-  }, [open, customer?.id, fetchCustomerSummary]);
+  }, [open, customer?.id, fetchCustomerSummary, showTransactionDetail, fetchCustomerTransactions]);
   const [loading, setLoading] = useState(false);
   const [photos, setPhotos] = useState<any[]>([]);
   
@@ -672,17 +702,33 @@ function CustomerDetailModal({
 
           {/* 거래 정보 */}
           <div className="bg-purple-50 p-6 rounded-lg border-2 border-purple-200">
-            <div className="flex justify-between items-center mb-4">
+            <div className="flex flex-wrap justify-between items-center gap-2 mb-4">
               <h3 className="text-xl font-bold text-purple-800 flex items-center gap-2">
                 💼 거래 정보
               </h3>
-              <button
-                onClick={() => setTransactionFormOpen(true)}
-                className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-bold text-sm shadow-md transition-colors flex items-center gap-2 cursor-pointer"
-              >
-                ➕ 거래 등록
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    const next = !showTransactionDetail;
+                    setShowTransactionDetail(next);
+                    if (next) fetchCustomerTransactions();
+                  }}
+                  className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-bold text-sm shadow-md transition-colors flex items-center gap-1.5 cursor-pointer"
+                >
+                  {showTransactionDetail ? '▲ 상세 닫기' : '📊 거래 상세내역 보기'}
+                </button>
+                <a
+                  href={`/customers/${customer.id}/transactions`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-bold text-sm shadow-md transition-colors flex items-center gap-1.5 cursor-pointer"
+                  title="거래명세서 전체 페이지(인쇄/PDF)로 이동"
+                >
+                  🔗 거래명세서로 이동
+                </a>
+              </div>
             </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <span className="text-sm font-semibold text-purple-700 block mb-1">거래건수</span>
@@ -697,6 +743,87 @@ function CustomerDetailModal({
                 </span>
               </div>
             </div>
+
+            {/* 거래 상세 목록 펼침 */}
+            {showTransactionDetail && (
+              <div className="mt-6 pt-4 border-t-2 border-purple-200 bg-white p-4 rounded-xl shadow-inner space-y-4">
+                <div className="flex justify-between items-center">
+                  <h4 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+                    📋 {customer.name} 님의 거래 내역 목록 ({customerTransactions.length}건)
+                  </h4>
+                  <button
+                    onClick={fetchCustomerTransactions}
+                    className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-md text-xs font-bold transition-colors cursor-pointer"
+                  >
+                    🔄 목록 새로고침
+                  </button>
+                </div>
+
+                {txLoading ? (
+                  <div className="py-8 text-center text-gray-500 font-semibold flex items-center justify-center gap-2">
+                    <div className="animate-spin rounded-full h-5 w-5 border-2 border-purple-600 border-t-transparent"></div>
+                    거래 내역을 불러오는 중...
+                  </div>
+                ) : customerTransactions.length === 0 ? (
+                  <div className="py-8 text-center text-gray-400 font-medium bg-gray-50 rounded-lg">
+                    등록된 거래 내역이 없습니다.
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto rounded-lg border border-gray-200">
+                    <table className="w-full text-sm text-left text-gray-700">
+                      <thead className="text-xs text-purple-900 uppercase bg-purple-100 border-b border-purple-200">
+                        <tr>
+                          <th className="px-3 py-2.5">일자</th>
+                          <th className="px-3 py-2.5">구분</th>
+                          <th className="px-3 py-2.5">기종/품목/적요</th>
+                          <th className="px-3 py-2.5 text-right">거래금액</th>
+                          <th className="px-3 py-2.5 text-right">입금액</th>
+                          <th className="px-3 py-2.5 text-right">미수금</th>
+                          <th className="px-3 py-2.5 text-center">상태</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-200">
+                        {customerTransactions.map((tx: any) => {
+                          const paidSum = (tx.payments || []).reduce((acc: number, p: any) => acc + (p.amount || 0), 0);
+                          const unpaid = (tx.amount || 0) - paidSum;
+                          const isCompleted = unpaid <= 0;
+                          const modelInfo = tx.models_types ? `${tx.models_types.model || ''} ${tx.models_types.type || ''}`.trim() : (tx.model || tx.model_type || '');
+                          const desc = tx.description ? ` (${tx.description})` : '';
+                          const displayItem = (modelInfo + desc) || '품목 정보 없음';
+                          const dateStr = tx.created_at ? tx.created_at.split('T')[0] : '-';
+
+                          return (
+                            <tr key={tx.id} className="hover:bg-purple-50 transition-colors">
+                              <td className="px-3 py-3 font-semibold text-gray-600 whitespace-nowrap">{dateStr}</td>
+                              <td className="px-3 py-3 whitespace-nowrap">
+                                <span className="px-2 py-0.5 rounded text-xs font-bold bg-gray-100 text-gray-700">
+                                  {tx.type || '일반거래'}
+                                </span>
+                              </td>
+                              <td className="px-3 py-3 font-medium text-gray-900">{displayItem}</td>
+                              <td className="px-3 py-3 text-right font-bold text-gray-900 whitespace-nowrap">
+                                {(tx.amount || 0).toLocaleString()}원
+                              </td>
+                              <td className="px-3 py-3 text-right font-semibold text-blue-600 whitespace-nowrap">
+                                {paidSum.toLocaleString()}원
+                              </td>
+                              <td className={`px-3 py-3 text-right font-bold whitespace-nowrap ${unpaid > 0 ? 'text-red-600' : 'text-gray-400'}`}>
+                                {unpaid > 0 ? `${unpaid.toLocaleString()}원` : '0원'}
+                              </td>
+                              <td className="px-3 py-3 text-center whitespace-nowrap">
+                                <span className={`px-2 py-1 rounded-full text-xs font-bold ${isCompleted ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                                  {isCompleted ? '완납' : '미수'}
+                                </span>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* 사진 정보 */}
