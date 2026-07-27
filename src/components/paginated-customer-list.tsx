@@ -1178,14 +1178,62 @@ function PaginatedCustomerListInner({
     return <div className="text-center py-8">데이터를 불러올 수 없습니다.</div>;
   }
 
+  // 선택 고객 일괄 삭제 핸들러
+  const handleBatchDelete = async () => {
+    const count = selectedIds.size;
+    if (count === 0) return;
+
+    const confirmMsg = `⚠️ 선택한 ${count}명의 고객을 정말로 삭제하시겠습니까?\n\n⚠️ 해당 고객들과 관련된 모든 거래내역 및 연관 정보가 함께 삭제되며 이 작업은 되돌릴 수 없습니다.`;
+    if (!window.confirm(confirmMsg)) return;
+
+    setLoading(true);
+    try {
+      const idsToDelete = Array.from(selectedIds);
+      let successCount = 0;
+      let failCount = 0;
+
+      for (const id of idsToDelete) {
+        try {
+          const res = await fetch(`/api/customers?id=${id}`, { method: 'DELETE' });
+          if (res.ok) {
+            successCount++;
+          } else {
+            failCount++;
+          }
+        } catch {
+          failCount++;
+        }
+      }
+
+      alert(`선택 삭제가 완료되었습니다. (성공: ${successCount}명, 실패: ${failCount}명)`);
+      setSelectedIds(new Set());
+      router.refresh();
+      window.location.reload();
+    } catch (err) {
+      console.error('일괄 삭제 중 오류:', err);
+      alert('일괄 삭제 중 오류가 발생했습니다.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="space-y-4">
       {/* 검색 및 필터 영역 */}
       <div className="bg-white rounded-lg shadow-lg p-6 mb-6 border-2 border-blue-200">
         <div className="flex flex-col lg:flex-row gap-6 justify-between items-center">
           <div className="flex-1 max-w-2xl">
-            {/* 엑셀 다운로드 버튼 */}
-            <div className="flex justify-end mb-3">
+            {/* 엑셀 다운로드 & 선택 삭제 버튼 */}
+            <div className="flex justify-end items-center gap-2 mb-3">
+              {selectedIds.size > 0 && (
+                <button
+                  onClick={handleBatchDelete}
+                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm font-semibold shadow-sm flex items-center gap-1"
+                  title="선택한 고객 일괄 삭제"
+                >
+                  🗑️ 선택 고객 삭제 ({selectedIds.size}명)
+                </button>
+              )}
               <button
                 onClick={handleExcelDownload}
                 disabled={!data?.data || data.data.length === 0}
@@ -1349,13 +1397,12 @@ function PaginatedCustomerListInner({
             key={customer.id} 
             className="bg-white rounded-xl shadow-lg border-2 border-gray-200 hover:shadow-xl transition-shadow duration-300 relative cursor-pointer"
             onClick={() => {
-              // 고객 선택
-              setSelectedCustomer(customer);
-              onSelectCustomer?.(customer);
+              // 카드 클릭 시 상세보기 모달 오픈 (SMS 모달이 아님)
+              handleCustomerSelect(customer);
             }}
           >
             {/* 체크박스와 작업 버튼 */}
-            <div className="absolute top-4 left-4 z-10">
+            <div className="absolute top-4 left-4 z-10" onClick={e => e.stopPropagation()}>
               <input
                 type="checkbox"
                 checked={selectedIds.has(customer.id)}
@@ -1363,7 +1410,8 @@ function PaginatedCustomerListInner({
                   e.stopPropagation(); // 이벤트 전파 방지
                   handleCheck(customer.id, e.target.checked);
                 }}
-                className="w-6 h-6 text-blue-600 rounded border-2 border-gray-300 focus:ring-2 focus:ring-blue-500"
+                onClick={e => e.stopPropagation()}
+                className="w-6 h-6 text-blue-600 rounded border-2 border-gray-300 focus:ring-2 focus:ring-blue-500 cursor-pointer"
                 title="고객 선택"
               />
             </div>
