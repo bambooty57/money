@@ -1426,13 +1426,26 @@ function PaginatedCustomerListInner({
                       
                       if (res.ok) {
                         alert('고객과 관련된 모든 데이터가 삭제되었습니다.');
-                        // 삭제 후 목록 강제 새로고침
-                        await fetchCustomers(true);
-                        // 페이지 새로고침으로 확실히 갱신
+                        // 1. 선택 상태 해제
+                        setSelectedCustomer(null);
+                        onSelectCustomer?.(null);
+                        // 2. data state에서 삭제된 고객 즉시 제거 (낙관적 UI 업데이트)
+                        setData(prev => prev ? {
+                          ...prev,
+                          data: prev.data.filter(c => c.id !== customer.id),
+                          pagination: {
+                            ...prev.pagination,
+                            total: Math.max(0, prev.pagination.total - 1)
+                          }
+                        } : null);
+                        // 3. fetchCustomers 및 UI 리프레시
+                        try { await fetchCustomers(true); } catch {}
                         router.refresh();
+                        // 4. 페이지 리로드로 완전히 동기화
+                        window.location.reload();
                       } else {
-                        const { error } = await res.json();
-                        alert('삭제 실패: ' + error);
+                        const resJson = await res.json().catch(() => ({ error: '삭제 실패' }));
+                        alert('삭제 실패: ' + (resJson.error || res.statusText));
                       }
                     } catch (error) {
                       console.error('삭제 중 오류:', error);

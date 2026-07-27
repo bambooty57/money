@@ -341,35 +341,39 @@ export async function DELETE(request: Request) {
   const id = searchParams.get('id');
   if (!id) return NextResponse.json({ error: '고객 ID가 필요합니다.' }, { status: 400 });
 
-  // 1. 고객의 거래 ID 목록 조회
-  const { data: transactions, error: txError } = await authenticatedSupabase.from('transactions').select('id').eq('customer_id', id);
-  if (txError) return NextResponse.json({ error: txError.message }, { status: 500 });
-  const txIds = (transactions || []).map(tx => tx.id);
+  try {
+    // 1. 고객의 거래 ID 목록 조회
+    const { data: transactions } = await authenticatedSupabase.from('transactions').select('id').eq('customer_id', id);
+    const txIds = (transactions || []).map(tx => tx.id);
 
-  // 2. payments에서 해당 거래 ID들에 연결된 입금 기록 삭제
-  if (txIds.length > 0) {
-    const { error: paymentError } = await authenticatedSupabase.from('payments').delete().in('transaction_id', txIds);
-    if (paymentError) return NextResponse.json({ error: paymentError.message }, { status: 500 });
+    // 2. payments & files (거래 관련) 삭제
+    if (txIds.length > 0) {
+      await authenticatedSupabase.from('payments').delete().in('transaction_id', txIds);
+      await authenticatedSupabase.from('files').delete().in('transaction_id', txIds);
+      await authenticatedSupabase.from('transactions').delete().in('id', txIds);
+    }
+
+    // 3. 고객 직접 연결된 연관 데이터 삭제 (외래키 제약조건 방지)
+    const db = authenticatedSupabase as any;
+    await db.from('customer_prospects').delete().eq('customer_id', id);
+    await db.from('legal_actions').delete().eq('customer_id', id);
+    await db.from('sms_exclusions').delete().eq('customer_id', id);
+    await db.from('sms_messages').delete().eq('customer_id', id);
+    await db.from('notification_history').delete().eq('customer_id', id);
+    await db.from('event_logs').delete().eq('customer_id', id);
+    await db.from('contacts').delete().eq('customer_id', id);
+    await db.from('files').delete().eq('customer_id', id);
+
+    // 4. 최종 고객 레코드 삭제
+    const { error } = await authenticatedSupabase.from('customers').delete().eq('id', id);
+    if (error) {
+      console.error('고객 DB 삭제 실패:', error);
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (err: any) {
+    console.error('고객 삭제 처리 중 예외 발생:', err);
+    return NextResponse.json({ error: err?.message || '고객 삭제 처리 실패' }, { status: 500 });
   }
-
-  // 3. files에서 해당 거래 ID들에 연결된 파일 삭제
-  if (txIds.length > 0) {
-    const { error: fileError } = await authenticatedSupabase.from('files').delete().in('transaction_id', txIds);
-    if (fileError) return NextResponse.json({ error: fileError.message }, { status: 500 });
-  }
-
-  // 4. 고객 직접 연결된 파일들 삭제 (고객 사진 등)
-  const { error: customerFileError } = await authenticatedSupabase.from('files').delete().eq('customer_id', id);
-  if (customerFileError) return NextResponse.json({ error: customerFileError.message }, { status: 500 });
-
-  // 5. 거래 삭제
-  if (txIds.length > 0) {
-    const { error: txDelError } = await authenticatedSupabase.from('transactions').delete().in('id', txIds);
-    if (txDelError) return NextResponse.json({ error: txDelError.message }, { status: 500 });
-  }
-
-  // 6. 고객 삭제
-  const { error } = await authenticatedSupabase.from('customers').delete().eq('id', id);
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ success: true });
 } 

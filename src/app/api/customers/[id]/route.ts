@@ -102,58 +102,51 @@ export async function DELETE(request: any, context: any) {
     const { id: customer_id } = await context.params;
 
     // 1. 해당 고객의 모든 파일 조회
-    const { data: files, error: filesError } = await authenticatedSupabase
+    const { data: files } = await authenticatedSupabase
       .from('files')
       .select('id, url')
       .eq('customer_id', customer_id);
-
-    if (filesError) {
-      console.error('Error fetching files:', filesError);
-      return NextResponse.json({ error: filesError.message }, { status: 500 });
-    }
 
     // 2. Supabase Storage에서 실제 파일들 삭제
     if (files && files.length > 0) {
       for (const file of files) {
         try {
-          // URL에서 파일 경로 추출
           if (file.url && file.url.includes('/storage/v1/object/public/')) {
             const parts = file.url.split('/storage/v1/object/public/');
             if (parts.length > 1) {
               const pathParts = parts[1].split('/');
-              const bucket = pathParts[0]; // 'photos'
-              const path = pathParts.slice(1).join('/'); // 'customer_photos/uuid/filename.jpg'
-              
-              console.log('🗑️ Storage 파일 삭제:', { bucket, path });
-              const { error: storageError } = await authenticatedSupabase.storage
-                .from(bucket)
-                .remove([path]);
-              
-              if (storageError) {
-                console.warn('⚠️ Storage 파일 삭제 실패:', storageError);
-              }
+              const bucket = pathParts[0];
+              const path = pathParts.slice(1).join('/');
+              await authenticatedSupabase.storage.from(bucket).remove([path]);
             }
           }
         } catch (err) {
-          console.warn('⚠️ 파일 삭제 중 오류 (계속 진행):', err);
+          console.warn('Storage 파일 삭제 중 오류:', err);
         }
       }
-
-      // 3. files 테이블에서 파일 레코드들 삭제
-      const { error: deleteFilesError } = await authenticatedSupabase
-        .from('files')
-        .delete()
-        .eq('customer_id', customer_id);
-
-      if (deleteFilesError) {
-        console.error('Error deleting files:', deleteFilesError);
-        return NextResponse.json({ error: deleteFilesError.message }, { status: 500 });
-      }
-
-      console.log(`✅ ${files.length}개 파일 완전 삭제 완료`);
     }
 
-    // 4. customers 테이블에서 고객 삭제
+    // 3. 거래 ID 목록 조회 및 거래/입금 삭제
+    const { data: transactions } = await authenticatedSupabase.from('transactions').select('id').eq('customer_id', customer_id);
+    const txIds = (transactions || []).map(tx => tx.id);
+    if (txIds.length > 0) {
+      await authenticatedSupabase.from('payments').delete().in('transaction_id', txIds);
+      await authenticatedSupabase.from('files').delete().in('transaction_id', txIds);
+      await authenticatedSupabase.from('transactions').delete().in('id', txIds);
+    }
+
+    // 4. 연관 테이블 레코드 삭제 (외래키 제약 방지)
+    const db = authenticatedSupabase as any;
+    await db.from('customer_prospects').delete().eq('customer_id', customer_id);
+    await db.from('legal_actions').delete().eq('customer_id', customer_id);
+    await db.from('sms_exclusions').delete().eq('customer_id', customer_id);
+    await db.from('sms_messages').delete().eq('customer_id', customer_id);
+    await db.from('notification_history').delete().eq('customer_id', customer_id);
+    await db.from('event_logs').delete().eq('customer_id', customer_id);
+    await db.from('contacts').delete().eq('customer_id', customer_id);
+    await db.from('files').delete().eq('customer_id', customer_id);
+
+    // 5. customers 테이블에서 고객 삭제
     const { error } = await authenticatedSupabase
       .from('customers')
       .delete()
@@ -164,11 +157,10 @@ export async function DELETE(request: any, context: any) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    console.log('✅ 고객 및 관련 파일 완전 삭제 완료');
     return NextResponse.json({ success: true, deletedFiles: files?.length || 0 });
 
-  } catch (e) {
+  } catch (e: any) {
     console.error('DELETE handler error:', e);
-    return NextResponse.json({ error: String(e) }, { status: 500 });
+    return NextResponse.json({ error: String(e?.message || e) }, { status: 500 });
   }
 } 
