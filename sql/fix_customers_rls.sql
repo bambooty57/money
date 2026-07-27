@@ -1,6 +1,6 @@
 -- ============================================================
--- Supabase RLS 정책 수정 (고객, 거래, 입금 등 전체 삭제/수정 허용)
--- Supabase SQL Editor에서 실행하시면 삭제/수정이 100% 정상 작동합니다.
+-- Supabase RLS 정책 수정 (고객, 거래, 입금, 스토리지 사진 등 전체 삭제/수정/업로드 허용)
+-- Supabase SQL Editor에서 실행하시면 삭제/수정 및 사진 업로드가 100% 정상 작동합니다.
 -- ============================================================
 
 -- 1. customers 테이블 RLS 정책 (전체 허용)
@@ -47,3 +47,17 @@ CREATE POLICY "anon_all_sms_messages" ON sms_messages FOR ALL TO public USING (t
 ALTER TABLE contacts ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "anon_all_contacts" ON contacts;
 CREATE POLICY "anon_all_contacts" ON contacts FOR ALL TO public USING (true) WITH CHECK (true);
+
+-- 10. Storage photos 버킷 및 스토리지 RLS 정책
+INSERT INTO storage.buckets (id, name, public) 
+VALUES ('photos', 'photos', true) 
+ON CONFLICT (id) DO UPDATE SET public = true;
+
+DROP POLICY IF EXISTS "anon_storage_photos_insert" ON storage.objects;
+CREATE POLICY "anon_storage_photos_insert" ON storage.objects FOR INSERT TO public WITH CHECK (bucket_id = 'photos');
+
+DROP POLICY IF EXISTS "anon_storage_photos_select" ON storage.objects;
+CREATE POLICY "anon_storage_photos_select" ON storage.objects FOR SELECT TO public USING (bucket_id = 'photos');
+
+DROP POLICY IF EXISTS "anon_storage_photos_delete" ON storage.objects;
+CREATE POLICY "anon_storage_photos_delete" ON storage.objects FOR DELETE TO public USING (bucket_id = 'photos');

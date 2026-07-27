@@ -62,27 +62,27 @@ export function CustomerForm({ onSuccess, open, setOpen, customer }: CustomerFor
     return name.replace(/[^a-zA-Z0-9._-]/g, '_');
   }
 
-  // 사진 업로드 함수
+  // 사진 업로드 함수 (서버 API 이용 RLS 우회)
   async function uploadPhotos(files: File[], customerId: string) {
     const uploaded = [];
     for (const file of files) {
-      const safeName = sanitizeFileName(file.name);
-      const filePath = `customer_photos/${customerId}/${Date.now()}_${safeName}`;
-      const { data, error } = await supabase.storage.from('photos').upload(filePath, file);
-      if (error) throw error;
-      const { data: publicUrl } = supabase.storage.from('photos').getPublicUrl(filePath);
-      // files 테이블에 메타데이터 저장
-      await fetch('/api/files', {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('customer_id', customerId);
+
+      const res = await fetch('/api/files', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          customer_id: customerId,
-          name: safeName,
-          url: publicUrl.publicUrl,
-          type: file.type,
-        }),
+        body: formData,
       });
-      uploaded.push(publicUrl.publicUrl);
+
+      if (!res.ok) {
+        const errorJson = await res.json().catch(() => ({ error: '업로드 실패' }));
+        console.error('❌ 사진 업로드 실패:', res.status, errorJson);
+        throw new Error(`사진 업로드 실패: ${errorJson.error || res.statusText}`);
+      }
+
+      const fileData = await res.json();
+      uploaded.push(fileData.url);
     }
     return uploaded;
   }

@@ -19,6 +19,59 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const isValidUUID = (uuid: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(uuid);
+    const contentType = req.headers.get('content-type') || '';
+
+    // 1. FormData 요청 처리 (서버 사이드 Storage 업로드 + DB 저장)
+    if (contentType.includes('multipart/form-data')) {
+      const formData = await req.formData();
+      const file = formData.get('file') as File | null;
+      const customerId = formData.get('customer_id') as string | null;
+
+      if (!file || !customerId || !isValidUUID(customerId)) {
+        return NextResponse.json({ error: '유효한 file과 customer_id가 필요합니다.' }, { status: 400 });
+      }
+
+      const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+      const filePath = `customer_photos/${customerId}/${Date.now()}_${safeName}`;
+      const arrayBuffer = await file.arrayBuffer();
+      const buffer = Buffer.from(arrayBuffer);
+
+      // Storage 업로드 (서버 권한으로 바이패스)
+      const { data: stData, error: stError } = await supabase.storage
+        .from('photos')
+        .upload(filePath, buffer, {
+          contentType: file.type || 'image/jpeg',
+          upsert: true,
+        });
+
+      if (stError) {
+        console.error('Storage 업로드 실패:', stError);
+        return NextResponse.json({ error: `Storage 업로드 실패: ${stError.message}` }, { status: 500 });
+      }
+
+      const { data: publicUrl } = supabase.storage.from('photos').getPublicUrl(filePath);
+
+      // files 테이블 저장
+      const { data: fileRecord, error: fileError } = await supabase
+        .from('files')
+        .insert([{
+          customer_id: customerId,
+          name: safeName,
+          url: publicUrl.publicUrl,
+          type: file.type || 'image/jpeg',
+        }])
+        .select()
+        .single();
+
+      if (fileError) {
+        console.error('files 테이블 저장 실패:', fileError);
+        return NextResponse.json({ error: fileError.message }, { status: 500 });
+      }
+
+      return NextResponse.json(fileRecord, { status: 201 });
+    }
+
+    // 2. JSON 요청 처리
     const body = await req.json();
     if (!body.customer_id || !isValidUUID(body.customer_id)) {
       return NextResponse.json({ error: '유효한 customer_id가 필요합니다.' }, { status: 400 });
@@ -32,91 +85,63 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: error.message || 'Failed to create file' }, { status: 500 });
     }
     return NextResponse.json(data, { status: 201 });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error creating file:', error);
-    return NextResponse.json({ error: 'Failed to create file' }, { status: 500 });
+    return NextResponse.json({ error: error?.message || 'Failed to create file' }, { status: 500 });
   }
 }
 
 export async function DELETE(req: NextRequest) {
   try {
-    // Authorization 헤더에서 토큰 추출
-    const authHeader = req.headers.get('authorization')
-    const token = authHeader?.replace('Bearer ', '')
-    
-    if (!token) {
-      return NextResponse.json(
-        { error: 'Authorization token required' }, 
-        { status: 401 }
-      )
-    }
-    
-    // 인증된 Supabase 클라이언트 생성
-    const authenticatedSupabase = createServerClient(token)
-    
+    const authHeader = req.headers.get('authorization');
+    const token = authHeader?.replace('Bearer ', '');
+    const authenticatedSupabase = token ? createServerClient(token) : supabase;
+
     const { searchParams } = new URL(req.url);
     const file_id = searchParams.get('file_id');
     if (!file_id) throw new Error('Missing file_id');
-    
-    // 1. 파일 정보 먼저 조회 (Storage 경로 확인용)
+
+    // 1. 파일 정보 조회
     const { data: fileData, error: fetchError } = await authenticatedSupabase
       .from('files')
       .select('url, name')
       .eq('id', file_id)
       .single();
-    
+
     if (fetchError) {
       console.error('Error fetching file info:', fetchError);
       throw new Error('파일 정보를 찾을 수 없습니다');
     }
-    
-    // 2. Supabase Storage에서 실제 파일 삭제
+
+    // 2. Storage에서 파일 삭제
     if (fileData?.url) {
       try {
-        // URL에서 파일 경로 추출
         const url = fileData.url;
-        let filePath = '';
-        
-        // Supabase Storage URL 패턴 분석
         if (url.includes('/storage/v1/object/public/')) {
-          // 예: https://xxx.supabase.co/storage/v1/object/public/photos/customer_photos/uuid/filename.jpg
           const parts = url.split('/storage/v1/object/public/');
           if (parts.length > 1) {
             const pathParts = parts[1].split('/');
-            const bucket = pathParts[0]; // 'photos'
-            const path = pathParts.slice(1).join('/'); // 'customer_photos/uuid/filename.jpg'
-            filePath = path;
-            
-            console.log('🗑️ Storage 파일 삭제 시도:', { bucket, path: filePath });
-            
-            const { error: storageError } = await authenticatedSupabase.storage
+            const bucket = pathParts[0];
+            const path = pathParts.slice(1).join('/');
+
+            await authenticatedSupabase.storage
               .from(bucket)
-              .remove([filePath]);
-            
-            if (storageError) {
-              console.warn('⚠️ Storage 파일 삭제 실패 (파일이 이미 없을 수 있음):', storageError);
-              // Storage 삭제 실패해도 DB 레코드는 삭제 진행
-            } else {
-              console.log('✅ Storage 파일 삭제 성공');
-            }
+              .remove([path]);
           }
         }
       } catch (storageError) {
-        console.warn('⚠️ Storage 파일 삭제 중 오류 (계속 진행):', storageError);
-        // Storage 삭제 실패해도 DB 레코드는 삭제 진행
+        console.warn('Storage 파일 삭제 중 오류 (계속 진행):', storageError);
       }
     }
-    
-    // 3. files 테이블에서 레코드 삭제
-    const { data, error } = await authenticatedSupabase.from('files').delete().eq('id', file_id);
+
+    // 3. DB 삭제
+    const db = authenticatedSupabase as any;
+    const { error } = await db.from('files').delete().eq('id', file_id);
     if (error) throw error;
-    
-    console.log('✅ 파일 완전 삭제 완료 (Storage + DB)');
+
     return NextResponse.json({ success: true, message: '파일이 완전히 삭제되었습니다' });
-    
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error deleting file:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Failed to delete file';
-    return NextResponse.json({ error: errorMessage }, { status: 500 });
+    return NextResponse.json({ error: error?.message || 'Failed to delete file' }, { status: 500 });
   }
-} 
+}
