@@ -384,7 +384,7 @@ function CustomerDetailModal({
   
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className={`transition-all duration-300 ${showTransactionDetail ? 'max-w-6xl md:max-w-7xl w-[95vw]' : 'max-w-4xl'} max-h-[90vh] overflow-y-auto`}>
         <DialogHeader className="flex flex-row items-center justify-between">
           <DialogTitle className="text-2xl font-bold text-blue-800 flex items-center gap-3">
             👤 {customer.name} 상세정보
@@ -721,11 +721,9 @@ function CustomerDetailModal({
                   {showTransactionDetail ? '▲ 상세 닫기' : '📊 거래 상세내역 보기'}
                 </button>
                 <a
-                  href={`/customers/${customer.id}/transactions`}
-                  target="_blank"
-                  rel="noreferrer"
+                  href={`/statement?customer_id=${customer.id}`}
                   className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-bold text-sm shadow-md transition-colors flex items-center gap-1.5 cursor-pointer"
-                  title="거래명세서 전체 페이지(인쇄/PDF)로 이동"
+                  title="거래명세서 해당고객 선택 화면으로 이동"
                 >
                   🔗 거래명세서로 이동
                 </a>

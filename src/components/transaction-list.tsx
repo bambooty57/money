@@ -386,7 +386,7 @@ export function TransactionList() {
                   <TableRow key={summary.customer_id} className="hover:bg-blue-50 cursor-pointer border-b border-gray-200 h-16">
                     <TableCell 
                       className="border-2 border-gray-300 px-4 py-4 text-base text-blue-700 underline font-medium text-center cursor-pointer" 
-                      onClick={() => router.push(`/customers/${customer.id}/transactions`)}
+                      onClick={() => router.push(`/statement?customer_id=${customer.id}`)}
                     >
                       {customer.name}
                     </TableCell>

@@ -1,7 +1,8 @@
 "use client";
 
 import React from "react";
-import { useEffect, useState, useRef, useMemo, useCallback } from "react";
+import { useEffect, useState, useRef, useMemo, useCallback, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import * as XLSX from "xlsx";
@@ -95,7 +96,8 @@ interface Transaction {
 
 import SmsSender from '@/components/sms-sender';
 
-export default function StatementPage() {
+function StatementPageInner() {
+  const searchParams = useSearchParams();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [selectedCustomer, setSelectedCustomer] = useState<string>("");
   const [customerName, setCustomerName] = useState<string>("");
@@ -189,9 +191,25 @@ export default function StatementPage() {
       .then((res) => res.json())
       .then((data) => {
         console.log('✅ StatementPage: Customers updated, count:', data.data?.length || 0);
-        setCustomers(data.data || []);
+        const list = data.data || [];
+        setCustomers(list);
+        // URL 쿼리 파라미터로 전달된 고객을 자동 선택
+        const paramCustomerId = searchParams?.get('customer_id') || searchParams?.get('customerId') || searchParams?.get('id');
+        if (paramCustomerId && list.some((c: any) => c.id === paramCustomerId)) {
+          setSelectedCustomer(paramCustomerId);
+        }
       });
-  }, [refreshKey]);
+  }, [refreshKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // URL 쿼리 파라미터 변경 시 해당 고객 자동 선택
+  useEffect(() => {
+    const paramCustomerId = searchParams?.get('customer_id') || searchParams?.get('customerId') || searchParams?.get('id');
+    if (paramCustomerId && customers.length > 0) {
+      if (customers.some((c: any) => c.id === paramCustomerId)) {
+        setSelectedCustomer(paramCustomerId);
+      }
+    }
+  }, [searchParams, customers]);
 
   // 검색 히스토리 로드
   useEffect(() => {
@@ -982,4 +1000,12 @@ export default function StatementPage() {
       </Dialog>
     </div>
   );
-} 
+}
+
+export default function StatementPage() {
+  return (
+    <Suspense fallback={<div>거래명세서 불러오는 중...</div>}>
+      <StatementPageInner />
+    </Suspense>
+  );
+}
