@@ -413,18 +413,21 @@ export function TransactionList() {
                           e.stopPropagation();
                           if (!window.confirm('정말로 이 고객의 모든 거래를 삭제하시겠습니까?')) return;
                           try {
-                            const { data: { session } } = await supabase.auth.getSession();
-                            const token = session?.access_token;
-                            if (!token) {
-                              alert('인증이 필요합니다. 다시 로그인해주세요.');
-                              return;
+                            let token: string | undefined = undefined;
+                            try {
+                              const { data: { session } } = await supabase.auth.getSession();
+                              token = session?.access_token;
+                            } catch {}
+
+                            const headers: Record<string, string> = {};
+                            if (token) {
+                              headers['Authorization'] = `Bearer ${token}`;
                             }
+
                             // 해당 고객의 모든 거래 삭제
                             const res = await fetch(`/api/transactions?customer_id=${summary.customer_id}`, { 
                               method: 'DELETE',
-                              headers: {
-                                'Authorization': `Bearer ${token}`
-                              }
+                              headers
                             });
                             if (res.ok) {
                               // 전체 데이터를 즉시 업데이트

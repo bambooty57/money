@@ -354,13 +354,12 @@ export function CustomerForm({ onSuccess, open, setOpen, customer }: CustomerFor
         }
       }
 
-      // Supabase 세션에서 토큰 가져오기
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token;
-
-      if (!token) {
-        throw new Error('인증이 필요합니다. 다시 로그인해주세요.');
-      }
+      // Supabase 세션에서 토큰 가져오기 (선택적)
+      let token: string | undefined = undefined;
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        token = session?.access_token;
+      } catch {}
 
       // payload 정제: customers 테이블에 존재하는 필드만 포함, undefined/null → null
       const { prospects, ...customerData } = formData;
@@ -405,25 +404,26 @@ export function CustomerForm({ onSuccess, open, setOpen, customer }: CustomerFor
       // 디버깅: payload 로깅
       console.log('🔍 고객 정보 수정 payload:', payload);
       
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json'
+      };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
       let response, customerResult;
       if (customer && customer.id) {
         // 수정
         response = await fetch(`/api/customers/${customer.id}`, {
           method: 'PUT',
-          headers: { 
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
+          headers,
           body: JSON.stringify(payload),
         });
       } else {
         // 신규
         response = await fetch('/api/customers', {
           method: 'POST',
-          headers: { 
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
+          headers,
           body: JSON.stringify(payload),
         });
       }

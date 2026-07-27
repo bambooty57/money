@@ -1400,26 +1400,28 @@ function PaginatedCustomerListInner({
                     if (!window.confirm(confirmMessage)) return;
                     
                     try {
-                      // Supabase 세션에서 토큰 가져오기
-                      const { createClient } = await import('@supabase/supabase-js');
-                      const supabase = createClient(
-                        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-                        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-                      );
-                      const { data: { session } } = await supabase.auth.getSession();
-                      const token = session?.access_token;
+                      // Supabase 세션에서 토큰 가져오기 (선택적)
+                      let token: string | undefined = undefined;
+                      try {
+                        const { createClient } = await import('@supabase/supabase-js');
+                        const supabase = createClient(
+                          process.env.NEXT_PUBLIC_SUPABASE_URL!,
+                          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+                        );
+                        const { data: { session } } = await supabase.auth.getSession();
+                        token = session?.access_token;
+                      } catch {}
                       
-                      if (!token) {
-                        alert('인증이 필요합니다. 로그인을 다시 해주세요.');
-                        return;
+                      const headers: Record<string, string> = {
+                        'Content-Type': 'application/json'
+                      };
+                      if (token) {
+                        headers['Authorization'] = `Bearer ${token}`;
                       }
                       
                       const res = await fetch(`/api/customers?id=${customer.id}`, { 
                         method: 'DELETE',
-                        headers: {
-                          'Authorization': `Bearer ${token}`,
-                          'Content-Type': 'application/json'
-                        }
+                        headers
                       });
                       
                       if (res.ok) {

@@ -330,19 +330,12 @@ export async function POST(request: Request) {
 }
 
 export async function DELETE(request: Request) {
-  // Authorization 헤더에서 토큰 추출
+  // Authorization 헤더에서 토큰 추출 (선택적)
   const authHeader = request.headers.get('authorization')
   const token = authHeader?.replace('Bearer ', '')
   
-  if (!token) {
-    return NextResponse.json(
-      { error: 'Authorization token required' }, 
-      { status: 401 }
-    )
-  }
-  
-  // 인증된 Supabase 클라이언트 생성
-  const authenticatedSupabase = createServerClient(token)
+  // 토큰이 있으면 인증된 클라이언트, 없으면 서비스 클라이언트 사용
+  const authenticatedSupabase = token ? createServerClient(token) : supabase;
   
   const { searchParams } = new URL(request.url);
   const id = searchParams.get('id');
