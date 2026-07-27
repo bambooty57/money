@@ -190,16 +190,37 @@ async function executeMonthlySend() {
     status,
   });
 
+  const failedDetails = (result.results || [])
+    .filter(r => !r.result?.success)
+    .map(r => ({
+      customerId: r.customer?.id,
+      customerName: r.customer?.name,
+      mobile: r.customer?.mobile,
+      amount: r.customer?.totalArrears,
+      errorMessage: r.result?.errorMessage || '발송 실패',
+    }));
+
+  const successDetails = (result.results || [])
+    .filter(r => r.result?.success)
+    .map(r => ({
+      customerId: r.customer?.id,
+      customerName: r.customer?.name,
+      mobile: r.customer?.mobile,
+      amount: r.customer?.totalArrears,
+    }));
+
   return NextResponse.json({
     success: result.failed === 0,
-    message: `Monthly notification sent to ${result.success}/${result.total} customers (${excludedIds.size} excluded)`,
+    message: `전체 ${result.total}건 중 성공 ${result.success}건, 실패 ${result.failed}건입니다.`,
     executed: true,
     data: { 
       total: allCustomers.length, 
       excluded: excludedIds.size,
       scheduled: result.total,
       success: result.success, 
-      failed: result.failed 
+      failed: result.failed,
+      failedDetails,
+      successDetails,
     },
   });
 }

@@ -23,7 +23,7 @@ function getSupabase(): SupabaseClient {
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const month = searchParams.get('month'); // YYYY-MM 형식
+    const month = searchParams.get('month');
 
     if (!month) {
       return NextResponse.json(
@@ -63,11 +63,44 @@ export async function GET(request: NextRequest) {
 
 /**
  * POST /api/solapi/exclusions
- * 고객을 발송 대상에서 제외
+ * 고객을 발송 대상에서 제외 (단일 또는 일괄)
  */
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
+    const db = getSupabase() as any;
+
+    // 일괄 제외 처리
+    if (body.bulk && Array.isArray(body.customers)) {
+      const { customers, month, reason } = body;
+      if (!month || customers.length === 0) {
+        return NextResponse.json({ error: 'Month and customers are required' }, { status: 400 });
+      }
+
+      const rows = customers.map((c: any) => ({
+        customer_id: c.customerId || c.id,
+        customer_name: c.customerName || c.name,
+        exclusion_month: month,
+        reason: reason || '일괄 제외 처리',
+      }));
+
+      const customerIds = rows.map((r: any) => r.customer_id);
+      await db.from('sms_exclusions').delete().in('customer_id', customerIds).lte('exclusion_month', month);
+
+      const { error } = await db.from('sms_exclusions').insert(rows);
+      if (error) {
+        console.error('일괄 제외 오류:', error);
+        return NextResponse.json({ error: 'Failed to bulk exclude customers' }, { status: 500 });
+      }
+
+      return NextResponse.json({
+        success: true,
+        count: rows.length,
+        message: `${rows.length}명의 고객이 발송 대상에서 일괄 제외되었습니다.`
+      });
+    }
+
+    // 단일 제외 처리
     const { customerId, customerName, month, reason, excludedBy } = body;
 
     if (!customerId || !customerName || !month) {
@@ -77,7 +110,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 이미 제외되었는지 확인 (이전 달 제외도 계속 유지되므로 해당 월 이하 모두 확인)
     const { data: existing } = await getSupabase()
       .from('sms_exclusions')
       .select('id')
@@ -129,23 +161,50 @@ export async function POST(request: NextRequest) {
 
 /**
  * DELETE /api/solapi/exclusions
- * 제외 취소 (다시 발송 대상에 포함)
- * 제외는 해제 전까지 유지되므로 해당 고객의 기존 제외 기록을 모두 삭제
+ * 제외 취소 (다시 발송 대상에 포함, 단일 또는 일괄)
  */
 export async function DELETE(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const customerId = searchParams.get('customerId');
     const month = searchParams.get('month');
+    const all = searchParams.get('all') === 'true';
 
-    if (!customerId || !month) {
+    if (!month) {
+      return NextResponse.json(
+        { error: 'Month parameter is required' },
+        { status: 400 }
+      );
+    }
+
+    const db = getSupabase() as any;
+
+    // 일괄 전체 포함 처리
+    if (all) {
+      const { error } = await db
+        .from('sms_exclusions')
+        .delete()
+        .lte('exclusion_month', month);
+
+      if (error) {
+        console.error('전체 제외 해제 오류:', error);
+        return NextResponse.json({ error: 'Failed to clear all exclusions' }, { status: 500 });
+      }
+
+      return NextResponse.json({
+        success: true,
+        message: '모든 고객이 발송 대상에 포함되었습니다.'
+      });
+    }
+
+    if (!customerId) {
       return NextResponse.json(
         { error: 'Customer ID and month are required' },
         { status: 400 }
       );
     }
 
-    const { error } = await getSupabase()
+    const { error } = await db
       .from('sms_exclusions')
       .delete()
       .eq('customer_id', customerId)
@@ -160,8 +219,8 @@ export async function DELETE(request: NextRequest) {
     }
 
     return NextResponse.json({ 
-      success: true,
-      message: '제외가 취소되었습니다.'
+      success: true, 
+      message: '발송 대상에 다시 포함되었습니다.' 
     });
 
   } catch (error) {

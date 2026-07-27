@@ -73,6 +73,10 @@ export default function MessagesPage() {
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
   const [sendResult, setSendResult] = useState<any>(null);
+  const [resultReportModal, setResultReportModal] = useState(false);
+  const [resultReportData, setResultReportData] = useState<any>(null);
+  const [reportTab, setReportTab] = useState<'failed' | 'success'>('failed');
+  const [historyFilter, setHistoryFilter] = useState<'all' | 'success' | 'failed'>('all');
   const [exclusionDialog, setExclusionDialog] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [exclusionReason, setExclusionReason] = useState('');
@@ -222,6 +226,13 @@ export default function MessagesPage() {
       });
       const result = await response.json();
       setSendResult(result);
+
+      if (result.data) {
+        setResultReportData(result);
+        const hasFailed = (result.data.failedDetails && result.data.failedDetails.length > 0) || (result.data.failed > 0);
+        setReportTab(hasFailed ? 'failed' : 'success');
+        setResultReportModal(true);
+      }
       
       // 데이터 새로고침
       await fetchScheduledCustomers();
@@ -291,6 +302,73 @@ export default function MessagesPage() {
     } catch (error) {
       console.error('포함 처리 오류:', error);
       alert('포함 처리 중 오류가 발생했습니다.');
+    }
+  };
+
+  // 전체 체크 해제 (일괄 발송 제외)
+  const handleBulkExclude = async () => {
+    const includedCustomers = customers.filter(c => !c.isExcluded);
+    if (includedCustomers.length === 0) {
+      alert('이미 모든 고객이 체크 해제(제외)되어 있습니다.');
+      return;
+    }
+
+    if (!window.confirm(`현재 발송 예정인 ${includedCustomers.length}명의 고객을 이번 달 발송 대상에서 모두 체크 해제(제외)하시겠습니까?`)) {
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/solapi/exclusions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          bulk: true,
+          customers: includedCustomers.map(c => ({ customerId: c.id, customerName: c.name })),
+          month: currentMonth,
+          reason: '일괄 체크 해제',
+        }),
+      });
+
+      const result = await response.json();
+      if (result.success) {
+        alert('모든 고객이 발송 대상에서 체크 해제(제외)되었습니다.');
+        fetchScheduledCustomers();
+      } else {
+        alert(result.error || '일괄 체크 해제 처리에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('일괄 체크 해제 오류:', error);
+      alert('처리 중 오류가 발생했습니다.');
+    }
+  };
+
+  // 전체 체크 선택 (일괄 발송 포함)
+  const handleBulkInclude = async () => {
+    const excludedCustomers = customers.filter(c => c.isExcluded);
+    if (excludedCustomers.length === 0) {
+      alert('이미 모든 고객이 체크 선택되어 있습니다.');
+      return;
+    }
+
+    if (!window.confirm(`제외된 ${excludedCustomers.length}명의 고객을 다시 발송 대상에 모두 체크 선택(포함)하시겠습니까?`)) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/solapi/exclusions?month=${currentMonth}&all=true`, {
+        method: 'DELETE',
+      });
+
+      const result = await response.json();
+      if (result.success) {
+        alert('모든 고객이 발송 대상에 체크 선택(포함)되었습니다.');
+        fetchScheduledCustomers();
+      } else {
+        alert(result.error || '일괄 포함 처리에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('일괄 포함 오류:', error);
+      alert('처리 중 오류가 발생했습니다.');
     }
   };
 
@@ -552,13 +630,53 @@ export default function MessagesPage() {
         {/* 발송 예정 탭 */}
         <TabsContent value="scheduled" className="space-y-4">
           <Card>
-            <CardHeader>
+            <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div>
                 <CardTitle>발송 예정 고객</CardTitle>
-                <CardDescription>
+                <CardDescription className="mt-1">
                   {currentMonth} 발송 대상 고객 목록입니다. 체크박스를 해제하면 발송 대상에서 제외되며, 다시 선택하기 전까지 다음 달에도 제외 상태가 유지됩니다.
                 </CardDescription>
               </div>
+
+              {/* 전체 선택 / 해제 컨트롤 바 */}
+              {customers.length > 0 && (
+                <div className="flex items-center gap-3 bg-gray-50 border border-gray-200 p-2.5 rounded-lg shrink-0">
+                  <label className="flex items-center gap-2 cursor-pointer text-sm font-bold text-gray-800 hover:text-blue-600">
+                    <Checkbox
+                      checked={stats ? stats.scheduled > 0 && stats.excluded === 0 : false}
+                      onCheckedChange={(checked) => {
+                        if (checked) {
+                          handleBulkInclude();
+                        } else {
+                          handleBulkExclude();
+                        }
+                      }}
+                    />
+                    <span>전체 선택</span>
+                  </label>
+                  <span className="text-gray-300">|</span>
+                  <div className="flex items-center gap-1.5">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleBulkExclude}
+                      className="text-xs border-red-200 bg-white text-red-700 hover:bg-red-50 font-bold px-2.5 py-1 h-8 shadow-sm"
+                    >
+                      ☑️ 전체 체크 해제 (일괄 제외)
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleBulkInclude}
+                      className="text-xs border-green-200 bg-white text-green-700 hover:bg-green-50 font-bold px-2.5 py-1 h-8 shadow-sm"
+                    >
+                      ✅ 전체 체크 선택 (일괄 포함)
+                    </Button>
+                  </div>
+                </div>
+              )}
             </CardHeader>
             <CardContent>
               {loading ? (
@@ -627,25 +745,43 @@ export default function MessagesPage() {
             <CardHeader>
               <CardTitle>발송 이력</CardTitle>
               <CardDescription>
-                {currentMonth} 발송된 메시지 이력입니다.
+                {currentMonth} 발송된 메시지 이력입니다. 수치 카드를 클릭하여 필터링할 수 있습니다.
               </CardDescription>
             </CardHeader>
             <CardContent>
               {historyStats && (
-                <div className="grid grid-cols-4 gap-4 mb-6">
-                  <div className="text-center p-4 bg-gray-50 rounded-lg">
-                    <p className="text-2xl font-bold">{historyStats.total}</p>
-                    <p className="text-sm text-gray-600">전체</p>
-                  </div>
-                  <div className="text-center p-4 bg-green-50 rounded-lg">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                  <button
+                    type="button"
+                    onClick={() => setHistoryFilter('all')}
+                    className={`p-4 rounded-lg text-left transition-all ${
+                      historyFilter === 'all' ? 'ring-2 ring-blue-500 bg-gray-100 font-semibold' : 'bg-gray-50 hover:bg-gray-100'
+                    }`}
+                  >
+                    <p className="text-2xl font-bold text-gray-800">{historyStats.total}</p>
+                    <p className="text-sm text-gray-600">전체보기</p>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setHistoryFilter('success')}
+                    className={`p-4 rounded-lg text-left transition-all ${
+                      historyFilter === 'success' ? 'ring-2 ring-green-500 bg-green-100 font-semibold' : 'bg-green-50 hover:bg-green-100'
+                    }`}
+                  >
                     <p className="text-2xl font-bold text-green-600">{historyStats.success}</p>
-                    <p className="text-sm text-gray-600">성공</p>
-                  </div>
-                  <div className="text-center p-4 bg-red-50 rounded-lg">
+                    <p className="text-sm text-gray-600">성공 목록만</p>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setHistoryFilter('failed')}
+                    className={`p-4 rounded-lg text-left transition-all ${
+                      historyFilter === 'failed' ? 'ring-2 ring-red-500 bg-red-100 font-semibold' : 'bg-red-50 hover:bg-red-100'
+                    }`}
+                  >
                     <p className="text-2xl font-bold text-red-600">{historyStats.failed}</p>
-                    <p className="text-sm text-gray-600">실패</p>
-                  </div>
-                  <div className="text-center p-4 bg-blue-50 rounded-lg">
+                    <p className="text-sm text-gray-600">실패 목록만</p>
+                  </button>
+                  <div className="p-4 bg-blue-50 rounded-lg">
                     <p className="text-2xl font-bold text-blue-600">
                       {formatCurrency(historyStats.totalAmount)}
                     </p>
@@ -654,44 +790,62 @@ export default function MessagesPage() {
                 </div>
               )}
 
-              {history.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
-                  발송 이력이 없습니다.
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {history.map((item) => (
-                    <div key={item.id} className="flex items-center justify-between p-4 border rounded-lg">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium">{item.customerName}</span>
-                          {getStatusBadge(item.status)}
-                          <Badge variant="outline" className="text-xs">
-                            {item.notificationType === 'monthly' ? '자동' : '수동'}
-                          </Badge>
-                        </div>
-                        <div className="text-sm text-gray-600 mt-1">
-                          <span>{item.mobile}</span>
-                          <span className="mx-2">*</span>
-                          <span className="font-medium text-red-600">
-                            {formatCurrency(item.amount)}
-                          </span>
-                          <span className="mx-2">*</span>
-                          <span>{formatDate(item.sentAt)}</span>
-                        </div>
-                        <div className="text-sm text-gray-500 mt-1 line-clamp-1">
-                          {item.message}
-                        </div>
-                        {item.errorMessage && (
-                          <div className="text-sm text-red-600 mt-1">
-                            오류: {item.errorMessage}
-                          </div>
-                        )}
-                      </div>
+              {(() => {
+                const filteredHistory = history.filter((item) => {
+                  if (historyFilter === 'success') return item.status === 'success';
+                  if (historyFilter === 'failed') return item.status === 'failed';
+                  return true;
+                });
+
+                if (filteredHistory.length === 0) {
+                  return (
+                    <div className="text-center py-8 text-gray-500">
+                      {historyFilter === 'all' 
+                        ? '발송 이력이 없습니다.' 
+                        : historyFilter === 'failed' 
+                          ? '실패한 발송 이력이 없습니다.' 
+                          : '성공한 발송 이력이 없습니다.'}
                     </div>
-                  ))}
-                </div>
-              )}
+                  );
+                }
+
+                return (
+                  <div className="space-y-2">
+                    {filteredHistory.map((item) => (
+                      <div key={item.id} className={`flex items-center justify-between p-4 border rounded-lg ${
+                        item.status === 'failed' ? 'bg-red-50/40 border-red-200' : 'bg-white'
+                      }`}>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium text-base">{item.customerName}</span>
+                            {getStatusBadge(item.status)}
+                            <Badge variant="outline" className="text-xs">
+                              {item.notificationType === 'monthly' ? '자동' : '수동'}
+                            </Badge>
+                          </div>
+                          <div className="text-sm text-gray-600 mt-1">
+                            <span>{item.mobile}</span>
+                            <span className="mx-2">•</span>
+                            <span className="font-medium text-red-600">
+                              {formatCurrency(item.amount)}
+                            </span>
+                            <span className="mx-2">•</span>
+                            <span>{formatDate(item.sentAt)}</span>
+                          </div>
+                          <div className="text-sm text-gray-500 mt-1 line-clamp-1">
+                            {item.message}
+                          </div>
+                          {item.errorMessage && (
+                            <div className="text-sm text-red-600 font-semibold mt-1">
+                              ❌ 실패 사유: {item.errorMessage}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
             </CardContent>
           </Card>
         </TabsContent>
@@ -774,6 +928,123 @@ export default function MessagesPage() {
             </Button>
             <Button onClick={handleExclude} className="bg-red-600 hover:bg-red-700">
               제외하기
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 발송 결과 리포트 다이얼로그 */}
+      <Dialog open={resultReportModal} onOpenChange={setResultReportModal}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-xl flex items-center gap-2">
+              <CheckCircle className="w-6 h-6 text-green-600" />
+              문자 발송 결과 리포트
+            </DialogTitle>
+            <DialogDescription>
+              {resultReportData?.message || '문자 발송 처리가 완료되었습니다.'}
+            </DialogDescription>
+          </DialogHeader>
+
+          {resultReportData?.data && (
+            <div className="space-y-4 py-2">
+              {/* 요약 카운트 */}
+              <div className="grid grid-cols-3 gap-3">
+                <div className="p-3 bg-gray-100 rounded-lg text-center">
+                  <span className="text-xs text-gray-500 block">발송 시도</span>
+                  <span className="text-xl font-bold">{resultReportData.data.scheduled ?? 0}명</span>
+                </div>
+                <div className="p-3 bg-green-50 border border-green-200 rounded-lg text-center">
+                  <span className="text-xs text-green-600 font-medium block">성공</span>
+                  <span className="text-xl font-bold text-green-700">{resultReportData.data.success ?? 0}건</span>
+                </div>
+                <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-center">
+                  <span className="text-xs text-red-600 font-medium block">실패</span>
+                  <span className="text-xl font-bold text-red-700">{resultReportData.data.failed ?? 0}건</span>
+                </div>
+              </div>
+
+              {/* 실패/성공 탭 전환 */}
+              <div className="flex border-b">
+                <button
+                  type="button"
+                  onClick={() => setReportTab('failed')}
+                  className={`py-2 px-4 text-sm font-semibold border-b-2 transition-colors ${
+                    reportTab === 'failed'
+                      ? 'border-red-600 text-red-600 bg-red-50'
+                      : 'border-transparent text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  실패 대상 ({resultReportData.data.failedDetails?.length ?? resultReportData.data.failed ?? 0}명)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setReportTab('success')}
+                  className={`py-2 px-4 text-sm font-semibold border-b-2 transition-colors ${
+                    reportTab === 'success'
+                      ? 'border-green-600 text-green-600 bg-green-50'
+                      : 'border-transparent text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  성공 대상 ({resultReportData.data.successDetails?.length ?? resultReportData.data.success ?? 0}명)
+                </button>
+              </div>
+
+              {/* 탭 내용 */}
+              {reportTab === 'failed' && (
+                <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                  {!resultReportData.data.failedDetails || resultReportData.data.failedDetails.length === 0 ? (
+                    <div className="text-center py-8 text-gray-500 text-sm">
+                      🎉 실패한 발송건이 없습니다.
+                    </div>
+                  ) : (
+                    resultReportData.data.failedDetails.map((item: any, idx: number) => (
+                      <div key={idx} className="p-3 bg-red-50 border border-red-200 rounded-lg flex items-start justify-between text-sm">
+                        <div>
+                          <div className="font-bold text-red-900 flex items-center gap-2">
+                            <span>{item.customerName}</span>
+                            <span className="text-xs text-red-600 font-normal">({item.mobile})</span>
+                          </div>
+                          <div className="text-xs text-red-700 mt-1">
+                            실패 원인: <span className="font-semibold">{item.errorMessage || '원인 불명'}</span>
+                          </div>
+                        </div>
+                        <div className="text-right font-semibold text-red-800 shrink-0 ml-2">
+                          {formatCurrency(item.amount)}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
+
+              {reportTab === 'success' && (
+                <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                  {!resultReportData.data.successDetails || resultReportData.data.successDetails.length === 0 ? (
+                    <div className="text-center py-8 text-gray-500 text-sm">
+                      성공한 발송건이 없습니다.
+                    </div>
+                  ) : (
+                    resultReportData.data.successDetails.map((item: any, idx: number) => (
+                      <div key={idx} className="p-3 bg-green-50 border border-green-200 rounded-lg flex items-center justify-between text-sm">
+                        <div>
+                          <span className="font-bold text-green-900">{item.customerName}</span>
+                          <span className="text-xs text-green-700 ml-2">({item.mobile})</span>
+                        </div>
+                        <div className="font-semibold text-green-800 shrink-0 ml-2">
+                          {formatCurrency(item.amount)}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button onClick={() => setResultReportModal(false)} className="w-full sm:w-auto">
+              확인 (닫기)
             </Button>
           </DialogFooter>
         </DialogContent>
