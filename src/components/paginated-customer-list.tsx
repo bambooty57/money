@@ -131,9 +131,11 @@ function CustomerDetailModal({ customer, open, onClose }: { customer: any, open:
   useEffect(() => {
     if (open && customer?.id) {
       setLoading(true);
-      fetch(`/api/sms-messages?customer_id=${customer.id}`)
+      const mobile = customer.mobile || customer.phone || '';
+      fetch(`/api/sms-messages?customer_id=${customer.id}&mobile=${encodeURIComponent(mobile)}`)
         .then(res => res.json())
         .then(data => setSmsMessages(data.data || []))
+        .catch(err => console.error('SMS 이력 조회 실패:', err))
         .finally(() => setLoading(false));
 
       fetch(`/api/files?customer_id=${customer.id}`)
