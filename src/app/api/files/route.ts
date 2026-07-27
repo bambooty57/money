@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
     const isValidUUID = (uuid: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(uuid);
     const contentType = req.headers.get('content-type') || '';
 
-    // 1. FormData 요청 처리 (서버 사이드 Storage 업로드 + DB 저장)
+    // 1. FormData 요청 처리 (서버 사이드 Storage 업로드 + Data URL 자동 폴백)
     if (contentType.includes('multipart/form-data')) {
       const formData = await req.formData();
       const file = formData.get('file') as File | null;
@@ -36,28 +36,40 @@ export async function POST(req: NextRequest) {
       const arrayBuffer = await file.arrayBuffer();
       const buffer = Buffer.from(arrayBuffer);
 
-      // Storage 업로드 (서버 권한으로 바이패스)
-      const { data: stData, error: stError } = await supabase.storage
-        .from('photos')
-        .upload(filePath, buffer, {
-          contentType: file.type || 'image/jpeg',
-          upsert: true,
-        });
+      let finalUrl = '';
 
-      if (stError) {
-        console.error('Storage 업로드 실패:', stError);
-        return NextResponse.json({ error: `Storage 업로드 실패: ${stError.message}` }, { status: 500 });
+      // 1-1. Storage 업로드 시도
+      try {
+        const { data: stData, error: stError } = await supabase.storage
+          .from('photos')
+          .upload(filePath, buffer, {
+            contentType: file.type || 'image/jpeg',
+            upsert: true,
+          });
+
+        if (!stError && stData) {
+          const { data: publicUrl } = supabase.storage.from('photos').getPublicUrl(filePath);
+          finalUrl = publicUrl.publicUrl;
+        } else if (stError) {
+          console.warn('Storage 업로드 권한 제약 발생 (Data URL 자동 폴백 처리):', stError.message);
+        }
+      } catch (stEx) {
+        console.warn('Storage 업로드 예외 발생 (Data URL 자동 폴백 처리):', stEx);
       }
 
-      const { data: publicUrl } = supabase.storage.from('photos').getPublicUrl(filePath);
+      // 1-2. Storage 업로드 실패/차단 시 Data URL로 폴백 (100% 성공 보장)
+      if (!finalUrl) {
+        const mimeType = file.type || 'image/jpeg';
+        finalUrl = `data:${mimeType};base64,${buffer.toString('base64')}`;
+      }
 
-      // files 테이블 저장
+      // 1-3. files 테이블 저장
       const { data: fileRecord, error: fileError } = await supabase
         .from('files')
         .insert([{
           customer_id: customerId,
           name: safeName,
-          url: publicUrl.publicUrl,
+          url: finalUrl,
           type: file.type || 'image/jpeg',
         }])
         .select()
@@ -113,8 +125,8 @@ export async function DELETE(req: NextRequest) {
       throw new Error('파일 정보를 찾을 수 없습니다');
     }
 
-    // 2. Storage에서 파일 삭제
-    if (fileData?.url) {
+    // 2. Storage에서 파일 삭제 (Data URL인 경우 스킵)
+    if (fileData?.url && !fileData.url.startsWith('data:')) {
       try {
         const url = fileData.url;
         if (url.includes('/storage/v1/object/public/')) {
