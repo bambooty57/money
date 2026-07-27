@@ -17,6 +17,8 @@ import {
 } from './ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
 import { useCustomersRealtime } from '@/lib/useCustomersRealtime';
+import { useTransactionsRealtime } from '@/lib/useTransactionsRealtime';
+import { usePaymentsRealtime } from '@/lib/usePaymentsRealtime';
 import { supabase } from '@/lib/supabase';
 import * as XLSX from 'xlsx';
 import TransactionForm from './transaction-form';
@@ -110,7 +112,17 @@ const openKakaoMap = (address: string) => {
   window.open(kakaoMapUrl, '_blank');
 };
 
-function CustomerDetailModal({ customer, open, onClose }: { customer: any, open: boolean, onClose: () => void }) {
+function CustomerDetailModal({ 
+  customer, 
+  open, 
+  onClose,
+  onTransactionAdded 
+}: { 
+  customer: any, 
+  open: boolean, 
+  onClose: () => void,
+  onTransactionAdded?: () => void 
+}) {
   const [smsMessages, setSmsMessages] = useState<any[]>([]);
   // 거래 등록 모달 및 요약 정보 상태
   const [transactionFormOpen, setTransactionFormOpen] = useState(false);
@@ -791,6 +803,7 @@ function CustomerDetailModal({ customer, open, onClose }: { customer: any, open:
                 setTransactionFormOpen(false);
                 alert('거래가 성공적으로 등록되었습니다!');
                 fetchCustomerSummary();
+                onTransactionAdded?.();
               }}
             />
           </DialogContent>
@@ -1167,10 +1180,21 @@ function PaginatedCustomerListInner({
     fetchCustomers();
   }, [fetchCustomers, refreshKey]);
 
-  // 실시간 동기화 - 즉시 데이터 새로고침
+  // 실시간 동기화 - 고객/거래/입금 변경 시 즉시 고객 카드 미수금 & 거래건수 새로고침
   useCustomersRealtime({ 
     onChange: () => {
-      // 실시간 변경 시 즉시 새로고침 (로딩 상태 없이)
+      fetchCustomers(true);
+    }
+  });
+
+  useTransactionsRealtime({
+    onTransactionsChange: () => {
+      fetchCustomers(true);
+    }
+  });
+
+  usePaymentsRealtime({
+    onPaymentsChange: () => {
       fetchCustomers(true);
     }
   });
@@ -1984,6 +2008,7 @@ function PaginatedCustomerListInner({
           customer={selectedCustomer}
           open={detailModalOpen}
           onClose={() => setDetailModalOpen(false)}
+          onTransactionAdded={() => fetchCustomers(true)}
         />
       )}
     </div>
