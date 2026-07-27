@@ -146,13 +146,14 @@ function CustomerDetailModal({ customer, open, onClose }: { customer: any, open:
   }, [open, customer]);
 
   // SMS 발송 내역 삭제
-  const handleDeleteSmsMessage = async (msgId: string) => {
+  const handleDeleteSmsMessage = async (msg: any) => {
     if (!window.confirm('이 발송 내역을 삭제하시겠습니까?')) return;
     try {
-      const res = await fetch(`/api/sms-messages?id=${msgId}`, { method: 'DELETE' });
+      const tableParam = msg.source_table ? `&table=${msg.source_table}` : '';
+      const res = await fetch(`/api/sms-messages?id=${msg.id}${tableParam}`, { method: 'DELETE' });
       if (res.ok) {
         alert('발송 내역이 삭제되었습니다.');
-        setSmsMessages(prev => prev.filter(m => m.id !== msgId));
+        setSmsMessages(prev => prev.filter(m => m.id !== msg.id));
       } else {
         const errJson = await res.json().catch(() => ({ error: '삭제 실패' }));
         alert('삭제 실패: ' + (errJson.error || res.statusText));
@@ -696,7 +697,7 @@ function CustomerDetailModal({ customer, open, onClose }: { customer: any, open:
                               발송됨
                             </span>
                             <button
-                              onClick={() => handleDeleteSmsMessage(msg.id)}
+                              onClick={() => handleDeleteSmsMessage(msg)}
                               className="px-2.5 py-1 bg-red-500 hover:bg-red-600 text-white rounded text-xs transition-colors font-bold shadow-sm flex items-center gap-1"
                               title="발송 내역 삭제"
                             >
