@@ -408,14 +408,54 @@ export async function isMonthlyNotificationDay(): Promise<boolean> {
 }
 
 /**
- * 알림 발송 이력 저장
+ * 알림 발송 이력 저장 (sms_messages + notification_history 동시 저장)
  * @param history - 저장할 이력 데이터
  */
 async function saveNotificationHistory(history: NotificationHistory): Promise<void> {
   try {
-    await getSupabase()
-      .from('notification_history')
-      .insert(history);
+    const supabase = getSupabase();
+    const db = supabase as any;
+
+    const sentAt = history.sentAt || (history as any).sent_at || new Date().toISOString();
+    const customerId = history.customerId || (history as any).customer_id || null;
+    const phone = history.mobile || (history as any).phone || '';
+    const messageText = history.message || (history as any).content || '';
+    const status = history.status === 'success' ? 'sent' : (history.status || 'sent');
+
+    // 1. sms_messages 테이블에 저장 (고객 상세정보 모달 기본 조회용)
+    const { error: smsErr } = await db.from('sms_messages').insert([
+      {
+        customer_id: customerId,
+        phone: phone,
+        content: messageText,
+        status: status,
+        sent_at: sentAt,
+      }
+    ]);
+
+    if (smsErr) {
+      console.warn('sms_messages 이력 저장 경고:', smsErr);
+    }
+
+    // 2. notification_history 테이블에 저장 (snake_case 컬럼 매핑)
+    const notifPayload = {
+      id: history.id || crypto.randomUUID(),
+      customer_id: customerId,
+      customer_name: history.customerName || (history as any).customer_name || null,
+      mobile: phone,
+      message: messageText,
+      amount: history.amount || 0,
+      sent_at: sentAt,
+      status: history.status || 'success',
+      message_id: history.messageId || (history as any).message_id || null,
+      error_message: history.errorMessage || (history as any).error_message || null,
+      notification_type: history.notificationType || (history as any).notification_type || 'manual',
+    };
+
+    const { error: notifErr } = await db.from('notification_history').insert([notifPayload]);
+    if (notifErr) {
+      console.warn('notification_history 이력 저장 경고:', notifErr);
+    }
   } catch (error) {
     console.error('알림 이력 저장 오류:', error);
   }
@@ -432,14 +472,16 @@ export async function getNotificationHistory(
   limit: number = 50
 ): Promise<NotificationHistory[]> {
   try {
-    let query = getSupabase()
+    const supabase = getSupabase();
+    const db = supabase as any;
+    let query = db
       .from('notification_history')
       .select('*')
-      .order('sentAt', { ascending: false })
+      .order('sent_at', { ascending: false })
       .limit(limit);
 
     if (customerId) {
-      query = query.eq('customerId', customerId);
+      query = query.eq('customer_id', customerId);
     }
 
     const { data, error } = await query;
@@ -449,7 +491,19 @@ export async function getNotificationHistory(
       return [];
     }
 
-    return data || [];
+    return (data || []).map((item: any) => ({
+      id: item.id,
+      customerId: item.customer_id,
+      customerName: item.customer_name,
+      mobile: item.mobile,
+      message: item.message,
+      amount: item.amount,
+      sentAt: item.sent_at,
+      status: item.status,
+      messageId: item.message_id,
+      errorMessage: item.error_message,
+      notificationType: item.notification_type,
+    }));
   } catch (error) {
     console.error('알림 이력 조회 중 오류:', error);
     return [];
