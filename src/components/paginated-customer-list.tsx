@@ -112,6 +112,7 @@ const openKakaoMap = (address: string) => {
 function CustomerDetailModal({ customer, open, onClose }: { customer: any, open: boolean, onClose: () => void }) {
   const [smsMessages, setSmsMessages] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [photos, setPhotos] = useState<any[]>([]);
   
   // 가망고객 관련 상태
   const [prospects, setProspects] = useState<Prospect[]>([]);
@@ -126,7 +127,7 @@ function CustomerDetailModal({ customer, open, onClose }: { customer: any, open:
   const [formMemo, setFormMemo] = useState('');
   const [formSaving, setFormSaving] = useState(false);
 
-  // 발송내역 fetch
+  // 발송내역 & 사진 fetch
   useEffect(() => {
     if (open && customer?.id) {
       setLoading(true);
@@ -134,8 +135,33 @@ function CustomerDetailModal({ customer, open, onClose }: { customer: any, open:
         .then(res => res.json())
         .then(data => setSmsMessages(data.data || []))
         .finally(() => setLoading(false));
+
+      fetch(`/api/files?customer_id=${customer.id}`)
+        .then(res => res.json())
+        .then(data => {
+          if (Array.isArray(data)) setPhotos(data);
+        })
+        .catch(err => console.error('사진 조회 실패:', err));
     }
   }, [open, customer]);
+
+  // SMS 발송 내역 삭제
+  const handleDeleteSmsMessage = async (msgId: string) => {
+    if (!window.confirm('이 발송 내역을 삭제하시겠습니까?')) return;
+    try {
+      const res = await fetch(`/api/sms-messages?id=${msgId}`, { method: 'DELETE' });
+      if (res.ok) {
+        alert('발송 내역이 삭제되었습니다.');
+        setSmsMessages(prev => prev.filter(m => m.id !== msgId));
+      } else {
+        const errJson = await res.json().catch(() => ({ error: '삭제 실패' }));
+        alert('삭제 실패: ' + (errJson.error || res.statusText));
+      }
+    } catch (err) {
+      console.error('SMS 내역 삭제 오류:', err);
+      alert('삭제 중 오류가 발생했습니다.');
+    }
+  };
 
   // 가망고객 목록 조회
   const fetchProspects = useCallback(async () => {
@@ -302,16 +328,34 @@ function CustomerDetailModal({ customer, open, onClose }: { customer: any, open:
                   }
                 </span>
               </div>
+              {customer.ssn && (
+                <div>
+                  <span className="text-sm font-semibold text-blue-700 block mb-1">주민등록번호</span>
+                  <span className="text-lg font-semibold text-blue-800">{customer.ssn}</span>
+                </div>
+              )}
               {customer.business_name && (
                 <div>
                   <span className="text-sm font-semibold text-blue-700 block mb-1">사업자명</span>
                   <span className="text-lg font-semibold text-blue-800">{customer.business_name}</span>
                 </div>
               )}
+              {customer.business_no && (
+                <div>
+                  <span className="text-sm font-semibold text-blue-700 block mb-1">사업자번호</span>
+                  <span className="text-lg font-semibold text-blue-800">{customer.business_no}</span>
+                </div>
+              )}
               {customer.representative_name && (
                 <div>
                   <span className="text-sm font-semibold text-blue-700 block mb-1">대표자명</span>
                   <span className="text-lg font-semibold text-blue-800">{customer.representative_name}</span>
+                </div>
+              )}
+              {customer.grade && (
+                <div>
+                  <span className="text-sm font-semibold text-blue-700 block mb-1">고객 등급</span>
+                  <span className="text-lg font-semibold text-blue-800">{customer.grade} 등급</span>
                 </div>
               )}
             </div>
@@ -591,21 +635,24 @@ function CustomerDetailModal({ customer, open, onClose }: { customer: any, open:
           </div>
 
           {/* 사진 정보 */}
-          {customer.photos && customer.photos.length > 0 && (
+          {((customer.photos && customer.photos.length > 0) || photos.length > 0) && (
             <div className="bg-gray-50 p-6 rounded-lg border-2 border-gray-200">
               <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
-                📷 고객 사진
+                📷 고객 사진 ({((customer.photos && customer.photos.length > 0) ? customer.photos : photos).length}장)
               </h3>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {customer.photos.map((photo: any, idx: number) => (
-                  <img
-                    key={idx}
-                    src={photo.url}
-                    alt="고객사진"
-                    className="w-full h-32 rounded-lg object-cover cursor-pointer hover:opacity-80 border-2 border-gray-300 shadow-sm"
-                    onClick={() => window.open(photo.url, '_blank')}
-                  />
-                ))}
+                {((customer.photos && customer.photos.length > 0) ? customer.photos : photos).map((photo: any, idx: number) => {
+                  const photoUrl = photo.url || photo;
+                  return (
+                    <img
+                      key={idx}
+                      src={photoUrl}
+                      alt="고객사진"
+                      className="w-full h-32 rounded-lg object-cover cursor-pointer hover:opacity-80 border-2 border-gray-300 shadow-sm"
+                      onClick={() => window.open(photoUrl, '_blank')}
+                    />
+                  );
+                })}
               </div>
             </div>
           )}
@@ -625,7 +672,7 @@ function CustomerDetailModal({ customer, open, onClose }: { customer: any, open:
           {/* SMS 발송 내역 */}
           <div className="bg-yellow-50 p-6 rounded-lg border-2 border-yellow-200">
             <h3 className="text-xl font-bold text-yellow-800 mb-4 flex items-center gap-2">
-              📱 SMS 발송 내역
+              📱 SMS 발송 내역 ({smsMessages.length}건)
             </h3>
             {loading ? (
               <div className="text-center py-4">
@@ -640,15 +687,24 @@ function CustomerDetailModal({ customer, open, onClose }: { customer: any, open:
                   <ul className="space-y-2">
                     {smsMessages.map((msg, i) => (
                       <li key={i} className="bg-white p-3 rounded border border-yellow-200">
-                        <div className="flex justify-between items-start mb-2">
+                        <div className="flex justify-between items-center mb-2">
                           <span className="text-sm font-semibold text-yellow-700">
                             {msg.sent_at?.slice(0, 16).replace('T', ' ')}
                           </span>
-                          <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-1 rounded">
-                            발송됨
-                          </span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-1 rounded font-semibold">
+                              발송됨
+                            </span>
+                            <button
+                              onClick={() => handleDeleteSmsMessage(msg.id)}
+                              className="px-2.5 py-1 bg-red-500 hover:bg-red-600 text-white rounded text-xs transition-colors font-bold shadow-sm flex items-center gap-1"
+                              title="발송 내역 삭제"
+                            >
+                              🗑️ 삭제
+                            </button>
+                          </div>
                         </div>
-                        <div className="text-gray-800">{msg.content}</div>
+                        <div className="text-gray-800 whitespace-pre-wrap">{msg.content}</div>
                       </li>
                     ))}
                   </ul>
@@ -874,7 +930,7 @@ function PaginatedCustomerListInner({
     }
   }, [isDropdownOpen, filteredCustomers, selectedIndex]);
 
-  // 고객 선택 처리 - 개선된 버전
+  // 고객 선택 처리 - 상세보기 모달 전용
   const handleCustomerSelect = useCallback((customer: Customer) => {
     setSelectedCustomer(customer);
     setFilteredCustomers([]);
@@ -882,11 +938,10 @@ function PaginatedCustomerListInner({
     setSelectedIndex(-1);
     inputRef.current?.blur();
     saveSearchHistory(customer);
-    onSelectCustomer?.(customer);
     
-    // 선택된 고객 정보를 모달로 표시
+    // 선택된 고객 정보를 상세보기 모달로만 표시 (SMS 모달 열지 않음)
     setDetailModalOpen(true);
-  }, [saveSearchHistory, onSelectCustomer]);
+  }, [saveSearchHistory]);
 
   // 데이터 페칭 함수
   const fetchCustomers = useCallback(async (isRefresh = false) => {
