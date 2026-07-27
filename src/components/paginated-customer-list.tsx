@@ -17,8 +17,6 @@ import {
 } from './ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
 import { useCustomersRealtime } from '@/lib/useCustomersRealtime';
-import { useTransactionsRealtime } from '@/lib/useTransactionsRealtime';
-import { usePaymentsRealtime } from '@/lib/usePaymentsRealtime';
 import { supabase } from '@/lib/supabase';
 import * as XLSX from 'xlsx';
 import TransactionForm from './transaction-form';
@@ -179,14 +177,19 @@ function CustomerDetailModal({
     }
   }, [customer?.id]);
 
+  // 모달 열릴 때 & 고객 변경 시 거래 요약 조회 (deps: id만 사용)
   useEffect(() => {
     if (open && customer?.id) {
       fetchCustomerSummary();
-      if (showTransactionDetail) {
-        fetchCustomerTransactions();
-      }
     }
-  }, [open, customer?.id, fetchCustomerSummary, showTransactionDetail, fetchCustomerTransactions]);
+  }, [open, customer?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 거래 상세내역 표시 토글 시 목록 조회 (showTransactionDetail 변경 시에만)
+  useEffect(() => {
+    if (open && customer?.id && showTransactionDetail) {
+      fetchCustomerTransactions();
+    }
+  }, [showTransactionDetail]); // eslint-disable-line react-hooks/exhaustive-deps
   const [loading, setLoading] = useState(false);
   const [photos, setPhotos] = useState<any[]>([]);
   
@@ -221,7 +224,7 @@ function CustomerDetailModal({
         })
         .catch(err => console.error('사진 조회 실패:', err));
     }
-  }, [open, customer]);
+  }, [open, customer?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // SMS 발송 내역 삭제
   const handleDeleteSmsMessage = async (msg: any) => {
@@ -1307,21 +1310,10 @@ function PaginatedCustomerListInner({
     fetchCustomers();
   }, [fetchCustomers, refreshKey]);
 
-  // 실시간 동기화 - 고객/거래/입금 변경 시 즉시 고객 카드 미수금 & 거래건수 새로고침
+  // 실시간 동기화 - 고객 테이블 변경 시에만 목록 새로고침
+  // (거래/입금 변경은 onTransactionAdded 콜백에서 직접 처리)
   useCustomersRealtime({ 
     onChange: () => {
-      fetchCustomers(true);
-    }
-  });
-
-  useTransactionsRealtime({
-    onTransactionsChange: () => {
-      fetchCustomers(true);
-    }
-  });
-
-  usePaymentsRealtime({
-    onPaymentsChange: () => {
       fetchCustomers(true);
     }
   });
