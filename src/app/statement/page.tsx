@@ -1073,7 +1073,7 @@ function StatementPageInner() {
       </Card>
       {/* PaymentForm 모달 (등록/수정) */}
       <Dialog open={paymentFormOpen} onOpenChange={setPaymentFormOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-[95vw] sm:max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-2xl font-bold text-center">
               {editPayment ? '✏️ 입금 수정' : '➕ 입금 추가'}
@@ -1094,7 +1094,7 @@ function StatementPageInner() {
       </Dialog>
       {/* TransactionForm 모달(등록/수정) */}
       <Dialog open={transactionFormOpen} onOpenChange={setTransactionFormOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-[95vw] sm:max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-2xl font-bold text-center">
               {editTransaction ? '✏️ 거래 수정' : '➕ 거래 등록'}
@@ -1115,7 +1115,7 @@ function StatementPageInner() {
       </Dialog>
       {/* 삭제 확인 모달 */}
       <Dialog open={deleteModalOpen} onOpenChange={setDeleteModalOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="w-[95vw] sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="text-2xl font-bold text-center">정말 삭제하시겠습니까?</DialogTitle>
           </DialogHeader>
@@ -1167,7 +1167,7 @@ function StatementPageInner() {
       />
       {/* 문자보내기 모달 */}
       <Dialog open={smsModalOpen} onOpenChange={setSmsModalOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="w-[95vw] sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>문자 보내기</DialogTitle>
           </DialogHeader>

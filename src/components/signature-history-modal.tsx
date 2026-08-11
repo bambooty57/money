@@ -150,7 +150,7 @@ export default function SignatureHistoryModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="w-[95vw] sm:max-w-5xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-2xl font-bold text-center">
             📋 {customerName}님의 서명된 명세서 ({records.length}건)
@@ -162,7 +162,7 @@ export default function SignatureHistoryModal({
         ) : records.length === 0 ? (
           <div className="text-center py-10 text-gray-500 text-lg">서명된 명세서가 없습니다.</div>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto overscroll-x-contain" style={{ WebkitOverflowScrolling: 'touch' }}>
             <table className="w-full text-base border-collapse">
               <thead>
                 <tr className="bg-blue-50 border-b-2 border-blue-200">

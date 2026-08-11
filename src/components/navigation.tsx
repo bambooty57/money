@@ -54,6 +54,12 @@ function NavigationContent() {
     window.location.href = '/login';
   }, []);
 
+  // 고객용 공개 페이지(서명문서 열람)와 로그인 페이지에서는 네비게이션 숨김
+  // → 고객에게 관리자 메뉴가 노출되지 않도록 차단
+  if (pathname?.startsWith('/statement/view') || pathname === '/login') {
+    return null;
+  }
+
   return (
     <nav className="w-full bg-white border-b-4 border-blue-400 shadow-xl">
       {/* 데스크톱 네비게이션 */}
