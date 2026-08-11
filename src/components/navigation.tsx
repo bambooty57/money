@@ -17,6 +17,13 @@ const navigationItems = [
 
 // 성능 최적화: 로딩 스켈레톤 컴포넌트
 function NavigationSkeleton() {
+  const pathname = usePathname();
+
+  // 고객용 공개 페이지/로그인 페이지에서는 스켈레톤도 표시하지 않음
+  if (pathname?.startsWith('/statement/view') || pathname === '/login') {
+    return null;
+  }
+
   return (
     <nav className="bg-white shadow animate-pulse">
       <div className="container mx-auto px-4">
