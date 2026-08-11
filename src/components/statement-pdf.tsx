@@ -707,14 +707,14 @@ export async function generateStatementPdf({ customer, transactions, payments, s
         font,
         color: rgb(0.2, 0.2, 0.2)
       });
-      // 서명 이미지 (서명: 라벨 오른쪽)
-      const sigDrawWidth = 140;
+      // 서명 이미지 (서명: 라벨 오른쪽, 동의 문구 줄과 겹치지 않게 크기 제한)
+      const sigDrawWidth = 120;
       const sigDrawHeight = signatureImg.height * (sigDrawWidth / signatureImg.width);
-      const sigHeightCapped = Math.min(sigDrawHeight, 55);
+      const sigHeightCapped = Math.min(sigDrawHeight, 35);
       const sigWidthCapped = signatureImg.width * (sigHeightCapped / signatureImg.height);
       currentPage.drawImage(signatureImg, {
         x: 70 + font.widthOfTextAtSize(signerText, 11) + 6,
-        y: y - 65,
+        y: y - 62,
         width: Math.min(sigWidthCapped, sigDrawWidth),
         height: sigHeightCapped
       });

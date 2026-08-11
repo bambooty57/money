@@ -59,7 +59,7 @@ export default function SignatureModal({
       if (ctx) ctx.scale(ratio, ratio);
 
       const pad = new SignaturePad(canvas, {
-        backgroundColor: "rgb(255, 255, 255)",
+        backgroundColor: "rgba(255, 255, 255, 0)", // 투명 배경: PDF 합성 시 텍스트를 가리지 않음
         penColor: "rgb(0, 0, 80)",
         minWidth: 1.5,
         maxWidth: 3.5,

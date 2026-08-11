@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useCallback, use } from "react";
+import React, { useEffect, useState, useCallback, useRef, use } from "react";
 
 // 고객용 서명 거래명세서 열람 페이지 (로그인 불필요)
 // 본인 인증: 생년월일 6자리(기본) 또는 전화번호 뒷 4자리(폴백)
@@ -30,6 +30,9 @@ export default function StatementViewPage({ params }: { params: Promise<{ id: st
   const [remaining, setRemaining] = useState<number | null>(null);
 
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const [pdfBytes, setPdfBytes] = useState<Uint8Array | null>(null);
+  const [rendering, setRendering] = useState(false);
+  const pdfContainerRef = useRef<HTMLDivElement>(null);
   const [verifiedInfo, setVerifiedInfo] = useState<{ document_no: string; signer_name: string; signed_at: string; customer_name: string } | null>(null);
 
   // 문서 공개 정보 로드
@@ -65,14 +68,15 @@ export default function StatementViewPage({ params }: { params: Promise<{ id: st
       const data = await res.json();
 
       if (data.ok) {
-        // base64 → Blob URL
+        // base64 → 바이트 배열
         const byteChars = atob(data.pdf_base64);
         const byteNumbers = new Uint8Array(byteChars.length);
         for (let i = 0; i < byteChars.length; i++) {
           byteNumbers[i] = byteChars.charCodeAt(i);
         }
-        const blob = new Blob([byteNumbers], { type: 'application/pdf' });
+        const blob = new Blob([byteNumbers.slice()], { type: 'application/pdf' });
         setPdfUrl(URL.createObjectURL(blob));
+        setPdfBytes(byteNumbers);
         setVerifiedInfo({
           document_no: data.document_no,
           signer_name: data.signer_name,
@@ -98,6 +102,61 @@ export default function StatementViewPage({ params }: { params: Promise<{ id: st
       setVerifying(false);
     }
   }, [authInput, id, info?.auth_method]);
+
+  // 인증 성공 후: PDF.js로 전 페이지를 화면에 직접 렌더링
+  // (모바일 브라우저는 iframe PDF 미지원이 많아 canvas 렌더링 방식 사용)
+  useEffect(() => {
+    if (!pdfBytes) return;
+    let cancelled = false;
+
+    (async () => {
+      setRendering(true);
+      try {
+        const pdfjs = await import('pdfjs-dist');
+        pdfjs.GlobalWorkerOptions.workerSrc = new URL(
+          'pdfjs-dist/build/pdf.worker.min.mjs',
+          import.meta.url
+        ).toString();
+
+        // pdf.js가 버퍼를 worker로 이전(transfer)하므로 사본 전달
+        const doc = await pdfjs.getDocument({ data: pdfBytes.slice() }).promise;
+        const container = pdfContainerRef.current;
+        if (!container || cancelled) return;
+        container.innerHTML = '';
+
+        for (let i = 1; i <= doc.numPages; i++) {
+          if (cancelled) return;
+          const page = await doc.getPage(i);
+          const baseViewport = page.getViewport({ scale: 1 });
+          const containerWidth = container.clientWidth || window.innerWidth;
+          const dpr = Math.min(window.devicePixelRatio || 1, 2);
+          const scale = (containerWidth / baseViewport.width) * dpr;
+          const viewport = page.getViewport({ scale });
+
+          const canvas = document.createElement('canvas');
+          canvas.width = viewport.width;
+          canvas.height = viewport.height;
+          canvas.style.width = '100%';
+          canvas.style.display = 'block';
+          canvas.style.marginBottom = '8px';
+          canvas.style.background = '#fff';
+          canvas.style.boxShadow = '0 1px 4px rgba(0,0,0,0.15)';
+          container.appendChild(canvas);
+
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            await page.render({ canvasContext: ctx, viewport, canvas }).promise;
+          }
+        }
+      } catch (e) {
+        console.error('PDF 렌더링 오류:', e);
+      } finally {
+        if (!cancelled) setRendering(false);
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [pdfBytes]);
 
   // 로딩
   if (loading) {
@@ -170,7 +229,11 @@ export default function StatementViewPage({ params }: { params: Promise<{ id: st
             ⬇️ PDF 다운로드
           </a>
         </div>
-        <iframe src={pdfUrl} className="flex-1 w-full" style={{ minHeight: '80vh' }} title="거래명세서 PDF" />
+        {rendering && (
+          <div className="text-center py-8 text-gray-500 text-lg">문서를 표시하는 중...</div>
+        )}
+        {/* PDF.js가 페이지별 캔버스를 직접 삽입하는 영역 */}
+        <div ref={pdfContainerRef} className="flex-1 w-full max-w-4xl mx-auto p-2" />
       </div>
     );
   }
