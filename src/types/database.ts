@@ -456,6 +456,110 @@ export type Database = {
         }
         Relationships: []
       }
+      transaction_statements: {
+        Row: {
+          id: string
+          document_no: string
+          customer_id: string
+          pdf_data: string | null
+          pdf_size: number | null
+          signature_data: string | null
+          file_hash: string | null
+          signer_name: string | null
+          consent_agreed_at: string | null
+          consent_version: string | null
+          total_amount: number | null
+          total_paid: number | null
+          total_unpaid: number | null
+          transaction_count: number | null
+          status: string
+          signed_at: string | null
+          expires_at: string | null
+          sms_sent_at: string | null
+          sms_to: string | null
+          resend_count: number | null
+          viewed_at: string | null
+          view_count: number | null
+          view_failed_count: number | null
+          locked_until: string | null
+          voided_at: string | null
+          void_reason: string | null
+          created_by: string | null
+          created_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          document_no: string
+          customer_id: string
+          pdf_data?: string | null
+          pdf_size?: number | null
+          signature_data?: string | null
+          file_hash?: string | null
+          signer_name?: string | null
+          consent_agreed_at?: string | null
+          consent_version?: string | null
+          total_amount?: number | null
+          total_paid?: number | null
+          total_unpaid?: number | null
+          transaction_count?: number | null
+          status?: string
+          signed_at?: string | null
+          expires_at?: string | null
+          sms_sent_at?: string | null
+          sms_to?: string | null
+          resend_count?: number | null
+          viewed_at?: string | null
+          view_count?: number | null
+          view_failed_count?: number | null
+          locked_until?: string | null
+          voided_at?: string | null
+          void_reason?: string | null
+          created_by?: string | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          document_no?: string
+          customer_id?: string
+          pdf_data?: string | null
+          pdf_size?: number | null
+          signature_data?: string | null
+          file_hash?: string | null
+          signer_name?: string | null
+          consent_agreed_at?: string | null
+          consent_version?: string | null
+          total_amount?: number | null
+          total_paid?: number | null
+          total_unpaid?: number | null
+          transaction_count?: number | null
+          status?: string
+          signed_at?: string | null
+          expires_at?: string | null
+          sms_sent_at?: string | null
+          sms_to?: string | null
+          resend_count?: number | null
+          viewed_at?: string | null
+          view_count?: number | null
+          view_failed_count?: number | null
+          locked_until?: string | null
+          voided_at?: string | null
+          void_reason?: string | null
+          created_by?: string | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transaction_statements_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       transactions: {
         Row: {
           amount: number
@@ -533,6 +637,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_statement_public_info: {
+        Args: { p_id: string }
+        Returns: Json
+      }
       monthly_sales_stats: {
         Args: never
         Returns: {
@@ -546,6 +654,10 @@ export type Database = {
           month: string
           total: number
         }[]
+      }
+      verify_statement_access: {
+        Args: { p_id: string; p_auth: string }
+        Returns: Json
       }
     }
     Enums: {

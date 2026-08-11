@@ -41,6 +41,7 @@ export default function CustomerDetailPage() {
   const [summary, setSummary] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<'profile' | 'transactions' | 'legal' | 'files'>('profile');
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
+  const [signedSummary, setSignedSummary] = useState<{ count: number; latest: string | null } | null>(null);
 
   useEffect(() => {
     async function fetchCustomerDetails() {
@@ -79,6 +80,29 @@ export default function CustomerDetailPage() {
       setSummary(data);
     }
     fetchSummary();
+  }, [id]);
+
+  // 서명된 명세서 요약 (signed 건만)
+  useEffect(() => {
+    async function fetchSignedSummary() {
+      try {
+        const supabase = createClient();
+        const { data: sessionData } = await supabase.auth.getSession();
+        const token = sessionData?.session?.access_token;
+        if (!token) return;
+        const res = await fetch(`/api/statements?customer_id=${id}`, {
+          headers: { 'Authorization': `Bearer ${token}` },
+        });
+        if (!res.ok) return;
+        const result = await res.json();
+        const signed = (result.data || []).filter((r: any) => r.status === 'signed');
+        setSignedSummary({
+          count: signed.length,
+          latest: signed.length > 0 ? signed[0].signed_at : null,
+        });
+      } catch { /* 요약 실패는 무시 */ }
+    }
+    fetchSignedSummary();
   }, [id]);
 
   if (!customer) return <div>로딩 중...</div>;
@@ -206,6 +230,23 @@ export default function CustomerDetailPage() {
               <p>등록일: {customer.created_at ? new Date(customer.created_at).toLocaleDateString() : '-'}</p>
               <p>수정일: {customer.updated_at ? new Date(customer.updated_at).toLocaleDateString() : '-'}</p>
             </div>
+            {signedSummary && signedSummary.count > 0 && (
+              <div>
+                <h3 className="font-semibold">서명된 명세서</h3>
+                <p>
+                  ✍️ {signedSummary.count}건
+                  {signedSummary.latest && ` (최근: ${new Date(signedSummary.latest).toLocaleDateString()})`}
+                </p>
+                <p>
+                  <button
+                    onClick={() => router.push(`/statement?customer_id=${id}`)}
+                    className="text-blue-600 hover:text-blue-800 underline"
+                  >
+                    거래명세서에서 보기 →
+                  </button>
+                </p>
+              </div>
+            )}
           </div>
         )}
 

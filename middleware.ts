@@ -2,8 +2,8 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 export function middleware(request: NextRequest) {
-  // 허용 경로: 로그인, 정적파일, _next, favicon 등
-  const publicPaths = ['/login', '/favicon.ico', '/_next', '/public', '/api'];
+  // 허용 경로: 로그인, 정적파일, _next, favicon, 고객용 서명문서 열람 등
+  const publicPaths = ['/login', '/favicon.ico', '/_next', '/public', '/api', '/statement/view'];
   if (publicPaths.some(path => request.nextUrl.pathname.startsWith(path))) {
     return NextResponse.next();
   }

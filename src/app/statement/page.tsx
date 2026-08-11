@@ -95,6 +95,9 @@ interface Transaction {
 }
 
 import SmsSender from '@/components/sms-sender';
+import SignatureModal from '@/components/signature-modal';
+import SignatureHistoryModal from '@/components/signature-history-modal';
+import { CONSENT_VERSION } from '@/lib/esign-constants';
 
 function StatementPageInner() {
   const searchParams = useSearchParams();
@@ -139,6 +142,11 @@ function StatementPageInner() {
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
   const [smsModalOpen, setSmsModalOpen] = useState(false);
+  // 전자서명 상태
+  const [signatureModalOpen, setSignatureModalOpen] = useState(false);
+  const [pendingStatement, setPendingStatement] = useState<{ id: string; document_no: string } | null>(null);
+  const [savingSignature, setSavingSignature] = useState(false);
+  const [historyModalOpen, setHistoryModalOpen] = useState(false);
   
   // 입금 다중 선택 상태 추가
   const [selectedPaymentIds, setSelectedPaymentIds] = useState<Set<string>>(new Set());
@@ -582,6 +590,145 @@ function StatementPageInner() {
     }
   }, [selectedCustomer, customerData, sortedTransactions]);
 
+  // 🆕 전자서명 시작: pending 문서 생성 후 서명 모달 오픈
+  const handleStartSignature = useCallback(async () => {
+    if (!selectedCustomer || !customerData || !sortedTransactions.length) {
+      alert('고객을 선택하고 거래내역이 있어야 서명을 받을 수 있습니다.');
+      return;
+    }
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
+      if (!token) {
+        alert('로그인이 필요합니다.');
+        return;
+      }
+      const res = await fetch('/api/statements', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ customer_id: selectedCustomer }),
+      });
+      const result = await res.json();
+      if (!res.ok) {
+        alert('문서 생성 실패: ' + (result.error || res.statusText));
+        return;
+      }
+      setPendingStatement({ id: result.id, document_no: result.document_no });
+      setSignatureModalOpen(true);
+    } catch (error) {
+      console.error('서명 시작 오류:', error);
+      alert('서명 문서 생성 중 오류가 발생했습니다.');
+    }
+  }, [selectedCustomer, customerData, sortedTransactions]);
+
+  // 🆕 서명 완료: 서명 PNG 선저장 → 서명본 PDF 합성 → 저장 → SMS 자동 1회 발송
+  const handleSignatureComplete = useCallback(async (signatureDataUrl: string, consentAgreedAt: string) => {
+    if (!pendingStatement || !customerData) return;
+    setSavingSignature(true);
+
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
+      if (!token) throw new Error('로그인이 필요합니다.');
+      const headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` };
+
+      // 1. 서명 원본 PNG 선저장 (현장 네트워크 실패 대비, 서명 최우선 보존)
+      const sigRes = await fetch(`/api/statements/${pendingStatement.id}/signature`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          signatureDataUrl,
+          signerName: customerData.name,
+          consentAgreedAt,
+          consentVersion: CONSENT_VERSION,
+        }),
+      });
+      if (!sigRes.ok) {
+        const err = await sigRes.json();
+        throw new Error('서명 저장 실패: ' + (err.error || sigRes.statusText));
+      }
+
+      // 2. 공급자 정보 조회 + 서명 합성 PDF 생성 (전자본: 주민번호 마스킹)
+      const supplierResponse = await fetch('/api/supplier-info');
+      const supplierInfo = supplierResponse.ok ? await supplierResponse.json() : {
+        name: '구보다농기계영암대리점',
+        ceo: '정현목',
+        biznum: '743-39-01106',
+        address: '전남 영암군 군서면 녹암대동보길184',
+        phone: '010-2602-3276',
+        accounts: [{ bank: '농협', number: '302-2602-3276-61', holder: '정현목' }]
+      };
+
+      const allPayments = sortedTransactions.flatMap(tx =>
+        Array.isArray(tx.payments) ? tx.payments : []
+      );
+
+      const signedAtText = new Date().toLocaleString('ko-KR', { hour12: false });
+      const pdfBlob = await generateStatementPdf({
+        customer: customerData,
+        transactions: sortedTransactions,
+        payments: allPayments,
+        supplier: supplierInfo,
+        title: '거래명세서',
+        printDate: new Date().toLocaleDateString('ko-KR'),
+        signatureImageBase64: signatureDataUrl,
+        documentNo: pendingStatement.document_no,
+        signerName: customerData.name,
+        signedAt: signedAtText,
+        maskCustomerSsn: true,
+      });
+
+      // 3. Blob → base64
+      const pdfBase64: string = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve((reader.result as string).split(',')[1]);
+        reader.onerror = () => reject(new Error('PDF 변환 실패'));
+        reader.readAsDataURL(pdfBlob);
+      });
+
+      // 4. 서명 완료 처리 (PDF 저장 + 해시 + signed 전환 + SMS 자동 1회)
+      const signRes = await fetch(`/api/statements/${pendingStatement.id}/sign`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          pdfBase64,
+          snapshot: {
+            total_amount: summary?.total_amount || 0,
+            total_paid: summary?.total_paid || 0,
+            total_unpaid: summary?.total_unpaid || 0,
+            transaction_count: sortedTransactions.length,
+          },
+        }),
+      });
+      const signResult = await signRes.json();
+      if (!signRes.ok) {
+        throw new Error('저장 실패: ' + (signResult.error || signRes.statusText));
+      }
+
+      // 5. 결과 안내
+      let resultMsg = `✅ 서명이 저장되었습니다.\n문서번호: ${signResult.document_no}`;
+      if (signResult.auth_method === 'none') {
+        resultMsg += '\n\n⚠️ 문자를 보낼 수 없습니다.\n고객 정보에 생년월일 그리고 휴대폰 번호를 등록해 주세요.';
+      } else if (signResult.sms?.sent) {
+        resultMsg += '\n\n📱 고객에게 열람 링크 문자를 발송했습니다.';
+      } else if (signResult.sms?.reason === 'no_phone') {
+        resultMsg += '\n\n⚠️ 문자를 보낼 수 없습니다.\n고객 정보에 생년월일 그리고 휴대폰 번호를 등록해 주세요.';
+      } else {
+        resultMsg += `\n\n⚠️ 문자 발송에 실패했습니다. (${signResult.sms?.error || '알 수 없는 오류'})\n서명 이력에서 재발송할 수 있습니다.`;
+      }
+      alert(resultMsg);
+
+      setSignatureModalOpen(false);
+      setPendingStatement(null);
+    } catch (error) {
+      console.error('서명 저장 오류:', error);
+      alert((error as Error).message + '\n\n서명 화면을 닫지 말고 다시 시도해 주세요.');
+      // 모달을 닫지 않아 서명이 유지됨 (재시도 가능)
+    } finally {
+      setSavingSignature(false);
+    }
+  }, [pendingStatement, customerData, sortedTransactions, summary]);
+
   // 3. 엑셀 다운로드
   const handleExcelDownload = () => {
     if (!sortedTransactions.length) return;
@@ -733,15 +880,25 @@ function StatementPageInner() {
             <Button onClick={handleExcelDownload} className="bg-green-600 text-white px-4 py-2 rounded-lg text-lg font-bold hover:bg-green-700 transition-colors">📊 엑셀 다운로드</Button>
             
             {/* PDF 다운로드 버튼 - pdf-lib 기반으로 활성화 */}
-            <Button 
-              onClick={handlePdfDownload} 
+            <Button
+              onClick={handlePdfDownload}
               disabled={!selectedCustomer || !transactions.length}
               className="bg-red-600 text-white px-4 py-2 rounded-lg text-lg font-bold hover:bg-red-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
               title={!selectedCustomer || !transactions.length ? "고객과 거래내역이 있어야 PDF를 생성할 수 있습니다" : "PDF 다운로드"}
             >
               📄 PDF 다운로드
             </Button>
-            
+
+            {/* 전자서명 버튼 */}
+            <Button
+              onClick={handleStartSignature}
+              disabled={!selectedCustomer || !transactions.length}
+              className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-lg font-bold hover:bg-indigo-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+              title={!selectedCustomer || !transactions.length ? "고객과 거래내역이 있어야 서명을 받을 수 있습니다" : "태블릿에서 고객 서명 받기"}
+            >
+              ✍️ 서명 받기
+            </Button>
+
             {/* 입금 일괄 삭제 버튼 */}
             {selectedPaymentIds.size > 0 && (
               <Button 
@@ -752,6 +909,16 @@ function StatementPageInner() {
               </Button>
             )}
             
+            {selectedCustomer && customerData && (
+              <Button
+                onClick={() => setHistoryModalOpen(true)}
+                className="bg-teal-600 text-white px-4 py-2 rounded-lg text-lg font-bold hover:bg-teal-700 transition-colors"
+                title="이 고객의 서명된 명세서 이력 보기"
+              >
+                📋 서명 이력
+              </Button>
+            )}
+
             {selectedCustomer && customerData && (
               <Button
                 onClick={() => setSmsModalOpen(true)}
@@ -979,6 +1146,25 @@ function StatementPageInner() {
           </div>
         </DialogContent>
       </Dialog>
+      {/* 전자서명 모달 */}
+      <SignatureModal
+        open={signatureModalOpen}
+        onOpenChange={(open) => {
+          setSignatureModalOpen(open);
+          if (!open && !savingSignature) setPendingStatement(null);
+        }}
+        customerName={customerName}
+        documentNo={pendingStatement?.document_no || ''}
+        onComplete={handleSignatureComplete}
+        saving={savingSignature}
+      />
+      {/* 서명 이력 모달 */}
+      <SignatureHistoryModal
+        open={historyModalOpen}
+        onOpenChange={setHistoryModalOpen}
+        customerId={selectedCustomer}
+        customerName={customerName}
+      />
       {/* 문자보내기 모달 */}
       <Dialog open={smsModalOpen} onOpenChange={setSmsModalOpen}>
         <DialogContent className="max-w-2xl">

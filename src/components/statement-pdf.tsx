@@ -1,5 +1,6 @@
 import { PDFDocument, rgb } from 'pdf-lib';
 import fontkit from '@pdf-lib/fontkit';
+import { maskSsn, SIGNATURE_BOX_TEXT, CONSENT_VERSION } from '@/lib/esign-constants';
 
 export interface StatementPdfOptions {
   customer: any;
@@ -9,6 +10,12 @@ export interface StatementPdfOptions {
   title?: string;
   printDate?: string;
   photoUrl?: string; // 고객 사진 URL 추가
+  // === 전자서명 옵션 (미지정 시 기존 무서명 PDF 동작 유지) ===
+  signatureImageBase64?: string; // 서명 PNG (dataURL 또는 순수 base64)
+  documentNo?: string;           // 문서번호 (예: ST-2026-08-0001)
+  signerName?: string;           // 서명자명
+  signedAt?: string;             // 서명일시 문자열 (예: 2026-08-11 14:32)
+  maskCustomerSsn?: boolean;     // true면 전자본용 주민번호 마스킹
 }
 
 // 유틸: 셀 내 텍스트 줄바꿈(셀 너비, 폰트, 폰트크기, 최대줄수) - 한글 지원 개선
@@ -201,7 +208,7 @@ function drawTableHeader(page: any, font: any, y: number, headers: string[], col
 }
 
 // 완전한 PDF 생성 함수 (페이지 분할 지원)
-export async function generateStatementPdf({ customer, transactions, payments, supplier, title = '거래명세서', printDate, photoUrl }: StatementPdfOptions): Promise<Blob> {
+export async function generateStatementPdf({ customer, transactions, payments, supplier, title = '거래명세서', printDate, photoUrl, signatureImageBase64, documentNo, signerName, signedAt, maskCustomerSsn }: StatementPdfOptions): Promise<Blob> {
   try {
   const pdfDoc = await PDFDocument.create();
   pdfDoc.registerFontkit(fontkit);
@@ -210,6 +217,20 @@ export async function generateStatementPdf({ customer, transactions, payments, s
   const fontUrl = '/Noto_Sans_KR/static/NotoSansKR-Regular.ttf';
   const fontBytes = await fetch(fontUrl).then(res => res.arrayBuffer());
   const font = await pdfDoc.embedFont(fontBytes);
+
+  // 서명 이미지 임베드 (전자서명 모드)
+  let signatureImg: any = null;
+  if (signatureImageBase64) {
+    try {
+      const base64 = signatureImageBase64.includes(',')
+        ? signatureImageBase64.split(',')[1]
+        : signatureImageBase64;
+      const sigBytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
+      signatureImg = await pdfDoc.embedPng(sigBytes);
+    } catch (sigError) {
+      console.error('서명 이미지 임베드 실패:', sigError);
+    }
+  }
   
   // 로고 이미지 로드
   let logoImg: any = null;
@@ -248,7 +269,7 @@ export async function generateStatementPdf({ customer, transactions, payments, s
   const customerTable = [
       ['고객명', displayValue(getField('name', 'customer_name'))],
       ['고객유형', displayValue(getField('customer_type', 'type'))],
-      ['주민번호', displayValue(getField('ssn', 'rrn'))],
+      ['주민번호', maskCustomerSsn ? maskSsn(getField('ssn', 'rrn')) : displayValue(getField('ssn', 'rrn'))],
       ['사업자번호', displayValue(getField('business_no', 'business_number', 'biznum', 'business_reg_no', 'biz_no'))],
       ['휴대폰번호', displayValue(getField('mobile', 'phone', 'mobile_phone', 'cell_phone', 'phone_number'))],
       ['주소', displayValue(getField('address', 'addr', 'road_address', 'road_addr'))],
@@ -650,11 +671,12 @@ export async function generateStatementPdf({ customer, transactions, payments, s
     });
     
     // 서명란 (페이지 분할 체크)
-    await checkAndCreateNewPage(80 + 10);
-    y -= 50;
-    
+    const isSigned = !!signatureImg;
+    const confirmBoxHeight = isSigned ? 110 : 80;
+    await checkAndCreateNewPage(confirmBoxHeight + 10);
+    y -= isSigned ? 20 : 50;
+
     // 고객 확인 서명란 (테이블 너비에 맞게 조정)
-    const confirmBoxHeight = 80;
     currentPage.drawRectangle({
       x: 50,
       y: y - confirmBoxHeight,
@@ -664,20 +686,65 @@ export async function generateStatementPdf({ customer, transactions, payments, s
       borderColor: rgb(0.7, 0.7, 0.7),
       borderWidth: 1
     });
-    
-    currentPage.drawText('위 거래내용이 틀림없음을 확인하며 잔액에 대하여                      년                      월                      일까지  완납하겠음을 확인합니다', {
-      x: 70,
-      y: y - 25,
-      size: 11,
-      font,
-      color: rgb(0.2, 0.2, 0.2)
-    });
-    
-    const confirmY = y - 50;
-    const confirmText = `년        월        일        확인자:                     (서명)`;
-    const confirmWidth = font.widthOfTextAtSize(confirmText, 11);
-    const confirmX = (tableWidth - confirmWidth) / 2 + tableStartX; // 테이블 너비에 맞게 중앙 정렬
-    currentPage.drawText(confirmText, { x: confirmX, y: confirmY, size: 11, font, color: rgb(0.2,0.2,0.2) });
+
+    if (isSigned) {
+      // ===== 전자서명 모드: 정식 서명 블록 =====
+      // 1행: 동의 문구
+      currentPage.drawText(SIGNATURE_BOX_TEXT, {
+        x: 70,
+        y: y - 22,
+        size: 10,
+        font,
+        color: rgb(0.2, 0.2, 0.2)
+      });
+
+      // 2행: 성명 + 서명 이미지
+      const signerText = `성명: ${signerName || displayValue(getField('name', 'customer_name'))}        서명:`;
+      currentPage.drawText(signerText, {
+        x: 70,
+        y: y - 55,
+        size: 11,
+        font,
+        color: rgb(0.2, 0.2, 0.2)
+      });
+      // 서명 이미지 (서명: 라벨 오른쪽)
+      const sigDrawWidth = 140;
+      const sigDrawHeight = signatureImg.height * (sigDrawWidth / signatureImg.width);
+      const sigHeightCapped = Math.min(sigDrawHeight, 55);
+      const sigWidthCapped = signatureImg.width * (sigHeightCapped / signatureImg.height);
+      currentPage.drawImage(signatureImg, {
+        x: 70 + font.widthOfTextAtSize(signerText, 11) + 6,
+        y: y - 65,
+        width: Math.min(sigWidthCapped, sigDrawWidth),
+        height: sigHeightCapped
+      });
+
+      // 3행: 서명일시 + 문서번호
+      const signedAtText = signedAt || new Date().toLocaleString('ko-KR', { hour12: false });
+      const docLine = `서명일시: ${signedAtText}    문서번호: ${documentNo || ''}`;
+      currentPage.drawText(docLine, {
+        x: 70,
+        y: y - confirmBoxHeight + 15,
+        size: 9,
+        font,
+        color: rgb(0.4, 0.4, 0.4)
+      });
+    } else {
+      // ===== 기존 모드: 무서명 확인란 =====
+      currentPage.drawText('위 거래내용이 틀림없음을 확인하며 잔액에 대하여                      년                      월                      일까지  완납하겠음을 확인합니다', {
+        x: 70,
+        y: y - 25,
+        size: 11,
+        font,
+        color: rgb(0.2, 0.2, 0.2)
+      });
+
+      const confirmY = y - 50;
+      const confirmText = `년        월        일        확인자:                     (서명)`;
+      const confirmWidth = font.widthOfTextAtSize(confirmText, 11);
+      const confirmX = (tableWidth - confirmWidth) / 2 + tableStartX; // 테이블 너비에 맞게 중앙 정렬
+      currentPage.drawText(confirmText, { x: confirmX, y: confirmY, size: 11, font, color: rgb(0.2,0.2,0.2) });
+    }
   
   // 모든 페이지의 페이지 번호 업데이트
   const totalPages = pdfDoc.getPageCount();
@@ -689,7 +756,7 @@ export async function generateStatementPdf({ customer, transactions, payments, s
     const outputDateWidth = font.widthOfTextAtSize(outputDateText, 11);
     const pageNumberWidth = font.widthOfTextAtSize(pageNumberText, 11);
     const rightMargin = 50;
-    
+
     // 기존 페이지 번호 덮어쓰기 (배경으로 덮기)
     pg.drawRectangle({
       x: 792 - rightMargin - pageNumberWidth - 10 - outputDateWidth,
@@ -698,24 +765,57 @@ export async function generateStatementPdf({ customer, transactions, payments, s
       height: 15,
       color: rgb(1, 1, 1)
     });
-    
+
     // 출력일
-    pg.drawText(outputDateText, { 
+    pg.drawText(outputDateText, {
       x: 792 - rightMargin - pageNumberWidth - 10 - outputDateWidth,
-      y: headerY, 
-      size: 11, 
-      font, 
-      color: rgb(0.5,0.5,0.5) 
+      y: headerY,
+      size: 11,
+      font,
+      color: rgb(0.5,0.5,0.5)
     });
-    
+
     // 페이지 번호
-    pg.drawText(pageNumberText, { 
+    pg.drawText(pageNumberText, {
       x: 792 - rightMargin - pageNumberWidth,
-      y: headerY, 
-      size: 11, 
-      font, 
-      color: rgb(0.5,0.5,0.5) 
+      y: headerY,
+      size: 11,
+      font,
+      color: rgb(0.5,0.5,0.5)
     });
+
+    // ===== 전자간인(騎縫印): 서명본 + 문서번호가 있을 때 각 페이지 하단 표기 =====
+    // 규칙: 1페이지 문서는 생략(정식 서명란만), 2페이지 이상이면 전 페이지에 적용.
+    // 마지막 페이지에는 정식 서명란이 있으므로 축소 서명은 앞 페이지에만 삽입.
+    if (signatureImg && documentNo && totalPages > 1) {
+      const footerText = `문서번호: ${documentNo}  |  ${p + 1} / ${totalPages} 페이지`;
+      pg.drawText(footerText, {
+        x: 50,
+        y: 32,
+        size: 9,
+        font,
+        color: rgb(0.45, 0.45, 0.45)
+      });
+
+      // 축소 서명 (마지막 페이지 제외)
+      if (p < totalPages - 1) {
+        const miniSigHeight = 22;
+        const miniSigWidth = signatureImg.width * (miniSigHeight / signatureImg.height);
+        pg.drawText('서명:', {
+          x: 792 - rightMargin - miniSigWidth - 30,
+          y: 32,
+          size: 9,
+          font,
+          color: rgb(0.45, 0.45, 0.45)
+        });
+        pg.drawImage(signatureImg, {
+          x: 792 - rightMargin - miniSigWidth,
+          y: 26,
+          width: miniSigWidth,
+          height: miniSigHeight
+        });
+      }
+    }
   }
   
   // PDF 저장
