@@ -288,7 +288,7 @@ export default function StatementViewPage({ params }: { params: Promise<{ id: st
                 <span className="font-bold block mb-1">💡 해결 안내 지시어</span>
                 1. 스마트폰 인앱 브라우저(카카오톡, 네이버 등) 또는 일부 구형 스마트폰 브라우저 환경에서는 PDF.js 뷰어 라이브러리가 호환되지 않을 수 있습니다.<br />
                 2. 화면 우측 상단이나 하단의 <strong>더보기 버튼(삼점 메뉴 `...` 또는 설정 아이콘)</strong>을 클릭해 주세요.<br />
-                3. <strong>"다른 브라우저로 열기"</strong> 또는 <strong>"기본 브라우저로 열기"</strong>(Chrome, Safari, 삼성 인터넷 등)를 선택하여 다시 접속하시면 정상적으로 표시됩니다.
+                3. <strong>&quot;다른 브라우저로 열기&quot;</strong> 또는 <strong>&quot;기본 브라우저로 열기&quot;</strong>(Chrome, Safari, 삼성 인터넷 등)를 선택하여 다시 접속하시면 정상적으로 표시됩니다.
               </div>
             </div>
           </div>
