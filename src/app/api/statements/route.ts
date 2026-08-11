@@ -112,3 +112,32 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: error.message || '서버 오류' }, { status: 500 });
   }
 }
+
+// DELETE: 거래명세서 삭제 (단일 또는 다중)
+export async function DELETE(request: Request) {
+  try {
+    const supabase = getAuthedClient(request);
+    if (!supabase) {
+      return NextResponse.json({ error: '인증이 필요합니다.' }, { status: 401 });
+    }
+
+    const body = await request.json().catch(() => ({}));
+    const { ids } = body;
+    
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+      return NextResponse.json({ error: '삭제할 ids 배열이 필요합니다.' }, { status: 400 });
+    }
+
+    const { error } = await supabase
+      .from('transaction_statements')
+      .delete()
+      .in('id', ids);
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+    return NextResponse.json({ ok: true });
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message || '서버 오류' }, { status: 500 });
+  }
+}

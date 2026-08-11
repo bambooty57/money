@@ -108,14 +108,8 @@ BEGIN
 
   SELECT * INTO c FROM customers WHERE id = s.customer_id;
 
-  -- 인증 방식 결정: 주민번호 앞 6자리(기본) → 휴대폰 뒷 4자리(폴백)
-  IF c.ssn IS NOT NULL AND length(regexp_replace(c.ssn, '[^0-9]', '', 'g')) >= 6 THEN
-    v_auth_method := 'ssn';
-  ELSIF c.mobile IS NOT NULL AND length(regexp_replace(c.mobile, '[^0-9]', '', 'g')) >= 4 THEN
-    v_auth_method := 'phone';
-  ELSE
-    v_auth_method := 'none';
-  END IF;
+  -- 인증 방식은 이제 필요 없으므로 'none'으로 설정
+  v_auth_method := 'none';
 
   RETURN jsonb_build_object(
     'found', true,
@@ -133,10 +127,9 @@ $$ LANGUAGE plpgsql;
 
 -- =====================================================
 -- RPC 2: 본인 인증 + PDF 반환
---   생년월일 6자리(또는 폴백 전화번호 뒷 4자리) 검증
---   5회 실패 시 10분 잠금, 성공 시 열람 기록 갱신
+--   (비밀번호 검증 없이 PDF 바로 반환)
 -- =====================================================
-CREATE OR REPLACE FUNCTION verify_statement_access(p_id UUID, p_auth TEXT)
+CREATE OR REPLACE FUNCTION verify_statement_access(p_id UUID, p_auth TEXT DEFAULT NULL)
 RETURNS jsonb
 SECURITY DEFINER
 SET search_path = public
@@ -144,8 +137,6 @@ AS $$
 DECLARE
   s record;
   c record;
-  v_expected TEXT;
-  v_failed INTEGER;
 BEGIN
   SELECT * INTO s FROM transaction_statements WHERE id = p_id;
   IF NOT FOUND THEN
@@ -168,46 +159,21 @@ BEGIN
 
   SELECT * INTO c FROM customers WHERE id = s.customer_id;
 
-  -- 기대 인증값: 주민번호 앞 6자리 우선, 없으면 휴대폰 뒷 4자리
-  IF c.ssn IS NOT NULL AND length(regexp_replace(c.ssn, '[^0-9]', '', 'g')) >= 6 THEN
-    v_expected := substring(regexp_replace(c.ssn, '[^0-9]', '', 'g') from 1 for 6);
-  ELSIF c.mobile IS NOT NULL AND length(regexp_replace(c.mobile, '[^0-9]', '', 'g')) >= 4 THEN
-    v_expected := right(regexp_replace(c.mobile, '[^0-9]', '', 'g'), 4);
-  ELSE
-    v_expected := NULL;
-  END IF;
+  -- 인증 성공: 열람 기록 갱신
+  UPDATE transaction_statements SET
+    viewed_at = COALESCE(viewed_at, NOW()),
+    view_count = COALESCE(view_count, 0) + 1,
+    view_failed_count = 0
+  WHERE id = p_id;
 
-  IF v_expected IS NOT NULL AND p_auth IS NOT NULL
-     AND regexp_replace(p_auth, '[^0-9]', '', 'g') = v_expected THEN
-    -- 인증 성공: 열람 기록 갱신
-    UPDATE transaction_statements SET
-      viewed_at = COALESCE(viewed_at, NOW()),
-      view_count = COALESCE(view_count, 0) + 1,
-      view_failed_count = 0
-    WHERE id = p_id;
-
-    RETURN jsonb_build_object(
-      'ok', true,
-      'document_no', s.document_no,
-      'signer_name', s.signer_name,
-      'signed_at', s.signed_at,
-      'customer_name', c.name,
-      'pdf_base64', encode(s.pdf_data, 'base64')
-    );
-  ELSE
-    -- 인증 실패: 실패 카운트 증가, 5회 도달 시 10분 잠금
-    v_failed := COALESCE(s.view_failed_count, 0) + 1;
-    UPDATE transaction_statements SET
-      view_failed_count = v_failed,
-      locked_until = CASE WHEN v_failed >= 5 THEN NOW() + interval '10 minutes' ELSE locked_until END
-    WHERE id = p_id;
-
-    RETURN jsonb_build_object(
-      'ok', false,
-      'reason', CASE WHEN v_failed >= 5 THEN 'locked' ELSE 'auth_failed' END,
-      'remaining', greatest(0, 5 - v_failed)
-    );
-  END IF;
+  RETURN jsonb_build_object(
+    'ok', true,
+    'document_no', s.document_no,
+    'signer_name', s.signer_name,
+    'signed_at', s.signed_at,
+    'customer_name', c.name,
+    'pdf_base64', encode(s.pdf_data, 'base64')
+  );
 END;
 $$ LANGUAGE plpgsql;
 

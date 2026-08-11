@@ -34,23 +34,77 @@ export default function StatementViewPage({ params }: { params: Promise<{ id: st
   const [rendering, setRendering] = useState(false);
   const pdfContainerRef = useRef<HTMLDivElement>(null);
   const [verifiedInfo, setVerifiedInfo] = useState<{ document_no: string; signer_name: string; signed_at: string; customer_name: string } | null>(null);
+  const [renderError, setRenderError] = useState<string | null>(null);
 
-  // 문서 공개 정보 로드
+  // 문서 공개 정보 로드 및 자동 인증 실행
   useEffect(() => {
+    let active = true;
+    
     fetch(`/api/public/statement/${id}`)
       .then(async (res) => {
         if (!res.ok) {
-          setNotFound(true);
+          if (active) setNotFound(true);
           return;
         }
         const data = await res.json();
+        if (!active) return;
         setInfo(data);
+
+        // 만약 유효한 서명 문서라면 즉시 검증 API를 호출해 PDF를 로드
+        if (data.found && data.status === 'signed' && !data.expired && !data.locked) {
+          setVerifying(true);
+          const verifyRes = await fetch(`/api/public/statement/${id}/verify`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ auth: 'bypass' }),
+          });
+          const verifyData = await verifyRes.json();
+          if (!active) return;
+
+          if (verifyData.ok) {
+            const byteChars = atob(verifyData.pdf_base64);
+            const byteNumbers = new Uint8Array(byteChars.length);
+            for (let i = 0; i < byteChars.length; i++) {
+              byteNumbers[i] = byteChars.charCodeAt(i);
+            }
+            const blob = new Blob([byteNumbers.slice()], { type: 'application/pdf' });
+            setPdfUrl(URL.createObjectURL(blob));
+            setPdfBytes(byteNumbers);
+            setVerifiedInfo({
+              document_no: verifyData.document_no,
+              signer_name: verifyData.signer_name,
+              signed_at: verifyData.signed_at,
+              customer_name: verifyData.customer_name,
+            });
+          } else {
+            if (verifyData.reason === 'locked') {
+              setInfo(prev => prev ? { ...prev, locked: true } : prev);
+            } else if (verifyData.reason === 'expired') {
+              setInfo(prev => prev ? { ...prev, expired: true } : prev);
+            } else if (verifyData.reason === 'voided') {
+              setInfo(prev => prev ? { ...prev, status: 'voided' } : prev);
+            } else {
+              setErrorMsg('문서를 불러오는 데 실패했습니다.');
+            }
+          }
+        }
       })
-      .catch(() => setNotFound(true))
-      .finally(() => setLoading(false));
+      .catch(() => {
+        if (active) setNotFound(true);
+      })
+      .finally(() => {
+        if (active) {
+          setLoading(false);
+          setVerifying(false);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
   }, [id]);
 
-  // 인증 처리
+  // 인증 처리 (수동 인증이 필요한 경우를 위한 fallback)
   const handleVerify = useCallback(async () => {
     if (!authInput.trim()) {
       setErrorMsg(info?.auth_method === 'ssn' ? '생년월일 6자리를 입력해 주세요.' : '전화번호 뒷 4자리를 입력해 주세요.');
@@ -111,6 +165,7 @@ export default function StatementViewPage({ params }: { params: Promise<{ id: st
 
     (async () => {
       setRendering(true);
+      setRenderError(null);
       try {
         const pdfjs = await import('pdfjs-dist');
         pdfjs.GlobalWorkerOptions.workerSrc = new URL(
@@ -148,8 +203,9 @@ export default function StatementViewPage({ params }: { params: Promise<{ id: st
             await page.render({ canvasContext: ctx, viewport, canvas }).promise;
           }
         }
-      } catch (e) {
+      } catch (e: any) {
         console.error('PDF 렌더링 오류:', e);
+        if (!cancelled) setRenderError(e.message || String(e));
       } finally {
         if (!cancelled) setRendering(false);
       }
@@ -210,27 +266,32 @@ export default function StatementViewPage({ params }: { params: Promise<{ id: st
     );
   }
 
-  // 인증 성공 → PDF 표시
+  // 인증 성공 → PDF 표시 (다운로드 버튼 삭제)
   if (pdfUrl && verifiedInfo) {
     return (
       <div className="min-h-screen bg-gray-100 flex flex-col">
-        <div className="bg-white shadow p-4 flex flex-wrap items-center justify-between gap-2">
-          <div>
-            <div className="font-bold text-lg">📄 {verifiedInfo.customer_name}님 거래명세서</div>
-            <div className="text-sm text-gray-500">
-              문서번호: {verifiedInfo.document_no} · 서명일시: {new Date(verifiedInfo.signed_at).toLocaleString('ko-KR')}
-            </div>
+        <div className="bg-white shadow p-4 text-center">
+          <div className="font-bold text-lg">📄 {verifiedInfo.customer_name}님 거래명세서</div>
+          <div className="text-sm text-gray-500 mt-1">
+            문서번호: {verifiedInfo.document_no} · 서명일시: {new Date(verifiedInfo.signed_at).toLocaleString('ko-KR')}
           </div>
-          <a
-            href={pdfUrl}
-            download={`거래명세서_${verifiedInfo.document_no}.pdf`}
-            className="bg-blue-600 text-white px-5 py-3 rounded-lg font-bold hover:bg-blue-700"
-          >
-            ⬇️ PDF 다운로드
-          </a>
         </div>
         {rendering && (
           <div className="text-center py-8 text-gray-500 text-lg">문서를 표시하는 중...</div>
+        )}
+        {renderError && (
+          <div className="max-w-4xl mx-auto w-full p-4">
+            <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded shadow-sm">
+              <p className="text-red-700 font-bold text-lg">⚠️ 화면을 표시하는 데 실패했습니다.</p>
+              <p className="text-sm text-red-600 mt-1">오류 내용: {renderError}</p>
+              <div className="text-sm text-gray-700 mt-4 leading-relaxed bg-white p-3 rounded border border-red-100">
+                <span className="font-bold block mb-1">💡 해결 안내 지시어</span>
+                1. 스마트폰 인앱 브라우저(카카오톡, 네이버 등) 또는 일부 구형 스마트폰 브라우저 환경에서는 PDF.js 뷰어 라이브러리가 호환되지 않을 수 있습니다.<br />
+                2. 화면 우측 상단이나 하단의 <strong>더보기 버튼(삼점 메뉴 `...` 또는 설정 아이콘)</strong>을 클릭해 주세요.<br />
+                3. <strong>"다른 브라우저로 열기"</strong> 또는 <strong>"기본 브라우저로 열기"</strong>(Chrome, Safari, 삼성 인터넷 등)를 선택하여 다시 접속하시면 정상적으로 표시됩니다.
+              </div>
+            </div>
+          </div>
         )}
         {/* PDF.js가 페이지별 캔버스를 직접 삽입하는 영역 */}
         <div ref={pdfContainerRef} className="flex-1 w-full max-w-4xl mx-auto p-2" />

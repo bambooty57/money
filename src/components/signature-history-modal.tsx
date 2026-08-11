@@ -38,6 +38,7 @@ export default function SignatureHistoryModal({
   const [records, setRecords] = useState<StatementRecord[]>([]);
   const [loading, setLoading] = useState(false);
   const [actionId, setActionId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
   // 모달 열 때만 데이터 로드 (성능 최적화)
   const loadRecords = useCallback(async () => {
@@ -63,7 +64,10 @@ export default function SignatureHistoryModal({
   }, [customerId]);
 
   useEffect(() => {
-    if (open) loadRecords();
+    if (open) {
+      loadRecords();
+      setSelectedIds([]);
+    }
   }, [open, loadRecords]);
 
   // 관리자용 PDF 보기 (새 탭)
@@ -145,17 +149,85 @@ export default function SignatureHistoryModal({
     }
   }, [loadRecords]);
 
+  // 선택 삭제 처리
+  const handleDeleteSelected = useCallback(async () => {
+    if (selectedIds.length === 0) return;
+    if (!window.confirm(`선택한 ${selectedIds.length}건의 거래명세서를 정말 삭제하시겠습니까?\n삭제된 문서는 복구할 수 없습니다.`)) return;
+
+    setLoading(true);
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
+      const res = await fetch(`/api/statements`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ ids: selectedIds }),
+      });
+      const result = await res.json();
+      if (res.ok) {
+        alert('선택한 거래명세서가 삭제되었습니다.');
+        setSelectedIds([]);
+        loadRecords();
+      } else {
+        alert('삭제 실패: ' + (result.error || res.statusText));
+      }
+    } catch (error) {
+      console.error('삭제 오류:', error);
+      alert('삭제 중 오류가 발생했습니다.');
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedIds, loadRecords]);
+
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedIds(records.map(r => r.id));
+    } else {
+      setSelectedIds([]);
+    }
+  };
+
+  const handleSelectRow = (id: string, checked: boolean) => {
+    if (checked) {
+      setSelectedIds(prev => [...prev, id]);
+    } else {
+      setSelectedIds(prev => prev.filter(item => item !== id));
+    }
+  };
+
   const formatDate = (v: string | null) => v ? new Date(v).toLocaleString('ko-KR', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '-';
   const isExpired = (v: string | null) => v ? new Date(v) < new Date() : false;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[95vw] sm:max-w-5xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="w-[95vw] sm:max-w-6xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-2xl font-bold text-center">
             📋 {customerName}님의 서명된 명세서 ({records.length}건)
           </DialogTitle>
         </DialogHeader>
+
+        <div className="flex justify-between items-center my-2">
+          <div>
+            {selectedIds.length > 0 && (
+              <span className="text-sm font-semibold text-blue-600 bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-200">
+                {selectedIds.length}건 선택됨
+              </span>
+            )}
+          </div>
+          {selectedIds.length > 0 && (
+            <Button
+              onClick={handleDeleteSelected}
+              disabled={loading}
+              className="bg-red-600 hover:bg-red-700 text-white font-bold px-4 py-2 rounded-lg"
+            >
+              🗑️ 선택 삭제
+            </Button>
+          )}
+        </div>
 
         {loading ? (
           <div className="text-center py-10 text-gray-500 text-lg">불러오는 중...</div>
@@ -166,6 +238,14 @@ export default function SignatureHistoryModal({
             <table className="w-full text-base border-collapse">
               <thead>
                 <tr className="bg-blue-50 border-b-2 border-blue-200">
+                  <th className="px-3 py-2 text-center w-12">
+                    <input
+                      type="checkbox"
+                      className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      checked={records.length > 0 && selectedIds.length === records.length}
+                      onChange={(e) => handleSelectAll(e.target.checked)}
+                    />
+                  </th>
                   <th className="px-3 py-2 text-left">문서번호</th>
                   <th className="px-3 py-2 text-center">서명일시</th>
                   <th className="px-3 py-2 text-right">잔금</th>
@@ -178,6 +258,14 @@ export default function SignatureHistoryModal({
               <tbody>
                 {records.map((r) => (
                   <tr key={r.id} className={`border-b ${r.status === 'voided' ? 'bg-gray-100 text-gray-400' : 'hover:bg-gray-50'}`}>
+                    <td className="px-3 py-3 text-center">
+                      <input
+                        type="checkbox"
+                        className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        checked={selectedIds.includes(r.id)}
+                        onChange={(e) => handleSelectRow(r.id, e.target.checked)}
+                      />
+                    </td>
                     <td className="px-3 py-3 font-mono font-bold">{r.document_no}</td>
                     <td className="px-3 py-3 text-center">{formatDate(r.signed_at)}</td>
                     <td className="px-3 py-3 text-right">{(r.total_unpaid || 0).toLocaleString()}원</td>
