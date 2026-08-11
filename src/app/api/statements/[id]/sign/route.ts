@@ -84,13 +84,12 @@ export async function POST(request: Request, context: any) {
     let sms: { sent: boolean; reason?: string; error?: string } = { sent: false };
     if (mobileDigits.length >= 10) {
       const baseUrl = getAppBaseUrl();
-      const authHint = authMethod === 'ssn' ? '생년월일 6자리' : '전화번호 뒷 4자리';
       const message =
         `[구보다농기계 영암대리점]\n` +
         `${customer?.name || ''}님, 서명하신 거래명세서입니다.\n` +
         `문서번호: ${stmt.document_no}\n` +
         `${baseUrl}/statement/view/${id}\n` +
-        `※ ${authHint} 입력 후 열람 (${LINK_EXPIRY_DAYS}일간 유효)\n` +
+        `※ ${LINK_EXPIRY_DAYS}일간 유효\n` +
         `문의: 010-2602-3276`;
 
       const result = await sendSmsMessage(mobileDigits, message);
